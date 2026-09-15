@@ -4,7 +4,7 @@
 
 # 🎛️ DeckStatus
 
-**Current source: dashboard & Full History update (unreleased)** · [📦 Latest release: 1.3.1](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) · [Change notes](CHANGELOG.md)
+**Version 1.3.2** · [📦 Download for Windows x64](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.2) · [Change notes](CHANGELOG.md)
 
 **Live deck data. Custom stream overlays. Audio-reactive waveforms.**
 
@@ -20,7 +20,7 @@
 >
 > The bridge checks the executable version, PE build markers, 14 instruction sequences and the objects it reads. A build that does not match is rejected as `unsupported`. Matching version digits alone do not establish compatibility.
 
-![Master overlay with a live timeline and smaller history cards](docs/images/master-overlay.png)
+![Master overlay with a live timeline and smaller history cards](docs/images/master-overlay-en.png)
 
 *📸 All screenshots use the English interface and English synthetic track data or labelled test audio signals. No music, library database or Rekordbox binaries are included.*
 
@@ -45,7 +45,7 @@ The application consists of two parts: `DeckStatusBridge.dll` samples native dec
 
 Native deck sampling runs approximately every **100 ms**. Track overlays poll every **250 ms**, and the dashboard every **500 ms**. Library metadata is refreshed on track changes and periodically thereafter.
 
-![DeckStatus dashboard with four synthetic decks and connection details](docs/images/deckstatus-dashboard.png)
+![DeckStatus dashboard with four synthetic decks and connection details](docs/images/deckstatus-dashboard-en.png)
 
 ### 🖥️ Individual deck overlays
 
@@ -53,7 +53,7 @@ One settings page configures all four decks. Each deck has its own saved configu
 
 Choose whether to show **title, artist, album, key, BPM and cover**, enable the optional timeline, and preview the result before copying the URL. The BPM field includes both current and original tempo.
 
-![DeckStatus settings with a live deck preview and a ready-to-copy OBS URL](docs/images/deckstatus-settings.png)
+![DeckStatus settings with a live deck preview and a ready-to-copy OBS URL](docs/images/deckstatus-settings-en.png)
 
 ### 👑 Master overlay and track history
 
@@ -74,7 +74,7 @@ Open **Full History** in the navigation or visit [the history tab](http://127.0.
 
 Each row shows track/artist, artwork, album, deck, key, first-observed time and captured/original BPM. The current master is highlighted. Entries are newest first, with stable pagination in groups of 100. Older pages stay in place as new masters arrive; **Latest tracks / refresh** returns to the live list.
 
-![Full History in English, with synthetic tracks](docs/images/full-history.png)
+![Full History in English, with synthetic tracks](docs/images/full-history-en.png)
 
 Collection begins when DeckStatus observes tracks. Browser refreshes retain it; **restarting DeckStatus clears it**. Earlier sessions cannot be reconstructed. A master change does not prove audible playback; loading a non-master deck alone does not add a row. The same track after another master track creates a new occurrence. The last observed entry stays in the list after disconnection without its live badge.
 
@@ -98,7 +98,7 @@ Open [Waveform settings](http://127.0.0.1:18740/waveform/settings). **Audio inpu
 - Live preview, saved visual settings and a ready-to-copy transparent OBS browser-source URL.
 - A simple mint **D + signal** icon is embedded in the Windows EXE at nine sizes (16–256 px).
 
-![Waveform settings with a labelled synthetic audio input](docs/images/waveform-settings.png)
+![Waveform settings with a labelled synthetic audio input](docs/images/waveform-settings-en.png)
 
 **One audio source is shared by every waveform overlay.** Capture defaults to off on each app launch. Start/stop is explicit; changing a preset or opening an overlay does not start capture. Closing a settings tab does not stop an active source: use **Stop capture** or exit DeckStatus.
 
@@ -110,7 +110,7 @@ See [audio setup, API and technical details](docs/audio-waveform.md).
 
 ### 🎨 Make the track overlay yours
 
-![Three DeckStatus styles: Midnight, Light and Minimal with a transparent background](docs/images/deckstatus-styles.png)
+![Three DeckStatus styles: Midnight, Light and Minimal with a transparent background](docs/images/deckstatus-styles-en.png)
 
 | Setting | Options |
 |---|---|
@@ -134,7 +134,7 @@ Console help and diagnostics also support both languages through `--lang en|de`.
 
 ### 🧩 Demo mode
 
-Run `DeckStatus.exe --demo` without Rekordbox to try the dashboard, overlays, history and timeline. Two synthetic tracks alternate as master every eight seconds. Demo data is visibly marked.
+Run `DeckStatus.exe --demo` without Rekordbox to try the dashboard, overlays, history and timeline. Two English synthetic tracks, **Night Drive "Live"** by **Orbit & Friends** and **First Light** by **Studio North**, alternate as master every eight seconds. Demo data is visibly marked. Track names remain English when the UI language is switched to German.
 
 <a id="getting-started"></a>
 
@@ -142,9 +142,9 @@ Run `DeckStatus.exe --demo` without Rekordbox to try the dashboard, overlays, hi
 
 ### 📥 Portable download
 
-The latest published release is **1.3.1**. Full History, dashboard timelines and the refreshed navigation shown on this branch are newer source changes; build this branch to use them.
+Version **1.3.2** includes Full History, four dashboard timelines, the shared app logo, Waveform navigation and the corrected English demo data and README screenshots.
 
-Download **DeckStatus-1.3.1-win-x64.zip** from the [1.3.1 release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1), extract the entire archive and run `DeckStatus.exe`. Keep its DLL and `web` directory together. No installer is required.
+Download **DeckStatus-1.3.2-win-x64.zip** from the [1.3.2 release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.2), extract the entire archive and run `DeckStatus.exe`. Keep its DLL and `web` directory together. No installer is required.
 
 ### 🛠️ Build requirements
 
@@ -194,7 +194,7 @@ In a shell where `cmake` is available:
 
 ```powershell
 cmake --install build --config Release --prefix build/DeckStatus
-Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-main-win-x64.zip -Force
+Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-1.3.2-win-x64.zip -Force
 ```
 
 Generated binaries and ZIP files are intentionally excluded from Git.

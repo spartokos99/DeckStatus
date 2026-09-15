@@ -2,7 +2,7 @@
 
 <img src="docs/images/deckstatus-icon.png" width="80" alt="DeckStatus-Icon">
 
-**Aktueller Quellstand: Dashboard- & Full-History-Update (noch kein neuer Release)** · [📦 Letzter Release: 1.3.1](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) · [Änderungen](CHANGELOG.md)
+**Version 1.3.2** · [📦 Windows-Download](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.2) · [Änderungen](CHANGELOG.md)
 
 [English](README.md) · Deutsch
 
@@ -10,7 +10,7 @@
 
 Windows-x64-Programm für **Rekordbox 7.2.18.0** mit einer DLL, die im laufenden Rekordbox Deckdaten ausliest, und einem separaten lokalen HTTP-Server. Enthalten sind ein Dashboard, konfigurierbare Deck-Overlays und ein Master-Overlay mit History und optionaler Timeline. Mit vier geladenen Decks einschließlich Metadaten und Cover sowie Master-Wechseln live geprüft.
 
-![DeckStatus – Master-Overlay mit Timeline und History](docs/images/master-overlay.png)
+![DeckStatus – Master-Overlay mit Timeline und History](docs/images/master-overlay-en.png)
 
 *📸 Alle Screenshots zeigen die englische Oberfläche mit englischen synthetischen Trackdaten bzw. einem gekennzeichneten Test-Audiosignal.*
 
@@ -45,7 +45,7 @@ Eine gemeinsame Seite enthält eine Deck-Auswahl. Jedes Deck speichert seine eig
 
 **English ist Standard.** Oben im Dashboard und auf allen Einstellungsseiten zwischen **English** und **Deutsch** wechseln. Die Auswahl bleibt im Browser gespeichert; fertige OBS-URLs enthalten die Sprache explizit als `lang=en` oder `lang=de`. Die Konsole startet auf Englisch und lässt sich mit `DeckStatus.exe --lang de` einschließlich Hilfe und Diagnosen auf Deutsch umstellen. Die Sprachdateien liegen in `web/locales/en.json` und `de.json`; Tracktitel und andere Bibliotheksdaten werden unverändert angezeigt.
 
-![DeckStatus – Dashboard mit vier Decks](docs/images/deckstatus-dashboard.png)
+![DeckStatus – Dashboard mit vier Decks](docs/images/deckstatus-dashboard-en.png)
 
 ## 🎨 Gestaltung und Timeline
 
@@ -57,9 +57,9 @@ Im Master-Overlay hat **ausschließlich der aktuelle Master** eine Timeline. His
 
 Alle Optionen stehen in der erzeugten URL. Nach Änderungen die Browserquellen-URL in OBS ersetzen. Ohne `timeline=1` bleibt die Timeline aus; vorhandene URLs funktionieren weiterhin.
 
-![DeckStatus – Einstellungen und Live-Vorschau](docs/images/deckstatus-settings.png)
+![DeckStatus – Einstellungen und Live-Vorschau](docs/images/deckstatus-settings-en.png)
 
-![DeckStatus – drei unterschiedliche Overlay-Designs](docs/images/deckstatus-styles.png)
+![DeckStatus – drei unterschiedliche Overlay-Designs](docs/images/deckstatus-styles-en.png)
 
 ## 👑 Master-Overlay mit History
 
@@ -92,7 +92,7 @@ Der neue Tab **Full History** (deutsch: „Gesamte History“) unter **http://12
 
 Die Tabelle zeigt Titel, Artist, Cover, Album, Deck, Key, Erfassungszeit sowie erfasste und originale BPM. Der aktuelle Master wird markiert. Die Liste ist absteigend sortiert und in Seiten zu 100 Einträgen aufgeteilt. Ältere Seiten verschieben sich bei neuen Trackwechseln nicht; „Neueste Tracks / aktualisieren“ kehrt zur Live-Liste zurück.
 
-![Full History mit englischer Oberfläche und synthetischen Tracks](docs/images/full-history.png)
+![Full History mit englischer Oberfläche und synthetischen Tracks](docs/images/full-history-en.png)
 
 Die Sammlung beginnt beim Beobachten durch DeckStatus. Ein Browser-Neuladen erhält sie; **ein App-Neustart leert sie**. Vorherige Sitzungen können nicht nachträglich rekonstruiert werden. Master-Wechsel sind kein Nachweis hörbarer Wiedergabe; das Laden eines Nicht-Master-Decks allein erzeugt keinen Eintrag. Bei Verbindungsverlust bleibt der zuletzt erfasste Track ohne Live-Markierung in der Liste.
 
@@ -107,7 +107,7 @@ Die Sammlung beginnt beim Beobachten durch DeckStatus. Ein Browser-Neuladen erh�
 - Linker/rechter Kanal oder Stereomix, Frequenzbereich, Verlaufsdauer, 30/60-FPS-Limit und Ausblenden bei Stille.
 - Live-Vorschau, gespeichertes Design und eigene OBS-URL.
 
-![Waveform-Einstellungen mit gekennzeichnetem synthetischem Eingangssignal](docs/images/waveform-settings.png)
+![Waveform-Einstellungen mit gekennzeichnetem synthetischem Eingangssignal](docs/images/waveform-settings-en.png)
 
 **Alle Waveform-Overlays teilen eine Audioquelle.** Die Erfassung ist nach jedem App-Start ausgeschaltet und wird explizit gestartet/gestoppt. Das Schließen der Einstellungsseite beendet eine laufende Erfassung nicht; dafür Stopp drücken oder DeckStatus beenden. Die URL speichert nur das Design.
 
@@ -117,7 +117,7 @@ Die Darstellung nutzt die letzten 1.024 Samples je Kanal, keine vorberechnete Wa
 
 Das neue mintfarbene **D mit Audiosignal** ist als Windows-Icon in neun Auflösungen von 16 bis 256 px direkt in der EXE eingebettet.
 
-Für die fertige App das vollständige **DeckStatus-1.3.1-win-x64.zip** aus dem [GitHub-Release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) entpacken. [Technische Audio-Dokumentation](docs/audio-waveform.md).
+Für die fertige App das vollständige **DeckStatus-1.3.2-win-x64.zip** aus dem [GitHub-Release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.2) entpacken. [Technische Audio-Dokumentation](docs/audio-waveform.md).
 
 ## 🌐 HTTP-API
 
@@ -176,7 +176,7 @@ In Version 1.3.1 bestehen **alle sechs nativen Tests** sowie beide Browser-Suite
 
 ## ⚠️ Kompatibilität und Grenzen
 
-**Download-Hinweis:** Der veröffentlichte Release bleibt 1.3.1. Die hier beschriebenen Dashboard-/Full-History-Ergänzungen sind neuerer Quellstand und werden durch Bauen dieses Branches verfügbar.
+**Version 1.3.2** enthält Full History, vier Dashboard-Timelines, das gemeinsame App-Logo, den Waveform-Link sowie die korrigierten englischen Demo-Daten und README-Screenshots. Die Demo-Tracks heißen **Night Drive "Live"** von **Orbit & Friends** und **First Light** von **Studio North**, auch bei deutscher Oberflächensprache.
 
 Der aktuelle Quellstand besteht alle sechs nativen Tests und drei Browser-Suiten. `node tests/browser_dashboard_history_test.cjs` prüft Navigation, Logo, vier Dashboard-Timelines, über 100 History-Einträge, stabile Seitenwechsel, Cover, Metadatensicherheit und Verbindungsfehler. `node tools/readme-screenshots.cjs` erzeugt alle README-Screenshots mit englischen Beispieldaten neu und prüft die englische Sprache von Seiten, Vorschauen und Labels. Normale Browsertests überschreiben diese Bilder nicht.
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.2 · 2026-09-15
 
 - Add Waveform and Full History links to the dashboard and consistent navigation across settings pages.
 - Use the EXE icon's SVG artwork as the logo throughout the web interface.
@@ -9,6 +9,15 @@
 - Keep the last observed track after disconnect without a live badge. History resets on app restart; MASTER changes do not prove audible playback.
 - Regenerate every README screenshot in English with English synthetic data; add a reproducible generator that checks the language before saving.
 - Add native archive/cursor/API tests and a dashboard/history browser suite. Keep web assets current on incremental builds.
+- Replace the native demo's German track names with English examples: **Night Drive "Live"** by **Orbit & Friends** and **First Light** by **Studio North**, independent of the UI language.
+- Give all six public screenshots explicit `-en.png` filenames. Check English track titles and artists before capture and keep German regression screenshots separate.
+- Update app and bridge version resources and the portable Windows x64 package to **1.3.2**.
+
+**Validation:** All six native CTest tests, all three browser suites, English screenshot generation checks and the EXE icon/version resource check passed. Browser data and audio signals are synthetic; production injection and audio capture were not started for this update.
+
+**Compatibility:** Tested only with the author's **Rekordbox 7.2.18.0 installation on Windows x64**. No additional Rekordbox version or build is validated by this release.
+
+**Install / upgrade:** Download `DeckStatus-1.3.2-win-x64.zip`, extract the whole archive, stop the previous instance and run `DeckStatus.exe`. Keep `DeckStatusBridge.dll` and the complete `web` folder beside it.
 
 ## 1.3.1 · 2026-09-15
 

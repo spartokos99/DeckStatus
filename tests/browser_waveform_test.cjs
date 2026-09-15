@@ -33,7 +33,7 @@ withBrowser((req,res,url)=>{
   assert.equal(await evaluate('document.getElementById("start").textContent'),'Start / Quelle wechseln');
   assert.ok((await evaluate('document.getElementById("url").value')).includes('lang=de'));
   // Inspect the actual rendered settings, using only labelled synthetic input.
-  await change('preset','mint');await delay(650);await screenshot('waveform-settings');
+  await change('preset','mint');await delay(650);await screenshot('waveform-settings-de');
   // Public README images are generated separately with a mandatory English locale.
   const url=await evaluate('document.getElementById("url").value');
   for(const mode of ['line','fill','bars','mirror','radial','history']){

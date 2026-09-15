@@ -3,8 +3,8 @@
 101 ICON "DeckStatus.ico"
 #endif
 1 VERSIONINFO
-FILEVERSION 1,3,1,0
-PRODUCTVERSION 1,3,1,0
+FILEVERSION 1,3,2,0
+PRODUCTVERSION 1,3,2,0
 FILEOS VOS_NT_WINDOWS32
 #ifdef DECKSTATUS_BRIDGE
 FILETYPE VFT_DLL
@@ -17,8 +17,8 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "ProductName", "DeckStatus\0"
-            VALUE "ProductVersion", "1.3.1\0"
-            VALUE "FileVersion", "1.3.1.0\0"
+            VALUE "ProductVersion", "1.3.2\0"
+            VALUE "FileVersion", "1.3.2.0\0"
 #ifdef DECKSTATUS_BRIDGE
             VALUE "FileDescription", "DeckStatus - Rekordbox data bridge\0"
             VALUE "InternalName", "DeckStatusBridge\0"

@@ -12,15 +12,15 @@ const output = path.join(root, 'build', 'test-artifacts');
 fs.mkdirSync(output, { recursive: true });
 const profile = fs.mkdtempSync(path.join(output, 'browser-master-'));
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const track = (entryId, trackId, title, artist = 'Möbius & Friends') => ({
+const track = (entryId, trackId, title, artist = 'Orbit & Friends') => ({
   entryId, trackId, id: 1, title, artist, album: 'After Hours', key: '8A', bpm: 128.5, originalBpm: 126.25,
   positionMs: 65000, durationMs: 240000, metadataAvailable: true, loaded: true, coverUrl: '/api/master/covers/' + trackId
 });
-let current = track(4, 104, 'Nachtfahrt „Live“');
-let history = [track(3, 103, 'Morgenrot', 'Studio Zwei'), track(2, 102, 'Zwischen den Zeilen'), track(1, 101, 'Alles beginnt')];
+let current = track(4, 104, 'Night Drive “Live”');
+let history = [track(3, 103, 'First Light', 'Studio North'), track(2, 102, 'Between the Lines'), track(1, 101, 'New Beginnings')];
 let status = 'connected';
 let coverCalls = 0;
-let deckData = { ...track(1, 101, 'Deck-Overlay'), coverUrl: '/api/decks/1/cover?trackId=101' };
+let deckData = { ...track(1, 101, 'Deck Overlay'), coverUrl: '/api/decks/1/cover?trackId=101' };
 const routes = new Map([
   ['/master-overlay', 'master-overlay.html'], ['/master-overlay/settings', 'master-settings.html'],
   ['/master-overlay.js', 'master-overlay.js'], ['/master-options.js', 'master-options.js'], ['/overlay', 'overlay.html']
@@ -163,8 +163,8 @@ async function until(fn, message, timeout = 6000) {
     await until(() => evaluate('document.querySelector("[data-current=true] [data-value=originalBpm]").textContent === "—"'), 'Missing original tempo must show a dash');
 
     // Restore the original sequence for the existing transition/regression checks.
-    current = track(4, 104, 'Nachtfahrt „Live“');
-    history = [track(3, 103, 'Morgenrot', 'Studio Zwei'), track(2, 102, 'Zwischen den Zeilen'), track(1, 101, 'Alles beginnt')];
+    current = track(4, 104, 'Night Drive “Live”');
+    history = [track(3, 103, 'First Light', 'Studio North'), track(2, 102, 'Between the Lines'), track(1, 101, 'New Beginnings')];
 
     await navigate('/master-overlay?history=3&fields=title,artist,album,key,bpm,cover&duration=650&width=720');
     await until(async () => (await rows()).length === 4, 'Master overlay missing initial rows');

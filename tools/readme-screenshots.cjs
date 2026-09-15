@@ -36,8 +36,10 @@ withBrowser((req,res,url)=>{
     // Validate each visible translated label, including preview iframes, before saving.
     const mismatches=await evaluate(`(()=>{const dictionary=${JSON.stringify(english)};const problems=[];function inspect(doc){if(doc.documentElement.lang!=='en')problems.push('language:'+doc.documentElement.lang);for(const el of doc.querySelectorAll('[data-i18n]')){if(el.getClientRects().length&&!el.matches('[data-field], #message, #status-label')&&Object.hasOwn(dictionary,el.dataset.i18n)&&el.textContent!==dictionary[el.dataset.i18n])problems.push(el.dataset.i18n+': '+el.textContent);}for(const frame of doc.querySelectorAll('iframe'))if(frame.contentDocument)inspect(frame.contentDocument);}inspect(document);return problems;})()`);
     assert.deepEqual(mismatches,[],'README screenshot must use English labels: '+name);
+    const unexpectedTracks=await evaluate(`(()=>{const titles=${JSON.stringify(titles)},artists=${JSON.stringify(artists)},problems=[];function inspect(doc){for(const el of doc.querySelectorAll('[data-field="title"],.history-title'))if(el.getClientRects().length&&!titles.includes(el.textContent))problems.push('title:'+el.textContent);for(const el of doc.querySelectorAll('[data-field="artist"],.history-artist'))if(el.getClientRects().length&&!artists.includes(el.textContent))problems.push('artist:'+el.textContent);for(const frame of doc.querySelectorAll('iframe'))if(frame.contentDocument)inspect(frame.contentDocument);}inspect(document);return problems;})()`);
+    assert.deepEqual(unexpectedTracks,[],'README screenshot must use the English fixture tracks: '+name);
     const shot=await call('Page.captureScreenshot',{format:'png',clip:{x:0,y:0,width,height,scale:1}});
-    fs.writeFileSync(path.join(destination,name+'.png'),Buffer.from(shot.data,'base64'));images.push(name+'.png');
+    fs.writeFileSync(path.join(destination,name+'-en.png'),Buffer.from(shot.data,'base64'));images.push(name+'-en.png');
   }
   await size(800,900);
   await navigate('/master-overlay?timeline=1&history=2&historyScale=0.82&width=752&align=center&lang=en&duration=0');

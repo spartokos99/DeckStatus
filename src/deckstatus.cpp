@@ -126,8 +126,8 @@ deckstatus::SharedState demo_state() {
     one.timeline_available = 1;
     one.duration_ms = 240000;
     one.position_ms = static_cast<std::int32_t>((state.sample_tick - started) % one.duration_ms);
-    strcpy_s(one.title, "Nachtfahrt \"Live\"");
-    strcpy_s(one.artist, "M\xc3\xb6" "bius & Friends");
+    strcpy_s(one.title, "Night Drive \"Live\"");
+    strcpy_s(one.artist, "Orbit & Friends");
     strcpy_s(one.album, "After Hours");
     strcpy_s(one.key, "8A");
     strcpy_s(one.genre, "House");
@@ -138,8 +138,8 @@ deckstatus::SharedState demo_state() {
     two.bpm_x100 = 12750;
     two.duration_ms = 210000;
     two.position_ms = static_cast<std::int32_t>((state.sample_tick - started + 63000) % two.duration_ms);
-    strcpy_s(two.title, "Morgenrot");
-    strcpy_s(two.artist, "Studio Zwei");
+    strcpy_s(two.title, "First Light");
+    strcpy_s(two.artist, "Studio North");
     strcpy_s(two.key, "9A");
     return state;
 }

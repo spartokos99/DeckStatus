@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(DeckStatus VERSION 1.3.1 LANGUAGES CXX)
+project(DeckStatus VERSION 1.3.2 LANGUAGES CXX)
 
 if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   message(FATAL_ERROR "Windows x64 mit MSVC wird benoetigt. Konfiguration mit -A x64 starten.")

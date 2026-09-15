@@ -100,3 +100,12 @@ Dashboard, Einstellungsseite und drei Overlay-Designs wurden für das README mit
 - Alle sechs öffentlichen README-Screenshots mit englischer Oberfläche und englischen synthetischen Daten neu erzeugt und visuell kontrolliert. Der neue Generator prüft auch die Sprache der eingebetteten Vorschauen.
 - Inkrementeller Build kopiert geänderte Webdateien auch ohne erneutes Linken der EXE; Hashvergleich zwischen Quell- und Build-Datei erfolgreich.
 - History bleibt auf die aktuelle App-Sitzung begrenzt. MASTER-Wechsel sind weiterhin kein Nachweis hörbarer Wiedergabe. Die produktive Bridge wurde nicht gestartet; keine zusätzliche Rekordbox-Version wurde validiert.
+
+## Ergänzung: DeckStatus 1.3.2 – 15.09.2026
+
+- Release-Build erfolgreich; alle sechs nativen CTest-Tests einschließlich des konfigurierten Datenbanktests bestanden.
+- Alle drei Browser-Suiten bestanden: Deck/Master, Waveform und Dashboard/Full History.
+- Die native Demo verwendet englische Tracktitel und Künstler: `Night Drive "Live"` von `Orbit & Friends` sowie `First Light` von `Studio North`. Die Spracheinstellung übersetzt weiterhin die Oberfläche und Diagnosen, nicht die Trackmetadaten.
+- Alle sechs öffentlichen README-Bilder neu als `*-en.png` erzeugt. Der Generator prüft englische Labels und die englischen Tracktitel/Künstler auch in eingebetteten Vorschauen. Waveform- und Dashboard-Bild zusätzlich visuell kontrolliert. Der deutsche Waveform-Browsertest schreibt seine Bilder ausschließlich unter `build/test-artifacts` mit separatem Namen.
+- Ressourcenprüfung bestanden: EXE-Produktversion `1.3.2`, Dateiversion `1.3.2.0`, neun eingebettete Icon-Größen von 16 bis 256 px.
+- Die vorherigen Dashboard-/Full-History-Ergänzungen sind Bestandteil von 1.3.2. Die produktive Bridge und Audioerfassung wurden für dieses Update nicht gestartet. Es bleibt ausschließlich die eigene Rekordbox-Installation **7.2.18.0 unter Windows x64** live validiert.
