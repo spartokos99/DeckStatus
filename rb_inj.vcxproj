@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{6AEBA7B9-DAAC-4421-B22F-E22D1EB962C1}</ProjectGuid>
+    <Keyword>MakeFileProj</Keyword>
+    <ProjectName>rb_inj</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset Condition="'$(VisualStudioVersion)' == '18.0'">v145</PlatformToolset>
+    <PlatformToolset Condition="'$(PlatformToolset)' == ''">v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <NMakeBuildCommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(ProjectDir)build.ps1" -Configuration $(Configuration)</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>$(NMakeBuildCommandLine)</NMakeReBuildCommandLine>
+    <NMakeOutput>$(ProjectDir)build\$(Configuration)\rb_inj.exe</NMakeOutput>
+    <NMakeIncludeSearchPath>$(ProjectDir)src;$(ProjectDir)vendor;$(ProjectDir)vendor\httplib;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakePreprocessorDefinitions>UNICODE;_UNICODE;WIN32_LEAN_AND_MEAN;NOMINMAX;_WIN32_WINNT=0x0A00;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakeAdditionalOptions>/std:c++20 /utf-8</NMakeAdditionalOptions>
+    <LocalDebuggerCommand>$(NMakeOutput)</LocalDebuggerCommand>
+    <LocalDebuggerWorkingDirectory>$(ProjectDir)build\$(Configuration)</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="src\*.cpp" />
+    <ClInclude Include="src\*.h" />
+    <None Include="CMakeLists.txt" /><None Include="build.ps1" /><None Include="README.md" />
+    <None Include="web\*.html" /><None Include="web\*.js" /><None Include="web\*.css" /><None Include="web\locales\*.json" /><None Include="tests\*" /><None Include="docs\*" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

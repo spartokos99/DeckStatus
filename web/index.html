@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Rekordbox Web Bridge</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, "Segoe UI", sans-serif; background: #0b1015; color: #eef3f6; font-synthesis: none; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: #a8eccf; text-underline-offset: 4px; }
+    a:hover { color: white; }
+    a:focus-visible { outline: 2px solid #9ce9c5; outline-offset: 5px; border-radius: 2px; }
+    .shell { max-width: 1440px; margin: auto; padding: 30px 40px 40px; }
+    header { flex-wrap: wrap; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-bottom: 28px; border-bottom: 1px solid #26303b; }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .mark { width: 37px; height: 37px; background: #a8eccf; border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: 3px; }
+    .mark i { width: 3px; height: 13px; border-radius: 2px; background: #122c26; }
+    .mark i:nth-child(2) { height: 23px; }
+    .mark i:nth-child(3) { height: 17px; }
+    .brand strong { font-size: 15px; letter-spacing: -.25px; display: block; }
+    .brand small { display: block; color: #8998a9; font-size: 11px; margin-top: 4px; letter-spacing: 1.7px; text-transform: uppercase; }
+    nav { flex-wrap: wrap; display: flex; align-items: center; gap: 24px; font-size: 13px; }
+    nav a { text-decoration: none; }
+    .local { border: 1px solid #34414d; border-radius: 20px; padding: 7px 11px; font-size: 11px; color: #aab8c7; }
+    .intro { padding: 36px 0 25px; display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
+    .eyebrow { color: #94a3b5; font-size: 10px; font-weight: 650; letter-spacing: 2px; text-transform: uppercase; }
+    h1 { font-size: clamp(26px, 4vw, 36px); letter-spacing: -1.3px; font-weight: 600; margin: 10px 0 8px; }
+    .intro p { color: #9ba9b9; font-size: 13px; margin: 0; line-height: 1.6; }
+    .status { display: inline-flex; align-items: center; gap: 8px; color: #a6b6c7; font-size: 12px; white-space: nowrap; }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .status[data-tone="good"] { color: #9fe3c0; }
+    .status[data-tone="warn"] { color: #ecc07b; }
+    .status[data-tone="bad"] { color: #f29598; }
+    .notice { border: 1px solid #665333; background: #251f17; color: #efd1a1; border-radius: 10px; padding: 13px 16px; margin-bottom: 20px; font-size: 13px; line-height: 1.5; }
+    [hidden] { display: none !important; }
+    .telemetry { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin: 0 0 26px; padding: 18px 20px; background: #111920; border: 1px solid #25313b; border-radius: 10px; }
+    .telemetry dt { color: #8c9bad; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 7px; }
+    .telemetry dd { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+    .decks { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+    .deck { padding: 18px; background: #141c24; border: 1px solid #2b3742; border-radius: 12px; min-width: 0; }
+    .deck-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 17px; }
+    .deck h2 { font-size: 12px; letter-spacing: 1px; margin: 0; text-transform: uppercase; font-weight: 650; }
+    .deck-state { font-size: 10px; color: #8d9daf; }
+    .deck[data-loaded="true"] .deck-state { color: #a8eccf; }
+    .art { aspect-ratio: 1; position: relative; overflow: hidden; background: #0e151c; border: 1px solid #2b3640; border-radius: 7px; display: grid; place-items: center; }
+    .art img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+    .placeholder { color: #77899c; display: flex; flex-direction: column; align-items: center; gap: 14px; font-size: 11px; }
+    .record { width: 66px; height: 66px; border: 1px solid #344453; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 10px #121c25, inset 0 0 0 11px #283947; }
+    .record::after { content: ""; width: 11px; height: 11px; border: 1px solid #526678; border-radius: 50%; }
+    .track { min-height: 90px; padding-top: 19px; }
+    .title { font-size: 17px; letter-spacing: -.35px; font-weight: 600; margin: 0 0 7px; line-height: 1.3; overflow-wrap: anywhere; }
+    .artist { color: #a1afbf; font-size: 12px; line-height: 1.5; margin: 0 0 15px; overflow-wrap: anywhere; }
+    .numbers { display: grid; grid-template-columns: 1fr 1fr; padding: 16px 0; border-top: 1px solid #2b3742; border-bottom: 1px solid #2b3742; margin: 0; }
+    .numbers dt { font-size: 9px; color: #8c9bad; letter-spacing: 1px; text-transform: uppercase; }
+    .numbers dd { margin: 6px 0 0; font-size: 27px; letter-spacing: -.8px; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .numbers > div + div { padding-left: 20px; border-left: 1px solid #2b3742; }
+    .details { margin: 17px 0 20px; font-size: 11px; display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 11px 8px; }
+    .details dt { color: #8c9bad; }
+    .details dd { margin: 0; overflow-wrap: anywhere; }
+    .deck-footer { border-top: 1px solid #2b3742; padding-top: 15px; font-size: 11px; }
+    .deck-footer a { text-decoration: none; }
+    footer { display: flex; justify-content: space-between; gap: 20px; padding: 25px 0 0; font-size: 11px; color: #8797a9; line-height: 1.7; }
+    footer p { margin: 0; max-width: 720px; }
+    #artwork-status { text-align: right; }
+    @media (max-width: 1080px) { .decks { grid-template-columns: repeat(2, minmax(0, 1fr)); } .art { aspect-ratio: 1.35; } }
+    @media (max-width: 580px) { .shell { padding: 20px 16px; } header { gap: 12px; } nav { gap: 12px; } .local { display: none; } .intro { align-items: flex-start; flex-direction: column; } .telemetry { grid-template-columns: 1fr; gap: 16px; } .decks { grid-template-columns: 1fr; } .art { aspect-ratio: 1.3; } footer { flex-direction: column; } #artwork-status { text-align: left; } }
+  select { background:#17242c; color:#eef3f6; border:1px solid #34414d; border-radius:7px; padding:8px; font:inherit; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><div><strong>Rekordbox Web Bridge</strong><small data-i18n="dashboard">Deck monitor</small></div></div>
+      <nav><a href="/overlay/settings" data-i18n="deckSettings">Deck overlays</a><a href="/master-overlay/settings" data-i18n="masterSettings">Master overlay</a><a href="/api/state" target="_blank" rel="noopener" data-i18n="jsonApi">JSON API ↗</a><select data-language data-i18n-aria="language"><option value="en">English</option><option value="de">Deutsch</option></select></nav>
+    </header>
+    <main>
+      <div class="intro"><div><span class="eyebrow" data-i18n="session">Your session at a glance</span><h1 data-i18n="liveTitle">Live from your decks.</h1><p data-i18n="liveIntro">Track metadata, tempo and key in one place.</p></div><div class="status" id="connection" role="status"><span class="dot" aria-hidden="true"></span><span id="status-label" data-i18n="starting">Connecting…</span></div></div>
+      <div class="notice" id="demo-notice" hidden data-i18n="demoNotice">Demo mode: these are sample tracks. There is no connection to Rekordbox.</div>
+      <dl class="telemetry"><div><dt data-i18n="connection">Connection</dt><dd id="message" data-i18n="starting">Connecting…</dd></div><div><dt data-i18n="version">Rekordbox version</dt><dd id="version">—</dd></div><div><dt data-i18n="updated">Last update</dt><dd id="updated">—</dd></div></dl>
+      <section class="decks" id="decks" data-i18n-aria="dashboard"></section>
+    </main>
+    <footer><p data-i18n="dashboardHint">Updated every 500 ms. A loaded deck does not prove audible playback. Configure an overlay for your OBS browser source.</p><p id="artwork-status">Cover: —</p></footer>
+  </div>
+  <template id="deck-template">
+    <article class="deck" data-loaded="false">
+      <div class="deck-head"><h2 data-field="heading"></h2><span class="deck-state" data-field="state" data-i18n="starting">Connecting…</span></div>
+      <div class="art"><div class="placeholder"><span class="record" aria-hidden="true"></span><span data-field="cover-placeholder" data-i18n="noCover">No cover</span></div><img hidden alt="" decoding="async"></div>
+      <div class="track"><h3 class="title" data-field="title" data-i18n="noTrack">No track loaded</h3><p class="artist" data-field="artist">—</p></div>
+      <dl class="numbers"><div><dt data-i18n="currentBpmLabel">Current BPM</dt><dd data-field="bpm">—</dd></div><div><dt data-i18n="key">Key</dt><dd data-field="key">—</dd></div></dl>
+      <dl class="details"><dt data-i18n="album">Album</dt><dd data-field="album">—</dd><dt data-i18n="originalBpmLabel">Original BPM</dt><dd data-field="originalBpm">—</dd><dt data-i18n="genre">Genre</dt><dd data-field="genre">—</dd><dt data-i18n="label">Label</dt><dd data-field="label">—</dd><dt data-i18n="trackId">Track ID</dt><dd data-field="trackId">—</dd></dl>
+      <div class="deck-footer"><a data-field="overlay" target="_blank" rel="noopener" data-i18n="openDeckOverlay">Open OBS overlay ↗</a></div>
+    </article>
+  </template>
+  <script type="module">
+    import { t, getLanguage, locale, translate, diagnostic } from '/i18n.js';
+    import { normalize, deckOverlayPath } from '/master-options.js';
+    const cards = [];
+    const text = value => typeof value === 'string' && value.trim() ? value : '—';
+    const bpm = value => typeof value === 'number' && Number.isFinite(value) && value > 0 ? new Intl.NumberFormat(locale(), { maximumFractionDigits: 2 }).format(value) : '—';
+    const field = (card, name, value) => { card.querySelector('[data-field="' + name + '"]').textContent = value; };
+    for (let id = 1; id <= 4; id++) {
+      const card = document.getElementById('deck-template').content.firstElementChild.cloneNode(true);
+      field(card, 'heading', 'Deck ' + id);
+      card.querySelector('[data-field="overlay"]').href = '/overlay?deck=' + id;
+      const img = card.querySelector('img');
+      img.addEventListener('load', () => { img.hidden = false; });
+      img.addEventListener('error', () => { img.hidden = true; field(card, 'cover-placeholder', t('coverUnavailable')); });
+      translate(card);
+      cards.push(card);
+      document.getElementById('decks').append(card);
+    }
+    function drawDeck(card, deck, available) {
+      const loaded = available && deck && deck.loaded === true;
+      card.dataset.loaded = String(Boolean(loaded));
+      field(card, 'state', !available ? t('noLive') : deck && deck.isMaster === true ? 'Master' : loaded ? t('loaded') : t('empty'));
+      field(card, 'title', loaded ? (text(deck.title) === '—' ? t('metadataUnavailable') : text(deck.title)) : t('noTrack'));
+      for (const name of ['artist', 'album', 'key', 'genre', 'label']) field(card, name, loaded ? text(deck[name]) : '—');
+      for (const name of ['bpm', 'originalBpm']) field(card, name, loaded ? bpm(deck[name]) : '—');
+      field(card, 'trackId', loaded && Number.isSafeInteger(deck.trackId) ? String(deck.trackId) : '—');
+      const img = card.querySelector('img');
+      const expected = '/api/decks/' + (cards.indexOf(card) + 1) + '/cover?trackId=' + (loaded ? deck.trackId : '');
+      const url = loaded && Number.isSafeInteger(deck.trackId) && deck.trackId > 0 && deck.coverUrl === expected ? expected : '';
+      if (!url) { img.hidden = true; img.removeAttribute('src'); delete img.dataset.url; field(card, 'cover-placeholder', t('noCover')); }
+      else if (img.dataset.url !== url || (img.hidden && Date.now() - Number(img.dataset.attempt) > 5000)) {
+        img.hidden = true;
+        field(card, 'cover-placeholder', t('loadingCover'));
+        img.alt = t('cover') + ': ' + text(deck.title);
+        img.dataset.url = url;
+        img.dataset.attempt = String(Date.now());
+        img.src = url;
+      }
+    }
+    const statuses = { connected: 1, demo: 1, starting: 1, stale: 1, unsupported: 1, disconnected: 1, error: 1 };
+    let lastState;
+    window.addEventListener('languagechange', () => { if (lastState) render(lastState); });
+    function render(state) {
+      lastState = state;
+      const tone = state.status === 'connected' ? 'good' : ['error', 'disconnected', 'unsupported'].includes(state.status) ? 'bad' : 'warn';
+      const label = t(Object.hasOwn(statuses, state.status) ? state.status : 'unknown');
+      document.getElementById('status-label').textContent = label;
+      document.getElementById('connection').dataset.tone = tone;
+      document.getElementById('demo-notice').hidden = state.demo !== true && state.status !== 'demo';
+      document.getElementById('message').textContent = diagnostic(state.message);
+      document.getElementById('version').textContent = diagnostic(state.version);
+      const date = typeof state.updatedAt === 'number' && Number.isFinite(state.updatedAt) ? new Date(state.updatedAt) : null;
+      const age = typeof state.sampleAgeMs === 'number' && Number.isFinite(state.sampleAgeMs) && state.sampleAgeMs >= 0 ? ' · ' + t('age', { age: Math.round(state.sampleAgeMs) }) : '';
+      document.getElementById('updated').textContent = date && Number.isFinite(date.getTime()) ? date.toLocaleTimeString(locale()) + age : '—';
+      document.getElementById('artwork-status').textContent = t('cover') + ': ' + diagnostic(state.artworkStatus);
+      const decks = Array.isArray(state.decks) ? state.decks : [];
+      const available = state.status === 'connected' || state.status === 'demo';
+      cards.forEach((card, index) => {
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem('rb.deck.options.' + (index + 1))) || {}; } catch (_) {}
+        card.querySelector('[data-field="overlay"]').href = deckOverlayPath(normalize({ ...saved, deck: index + 1, lang: getLanguage() }));
+        drawDeck(card, decks.find(deck => deck && deck.id === index + 1), available);
+      });
+    }
+    async function poll() {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+      try {
+        const response = await fetch('/api/state', { cache: 'no-store', signal: controller.signal });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const state = await response.json();
+        if (!state || typeof state !== 'object' || !Array.isArray(state.decks)) throw new Error('Ungültige Antwort');
+        render(state);
+      } catch (_) { render({ status: 'disconnected', message: t('unreachable'), decks: [] }); }
+      finally { clearTimeout(timeout); setTimeout(poll, 500); }
+    }
+    poll();
+  </script>
+</body>
+</html>

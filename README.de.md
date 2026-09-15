@@ -1,0 +1,122 @@
+# Rekordbox 7 Web Bridge
+
+[English](README.md) · Deutsch
+
+> **Nur mit der eigenen Rekordbox-Installation 7.2.18.0 unter Windows x64 getestet.** Andere Versionen, EXE-Builds, Betriebssysteme und der Export-Modus sind nicht validiert. Die Bridge ist auf den dokumentierten Build abgestimmt und lehnt unpassende Builds ab.
+
+Windows-x64-Programm für **Rekordbox 7.2.18.0** mit einer DLL, die im laufenden Rekordbox Deckdaten ausliest, und einem separaten lokalen HTTP-Server. Enthalten sind ein Dashboard, konfigurierbare Deck-Overlays und ein Master-Overlay mit History und optionaler Timeline. Mit vier geladenen Decks einschließlich Metadaten und Cover sowie Master-Wechseln live geprüft.
+
+## Starten
+
+1. Rekordbox 7 starten und in den Performance-Modus wechseln.
+2. `build\Release\rb_inj.exe` starten (im fertigen ZIP direkt `rb_inj.exe`). `rb_bridge.dll` und der Ordner `web` müssen daneben liegen.
+3. Im Browser **http://127.0.0.1:18740/** öffnen und einen Track ins Deck laden.
+
+Beenden mit **Strg+C**. Die DLL beendet ihren Worker und entlädt sich. Nach einem Rekordbox-Neustart die Bridge ebenfalls neu starten. Bei mehreren Rekordbox-Prozessen mit `--pid` auswählen. Rekordbox und Bridge unter demselben Windows-Benutzer und mit denselben Benutzerrechten ausführen.
+
+```powershell
+.\build\Release\rb_inj.exe
+.\build\Release\rb_inj.exe --port 18741
+.\build\Release\rb_inj.exe --pid 1234
+.\build\Release\rb_inj.exe --database 'D:\DJ Library\master.db'
+```
+
+Die Browseranzeige lässt sich ohne Rekordbox ausprobieren. Der Demo-Modus kennzeichnet seine synthetischen Daten ausdrücklich:
+
+```powershell
+.\build\Release\rb_inj.exe --demo
+```
+
+## Sprache und Deck-Einstellungen
+
+**Deck 1–4 konfigurieren:** http://127.0.0.1:18740/overlay/settings
+
+Eine gemeinsame Seite enthält eine Deck-Auswahl. Jedes Deck speichert seine eigene Konfiguration im Browser und bekommt eine eigene OBS-URL. „Auf alle Decks anwenden“ übernimmt das aktuelle Design für alle vier Decks. Die Links darunter öffnen die jeweiligen fertig konfigurierten Overlays. Das Dashboard verwendet ebenfalls diese gespeicherten Deck-Einstellungen für seine Overlay-Links.
+
+**English ist Standard.** Oben im Dashboard und auf beiden Einstellungsseiten zwischen **English** und **Deutsch** wechseln. Die Auswahl bleibt im Browser gespeichert; fertige OBS-URLs enthalten die Sprache explizit als `lang=en` oder `lang=de`. Die Konsole startet auf Englisch und lässt sich mit `rb_inj.exe --lang de` einschließlich Hilfe und Diagnosen auf Deutsch umstellen. Die Sprachdateien liegen in `web/locales/en.json` und `de.json`; Tracktitel und andere Bibliotheksdaten werden unverändert angezeigt.
+
+## Gestaltung und Timeline
+
+Beide Overlay-Typen bieten dieselben Gestaltungsoptionen: Presets **Midnight**, **Light** und **Minimal / transparent**, vier Farben (Hintergrund, Text, sekundärer Text und Akzent), Hintergrundtransparenz, drei Schriftfamilien, Titelgröße, Covergröße, Innenabstand, Trackabstand, Rundungen, Akzentrahmen, Schatten und Deck-/Master-Beschriftungen. Das Cover kann neben oder über dem Text stehen. Die Demo-Kennzeichnung bleibt im Demo-Modus sichtbar.
+
+**Track-Timeline** blendet verstrichene Zeit, Gesamtlänge und einen Fortschrittsbalken ein. Die Position kommt aus Rekordbox und folgt auch Cue-/Suchsprüngen. Negative Vorlaufpositionen bleiben als negative Zeit sichtbar; der Balken bleibt innerhalb von 0–100 %. Bei fehlenden Zeitdaten erscheinen Striche und ein Hinweis. Die Anzeige rechnet die Position bei pausierten Decks nicht künstlich weiter.
+
+Im Master-Overlay hat **ausschließlich der aktuelle Master** eine Timeline. History-Karten zeigen keine Timeline. Es handelt sich um eine visuelle Anzeige ohne Audioausgabe, Wellenform oder Steuerung von Wiedergabe und Suchposition.
+
+Alle Optionen stehen in der erzeugten URL. Nach Änderungen die Browserquellen-URL in OBS ersetzen. Ohne `timeline=1` bleibt die Timeline aus; vorhandene URLs funktionieren weiterhin.
+
+## Master-Overlay mit History
+
+**Einstellungen und Live-Vorschau:** http://127.0.0.1:18740/master-overlay/settings
+
+1. Die Anzahl vorheriger Tracks einstellen: **0–50**. Der aktuelle Master steht oben, der zuletzt vorherige Track direkt darunter.
+2. **Größe vorheriger Tracks** mit dem Slider von **0,20× bis 1,00×** einstellen. Die gesamte Karte einschließlich Cover und Schrift wird proportional skaliert; der aktuelle Master bleibt bei 1,00×. Die Abstände berücksichtigen die kleinere Kartenhöhe.
+3. **Linksbündig, mittig oder rechtsbündig** wählen. Das richtet sowohl die kleineren History-Karten zum Master als auch das gesamte Overlay innerhalb einer größeren Browserquelle aus.
+4. **Titel, Artist, Album, Key, BPM und Cover** einzeln ein- oder ausblenden. Die Auswahl gilt für jeden Track. Das BPM-Feld zeigt **Aktuell** und **Original** gemeinsam; auch das Deck-Overlay zeigt beide Werte.
+5. Übergangsdauer (**0–2000 ms**, Standard 650 ms) und Breite einstellen. Auch die Größenänderung vom Master zur History erfolgt animiert.
+6. Die erzeugte URL kopieren und als **OBS-Browserquelle** einsetzen. Empfohlene Quellengröße steht neben dem Link; darin sind 8 Pixel Außenabstand enthalten. Nach einer Einstellungsänderung die URL in OBS ersetzen.
+
+Direktes Beispiel mit History auf 65 % und rechter Ausrichtung: http://127.0.0.1:18740/master-overlay?history=5&fields=title,artist,album,key,bpm,cover&duration=650&width=720&historyScale=0.65&align=right
+
+`historyScale` akzeptiert 0.20–1.00, `align` die Werte `left`, `center` und `right`. Bestehende URLs ohne diese Parameter verwenden weiterhin 1,00× und linksbündige Ausrichtung.
+
+Das Overlay folgt der **MASTER-Markierung in Rekordbox**, auch wenn das Deck pausiert. Es bestimmt nicht, welches Deck gerade hörbar ist. Ohne eindeutigen Master, bei leerem Master-Deck oder Verbindungsverlust wird der aktuelle Track ausgeblendet. Vorhandene History bleibt sichtbar. Die Karten blenden weich ein/aus und rücken animiert nach; laufende BPM-Updates lösen keinen neuen Übergang aus. Die Systemoption „Bewegung reduzieren“ deaktiviert die Animation.
+
+Die History wird im Server gesammelt, auch wenn kein Browser geöffnet ist, und übersteht das Neuladen der Browserquelle. **Ein Neustart der Bridge leert die History.** Ein anderer Master-Track erzeugt einen Eintrag; derselbe Track auf einem anderen Deck erzeugt keinen doppelten Eintrag. Ein später erneut aufgelegter Track wird als neuer Eintrag in der Master-Abfolge geführt. Eine vorübergehend fehlende Master-Markierung erzeugt keinen zusätzlichen Eintrag. History-BPM werden beim Verlassen des Masters eingefroren, fehlende Metadaten werden nachgeladen. Die History dokumentiert Master-Wechsel, keine nachgewiesenen Wiedergaben.
+
+„Aktuell“ bezeichnet beim Master bzw. ausgewählten Deck das aktuelle Decktempo, in der History das beim Master-Wechsel zuletzt erfasste Tempo. „Original“ ist das analysierte Tempo aus der Bibliothek. Fehlende BPM-Werte erscheinen als „—“.
+
+Die Einstellungen einschließlich Skalierung und Ausrichtung bleiben im verwendeten Browser gespeichert; die OBS-URL enthält die vollständige Konfiguration und funktioniert unabhängig davon. Der Demo-Modus wechselt alle acht Sekunden zwischen zwei deutlich gekennzeichneten Beispieltracks.
+
+## HTTP-API
+
+| Adresse | Inhalt |
+|---|---|
+| `/` | Dashboard mit vier Decks |
+| `/api/state` | Gesamtzustand, Version, Diagnose und Deckdaten |
+| `/api/decks` | Array der vier Decks |
+| `/api/decks/1` | Deck 1; Nummern 1–4 |
+| `/api/decks/1/cover` | Coverbild; 404, wenn kein Cover verfügbar ist |
+| `/api/health` | 200 bei verbundenem Deckzugriff oder Demo, sonst 503 |
+| `/overlay?deck=1` | Transparente OBS-Browserquelle für das gewählte Deck |
+| `/overlay/settings` | Deck 1–4 konfigurieren, Live-Vorschau und getrennte OBS-URLs |
+| `/master-overlay/settings` | Master-Overlay konfigurieren, Live-Vorschau und OBS-URL |
+| `/master-overlay` | Transparente Browserquelle für Master und History |
+| `/api/master` | Aktueller Master-Eintrag und bis zu 50 vorherige Einträge |
+| `/api/master/covers/123` | Cover zu einer Track-ID in der Master-Session; auch nach Deckwechseln |
+
+Alle Endpunkte sind nur lesend. Der Server lauscht ausschließlich auf `127.0.0.1`; keine Firewall-Freigabe erforderlich. Lokale Programme können die API direkt abrufen. Browserzugriffe von anderen Websites sind gesperrt.
+
+Deckdaten umfassen `id`, `trackId`, `loaded`, `metadataAvailable`, `isMaster`, `title`, `artist`, `album`, `key`, `genre`, `label`, `bpm`, `originalBpm`, `positionMs`, `durationMs` und `coverUrl`. `bpm` ist das aktuelle Decktempo, `originalBpm` das analysierte Tracktempo. `positionMs` ist die aktuelle Position in Millisekunden (bei Vorlauf negativ), `durationMs` die Gesamtlänge in Millisekunden; nicht verfügbare Zeiten sind `null`. `key` ist der gespeicherte Track-Key; eine live transponierte Tonart wird nicht ermittelt. Fehlende Werte erscheinen als `null`. Ein geladener Track bedeutet nicht automatisch, dass dieses Deck gerade hörbar spielt. Faderzustand und Play/Pause werden nicht ermittelt.
+
+`/api/state` enthält zusätzlich `masterDeckId` (1–4 oder `null`). `isMaster` ist für Decks `true`/`false`, bei unbekanntem Master `null`. `/api/master` enthält `current` (Eintrag oder `null`), `history` (neueste zuerst), `historyLimit`, `status` und `demo`. Einträge ergänzen die Trackdaten um `entryId` (eindeutig innerhalb dieser Server-Session), `startedAt` und `endedAt` (Unix-Millisekunden). History-Einträge sind gespeicherte Track-Snapshots, kein aktueller Ladezustand; `isMaster` ist dort `false`. Cover-URLs für diese Session verwenden Track-IDs statt Decknummern. Unbekannte oder aus der begrenzten History entfernte IDs liefern 404.
+
+`updatedAt` ist ein Unix-Zeitstempel in Millisekunden, `sampleAgeMs` das Alter der letzten Messung. Bei veralteten Messungen oder getrenntem Prozess werden alte Tracks nicht weiter als aktuelle Deckdaten ausgegeben. Cover-URLs enthalten eine Track-ID; beim Trackwechsel werden unpassende Bildanfragen verworfen. Ein vorhandener `coverUrl` bezeichnet den Bildendpunkt, garantiert aber kein verfügbares Cover.
+
+Die DLL liest Deckzustände etwa alle 100 ms. Der Webserver liest Metadaten beim Trackwechsel sowie alle zwei Sekunden aus der lokalen Datenbank. Das Dashboard aktualisiert sich etwa alle 500 ms, beide Overlay-Typen alle 250 ms. Auch Cover stammen aus der lokalen Rekordbox-Datenbank. Bei Streaming-Tracks ohne lokalen Bibliothekseintrag können die Metadaten fehlen; Tracks ohne gespeichertes Cover liefern am Bildendpunkt 404.
+
+## Bauen und prüfen
+
+Voraussetzung: Visual Studio 2022/2026 mit **Desktopentwicklung mit C++**, Windows-SDK und CMake. Keine .NET- oder Python-Laufzeit notwendig. Header-Bibliotheken sind im Repository enthalten; der Build lädt keine Pakete nach.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+Die Solution `rb_inj.sln` enthält ein Makefile-Projekt für Rider/Visual Studio, das denselben Build aufruft. Alternativ `CMakeLists.txt` öffnen. Ausgabe unter `build\Release`.
+
+Tests laufen mit dem Build. Der Injection-Test erstellt einen eigenen harmlosen Prozess mit dem Namen `rekordbox.exe`, injiziert die DLL, prüft IPC und die Ablehnung eines unpassenden EXE-Builds und beendet diesen Testprozess anschließend. Er enthält keinen Rekordbox-Code und greift nicht auf ein anderes laufendes Rekordbox zu. HTTP- und Speichergrenztests benötigen ebenfalls keine laufende Rekordbox-Instanz.
+
+Der zusätzliche Datenbanktest benötigt die lokal installierte Rekordbox-EXE als CMake-Option `REKORDBOX_TEST_EXE`; ohne diese Angabe wird er übersprungen. Er erstellt ausschließlich eine eigene temporäre Testdatenbank. Ein frischer Checkout enthält keine lokale CMake-Konfiguration. Den Installationspfad für diesen optionalen Test selbst mit `-DREKORDBOX_TEST_EXE="C:/Pfad/zu/rekordbox.exe"` angeben.
+
+`master_history` prüft Master-Wechsel, Wiederholungen, Lücken, nachgeladene Metadaten, gespeicherte BPM, Cover und History-Grenzen. Optionaler Browsertest mit Node.js 22+ und installiertem Edge: `node tests/browser_master_test.cjs`. Er startet einen eigenen unsichtbaren Browser mit separatem Profil und synthetischem lokalen Testserver; Screenshots liegen anschließend unter `build/test-artifacts`.
+
+## Kompatibilität und Grenzen
+
+Die enthaltene DLL ist auf den hier geprüften Windows-x64-Build **7.2.18.0** abgestimmt. Sie prüft Versionsnummer, PE-Buildmerkmale, 14 Codeabschnitte und die Deck-/BPM-/Master-/Zeit-Objekte. Andere Builds melden `unsupported` und benötigen ein eigenes geprüftes Profil. Die genauen Merkmale und die Herkunft der Speicherpositionen stehen in [docs/rekordbox-7.2.18.md](docs/rekordbox-7.2.18.md).
+
+Die DLL liest Speicher über `ReadProcessMemory` im eigenen Prozess und ruft keine internen Rekordbox-Funktionen auf. Die Metadatenabfragen laufen im separaten Webserver. Eine erfolgreich injizierte DLL allein beweist noch keinen funktionierenden Live-Datenzugriff. Siehe die konkrete Validierung in `docs/validation.md`.
+
+Der Cover-Zugriff öffnet die Datenbank mit `SQLITE_OPEN_READONLY`; SQL-Abfragen verändern weder Bibliothek noch Audiodateien. Verschobene Bibliotheken lassen sich mit `--database` angeben. Datenbankdiagnosen stehen unter `artworkStatus`.
+
+Abhängigkeiten und Quellen: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
