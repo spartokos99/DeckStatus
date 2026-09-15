@@ -11,7 +11,7 @@ async function withBrowser(handler,test){
     res.setHeader('Cache-Control','no-store');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
     const url=new URL(req.url,'http://localhost');if(handler(req,res,url))return;
-    const routes={'/waveform':'waveform.html','/waveform/settings':'waveform-settings.html','/':'index.html'};
+    const routes={'/waveform':'waveform.html','/waveform/settings':'waveform-settings.html','/':'index.html','/history':'history.html','/overlay':'overlay.html','/master-overlay':'master-overlay.html','/overlay/settings':'master-settings.html','/master-overlay/settings':'master-settings.html'};
     const name=routes[url.pathname]||url.pathname.slice(1);
     if(!/^(?:[a-z0-9-]+\.(?:js|html|css|svg)|locales\/(?:en|de)\.json)$/.test(name)){res.statusCode=404;return res.end();}
     const asset=path.join(root,'web',name);if(!fs.existsSync(asset)){res.statusCode=404;return res.end();}

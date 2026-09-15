@@ -61,6 +61,32 @@ int main() {
                 "History must retain the last 50 in reverse chronological order");
         require(feed.cover(11).second.empty() && calls == 1, "Evicted cover remained accessible");
         require(feed.snapshot() == state, "Reading history changed the session");
+        const auto full = feed.full_snapshot();
+        require(full["total"] == 74 && full["entries"].size() == 74, "Full history lost tracks past the overlay limit");
+        require(full["entries"].back()["trackId"] == 11 && full["entries"].back()["bpm"] == 132.25,
+                "Full history lost the first track or captured BPM");
+        require(feed.history_cover(11).second == "11" && feed.history_cover(999).second.empty(), "Full history cover allowlist failed");
+        require(feed.full_snapshot(1)["entries"].empty(), "Cursor before first entry should be empty");
+        auto page = feed.full_snapshot(0, 10);
+        require(page["entries"].size() == 10 && page["entries"][0]["trackId"] == 169, "Full history page order or bounds");
+        const auto cursor = page["nextBefore"].get<std::uint64_t>();
+        feed.update(sample(170));
+        auto older = feed.full_snapshot(cursor, 10);
+        require(older["entries"][0]["entryId"].get<std::uint64_t>() == cursor - 1, "New tracks shifted the older-page cursor");
+        std::set<std::uint64_t> seen;
+        std::uint64_t before = 0;
+        do {
+            page = feed.full_snapshot(before, 13);
+            for (const auto& entry : page["entries"]) require(seen.insert(entry["entryId"].get<std::uint64_t>()).second, "Duplicate full-history entry across pages");
+            before = page["nextBefore"].is_null() ? 0 : page["nextBefore"].get<std::uint64_t>();
+        } while (before);
+        require(seen.size() == 75 && seen.contains(1) && seen.contains(75), "Paged history omitted an occurrence");
+        deckstatus::MasterHistory late;
+        late.update(sample(777, 1, false));
+        for (unsigned id = 800; id < 860; ++id) late.update(sample(id));
+        require(late.pending_metadata() == std::vector<std::uint32_t>{777}, "Old full-history metadata not queued");
+        late.enrich(sample(777)["decks"][0]);
+        require(late.full_snapshot(2)["entries"][0]["title"] == "Track 777", "Old full-history metadata not enriched");
         // Deterministically evict during an artwork lookup; the result must be rejected.
         deckstatus::MasterHistory* racing_feed = nullptr;
         deckstatus::MasterHistory racing([&](std::uint32_t) {
@@ -73,6 +99,8 @@ int main() {
         std::this_thread::sleep_for(std::chrono::milliseconds(3050));
         require(feed.snapshot()["current"].is_null() && feed.snapshot()["status"] == "stale", "Stopped sampler kept a stale current track");
         require(feed.snapshot()["history"].size() == 50, "Staleness erased session history");
+        require(feed.full_snapshot()["total"] == 75 && feed.full_snapshot()["currentEntryId"].is_null(), "Staleness erased full history or retained a live badge");
+        require(feed.full_snapshot()["entries"][0]["isMaster"] == false, "Stale history marked its last track live");
         std::cout << "Master transitions, gaps, replay, late metadata, frozen history, covers, eviction and staleness passed.\n";
         return 0;
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Add Waveform and Full History links to the dashboard and consistent navigation across settings pages.
+- Use the EXE icon's SVG artwork as the logo throughout the web interface.
+- Show track position/duration timelines on all four dashboard decks, including missing and stale states.
+- Add complete session MASTER history beyond the overlay's 50-track limit: artwork, timestamps, deck/key, captured/original BPM, late metadata and stable 100-row pagination.
+- Keep the last observed track after disconnect without a live badge. History resets on app restart; MASTER changes do not prove audible playback.
+- Regenerate every README screenshot in English with English synthetic data; add a reproducible generator that checks the language before saving.
+- Add native archive/cursor/API tests and a dashboard/history browser suite. Keep web assets current on incremental builds.
+
 ## 1.3.1 · 2026-09-15
 
 ### ✨ Added

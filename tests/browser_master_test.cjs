@@ -25,7 +25,7 @@ const routes = new Map([
   ['/master-overlay', 'master-overlay.html'], ['/master-overlay/settings', 'master-settings.html'],
   ['/master-overlay.js', 'master-overlay.js'], ['/master-options.js', 'master-options.js'], ['/overlay', 'overlay.html']
 ]);
-for (const asset of ['deck-overlay.js', 'overlay-shared.js', 'overlay.css', 'settings.css', 'settings.js', 'i18n.js', 'storage.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
+for (const asset of ['icon.svg', 'deck-overlay.js', 'overlay-shared.js', 'overlay.css', 'settings.css', 'settings.js', 'i18n.js', 'storage.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
 routes.set('/overlay/settings', 'master-settings.html');
 routes.set('/', 'index.html');
 const fixture = http.createServer((request, response) => {
@@ -43,7 +43,7 @@ const fixture = http.createServer((request, response) => {
   if (url.pathname.startsWith('/api/master/covers/')) { coverCalls++; response.statusCode = 404; return response.end(); }
   const asset = routes.get(url.pathname);
   if (!asset) { response.statusCode = 404; return response.end(); }
-  response.setHeader('Content-Type', asset.endsWith('.js') ? 'text/javascript' : asset.endsWith('.css') ? 'text/css' : asset.endsWith('.json') ? 'application/json' : 'text/html; charset=utf-8');
+  response.setHeader('Content-Type', asset.endsWith('.svg') ? 'image/svg+xml' : asset.endsWith('.js') ? 'text/javascript' : asset.endsWith('.css') ? 'text/css' : asset.endsWith('.json') ? 'application/json' : 'text/html; charset=utf-8');
   response.end(fs.readFileSync(path.join(root, 'web', asset)));
 });
 

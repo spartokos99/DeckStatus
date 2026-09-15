@@ -143,14 +143,14 @@ int main(int argc, char** argv) {
             expect_status(client.Get(path), 404, "Unknown route or absent deck should return 404");
 
         for (const char* path : {"/", "/index.html", "/overlay", "/overlay.html", "/overlay?deck=4",
-                                 "/master-overlay?history=3&fields=title,cover", "/master-overlay/settings", "/overlay/settings", "/waveform", "/waveform/settings"}) {
+                                 "/master-overlay?history=3&fields=title,cover", "/master-overlay/settings", "/overlay/settings", "/waveform", "/waveform/settings", "/history"}) {
             const auto page = client.Get(path);
             expect_status(page, 200, "Web page missing");
             require(page->get_header_value("Content-Type").starts_with("text/html"), "HTML MIME missing");
             require(page->body.find("<!doctype html>") != std::string::npos, "HTML document missing");
         }
         for (const char* path : {"/master-overlay.js", "/master-options.js", "/deck-overlay.js",
-                                 "/overlay-shared.js", "/settings.js", "/i18n.js", "/storage.js", "/waveform.js", "/waveform-settings.js", "/waveform-options.js", "/waveform-renderer.js"}) {
+                                 "/overlay-shared.js", "/settings.js", "/i18n.js", "/storage.js", "/waveform.js", "/waveform-settings.js", "/waveform-options.js", "/waveform-renderer.js", "/history.js"}) {
             const auto script = client.Get(path);
             expect_status(script, 200, "Master script missing");
             require(script->get_header_value("Content-Type").starts_with("text/javascript"), "Module MIME missing");
@@ -176,11 +176,22 @@ int main(int argc, char** argv) {
         const auto master_response = client.Get("/api/master");
         expect_status(master_response, 200, "Master API missing");
         require(Json::parse(master_response->body)["history"][0]["trackId"] == 11, "Master history not returned");
+        const auto full_history = client.Get("/api/history?limit=1");
+        expect_status(full_history, 200, "Full history API missing");
+        const auto full_page = Json::parse(full_history->body);
+        require(full_page["total"] == 2 && full_page["entries"].size() == 1 && full_page["nextBefore"] == 2, "History pagination failed");
+        require(Json::parse(client.Get("/api/history?before=2")->body)["entries"][0]["trackId"] == 11, "Older history missing");
+        for (const char* query : {"limit=0", "limit=101", "limit=-1", "limit=1&limit=1", "before=0", "before=-1", "before=1x", "before=1&before=2", "before=1&be%66ore=1", "before=18446744073709551616"})
+            expect_status(client.Get(std::string("/api/history?") + query), 400, "Invalid history pagination accepted");
+        expect_status(client.Post("/api/history", "{}", "application/json"), 405, "History must remain read-only");
+        expect_status(client.Get("/api/history/covers/11"), 200, "Full history cover missing");
+        expect_status(client.Get("/api/history/covers/999"), 404, "Unseen full history cover accepted");
         expect_status(client.Get("/api/master/covers/11"), 200, "Historical cover missing");
         for (const char* id : {"0", "-1", "4294967296", "999", "11x", "0011"})
             expect_status(client.Get(std::string("/api/master/covers/") + id), 404, "Invalid or unseen master cover should be rejected");
         { std::lock_guard lock(mutex); cover_type = "text/html"; }
         expect_status(client.Get("/api/master/covers/11"), 415, "Active content accepted as history cover");
+        expect_status(client.Get("/api/history/covers/11"), 415, "Active content accepted as full history cover");
         { std::lock_guard lock(mutex); cover_type = "image/png"; }
         const auto head = client.Head("/api/state");
         expect_status(head, 200, "HEAD should work");

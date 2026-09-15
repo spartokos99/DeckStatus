@@ -2,7 +2,7 @@
 
 <img src="docs/images/deckstatus-icon.png" width="80" alt="DeckStatus-Icon">
 
-**Version 1.3.1** · [📦 Windows-Download](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) · [Änderungen](CHANGELOG.md)
+**Aktueller Quellstand: Dashboard- & Full-History-Update (noch kein neuer Release)** · [📦 Letzter Release: 1.3.1](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) · [Änderungen](CHANGELOG.md)
 
 [English](README.md) · Deutsch
 
@@ -12,7 +12,7 @@ Windows-x64-Programm für **Rekordbox 7.2.18.0** mit einer DLL, die im laufenden
 
 ![DeckStatus – Master-Overlay mit Timeline und History](docs/images/master-overlay.png)
 
-*📸 Die Vorschauen zeigen die echte Oberfläche mit synthetischen Trackdaten.*
+*📸 Alle Screenshots zeigen die englische Oberfläche mit englischen synthetischen Trackdaten bzw. einem gekennzeichneten Test-Audiosignal.*
 
 ## 🚀 Starten
 
@@ -36,6 +36,8 @@ Die Browseranzeige lässt sich ohne Rekordbox ausprobieren. Der Demo-Modus kennz
 ```
 
 ## 🌍 Sprache und Deck-Einstellungen
+
+Die Startseite verlinkt auch **Waveform** und **Full History**. Alle Web-Kopfzeilen nutzen dieselbe Logo-Vorlage wie das EXE-Icon. Jede der vier Deckkarten zeigt eine Timeline mit Position und Gesamtdauer; fehlende oder veraltete Zeiten werden als nicht verfügbar gekennzeichnet.
 
 **Deck 1–4 konfigurieren:** http://127.0.0.1:18740/overlay/settings
 
@@ -84,6 +86,16 @@ Beim Umstieg auf DeckStatus werden die bisher gespeicherte Sprache und Overlay-E
 
 Die Einstellungen einschließlich Skalierung und Ausrichtung bleiben im verwendeten Browser gespeichert; die OBS-URL enthält die vollständige Konfiguration und funktioniert unabhängig davon. Der Demo-Modus wechselt alle acht Sekunden zwischen zwei deutlich gekennzeichneten Beispieltracks.
 
+## 📜 Full History
+
+Der neue Tab **Full History** (deutsch: „Gesamte History“) unter **http://127.0.0.1:18740/history** enthält die vollständige erfasste MASTER-Track-Abfolge der aktuellen App-Sitzung, einschließlich Wiederholungen nach anderen Tracks. Ältere Einträge bleiben auch außerhalb des 50-Track-Fensters des Overlays erhalten.
+
+Die Tabelle zeigt Titel, Artist, Cover, Album, Deck, Key, Erfassungszeit sowie erfasste und originale BPM. Der aktuelle Master wird markiert. Die Liste ist absteigend sortiert und in Seiten zu 100 Einträgen aufgeteilt. Ältere Seiten verschieben sich bei neuen Trackwechseln nicht; „Neueste Tracks / aktualisieren“ kehrt zur Live-Liste zurück.
+
+![Full History mit englischer Oberfläche und synthetischen Tracks](docs/images/full-history.png)
+
+Die Sammlung beginnt beim Beobachten durch DeckStatus. Ein Browser-Neuladen erhält sie; **ein App-Neustart leert sie**. Vorherige Sitzungen können nicht nachträglich rekonstruiert werden. Master-Wechsel sind kein Nachweis hörbarer Wiedergabe; das Laden eines Nicht-Master-Decks allein erzeugt keinen Eintrag. Bei Verbindungsverlust bleibt der zuletzt erfasste Track ohne Live-Markierung in der Liste.
+
 ## 〰️ Audio-Waveform · neu in 1.3.1
 
 Öffne **http://127.0.0.1:18740/waveform/settings**. Die **erste Einstellung ist der Audioeingang**: Windows-Mikrofon, Line-in, Interface oder Ausgabe-Loopback wählen und **Start / Quelle wechseln** drücken.
@@ -127,6 +139,9 @@ Für die fertige App das vollständige **DeckStatus-1.3.1-win-x64.zip** aus dem 
 | `/master-overlay/settings` | Master-Overlay konfigurieren, Live-Vorschau und OBS-URL |
 | `/master-overlay` | Transparente Browserquelle für Master und History |
 | `/api/master` | Aktueller Master-Eintrag und bis zu 50 vorherige Einträge |
+| `/history` | Vollständige History dieser App-Sitzung |
+| `/api/history` | Alle erfassten Master-Tracks, neueste zuerst; `limit=1…100`, optional `before` als positive Eintrags-ID |
+| `/api/history/covers/123` | Cover eines beliebigen während dieser Sitzung erfassten Tracks |
 | `/api/master/covers/123` | Cover zu einer Track-ID in der Master-Session; auch nach Deckwechseln |
 
 Track-Endpunkte sind nur lesend. `POST /api/audio/source` startet, wechselt oder stoppt explizit die Audioerfassung; es steuert Rekordbox nicht. Der Server lauscht ausschließlich auf `127.0.0.1`; keine Firewall-Freigabe erforderlich. Lokale Programme können die API direkt abrufen. Browserzugriffe von anderen Websites sind gesperrt.
@@ -160,6 +175,10 @@ In Version 1.3.1 bestehen **alle sechs nativen Tests** sowie beide Browser-Suite
 `powershell -File tests/resource_test.ps1` prüft EXE-Icon und Version. Der optionale Aufruf `build/Release/audio_test.exe --loopback-smoke` prüft einen echten Ausgabe-Loopback-Stream durch Öffnen, Stoppen und Neustarten, ohne Audiodateien zu speichern; CTest öffnet selbst keine Audioquelle. Dieser lokale WASAPI-Test war erfolgreich. Mikrofon-/Interface-Erfassung, die Signalübertragung von Rekordbox zum Loopback und eine eigene OBS-Waveform-Sitzung wurden nicht separat validiert.
 
 ## ⚠️ Kompatibilität und Grenzen
+
+**Download-Hinweis:** Der veröffentlichte Release bleibt 1.3.1. Die hier beschriebenen Dashboard-/Full-History-Ergänzungen sind neuerer Quellstand und werden durch Bauen dieses Branches verfügbar.
+
+Der aktuelle Quellstand besteht alle sechs nativen Tests und drei Browser-Suiten. `node tests/browser_dashboard_history_test.cjs` prüft Navigation, Logo, vier Dashboard-Timelines, über 100 History-Einträge, stabile Seitenwechsel, Cover, Metadatensicherheit und Verbindungsfehler. `node tools/readme-screenshots.cjs` erzeugt alle README-Screenshots mit englischen Beispieldaten neu und prüft die englische Sprache von Seiten, Vorschauen und Labels. Normale Browsertests überschreiben diese Bilder nicht.
 
 Die enthaltene DLL ist auf den hier geprüften Windows-x64-Build **7.2.18.0** abgestimmt. Sie prüft Versionsnummer, PE-Buildmerkmale, 14 Codeabschnitte und die Deck-/BPM-/Master-/Zeit-Objekte. Andere Builds melden `unsupported` und benötigen ein eigenes geprüftes Profil. Die genauen Merkmale und die Herkunft der Speicherpositionen stehen in [docs/rekordbox-7.2.18.md](docs/rekordbox-7.2.18.md).
 

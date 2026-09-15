@@ -89,3 +89,14 @@ Dashboard, Einstellungsseite und drei Overlay-Designs wurden für das README mit
 - Vorschau und Icon visuell kontrolliert; öffentliche Screenshots verwenden gekennzeichnete synthetische Daten.
 - Mikrofon-/Interface-Erfassung, Rekordbox-zu-Loopback-Signalübertragung und eine eigene OBS-Waveform-Sitzung bleiben nicht separat validiert.
 - Die produktive Rekordbox-Bridge wurde für diese Arbeiten nicht gestartet. Die einzige weiterhin live validierte Rekordbox-Version ist die eigene Installation **7.2.18.0, Windows x64**.
+
+
+## Ergänzung: Dashboard und Full History – 15.09.2026 (unveröffentlichter Quellstand)
+
+- Waveform und Full History sind im Dashboard erreichbar. Dashboard, beide Overlay-Einstellungsseiten, Waveform-Einstellungen und History verwenden dieselbe Icon-SVG-Vorlage wie die EXE.
+- Vier Dashboard-Timelines mit Position/Gesamtdauer, begrenztem Fortschritt, negativem Vorlauf und nicht verfügbaren/veralteten Werten geprüft.
+- Vollständiges Sitzungsgedächtnis für Master-Track-Wechsel zusätzlich zum unveränderten 50-Track-Fenster des Overlays. Tests prüfen Wiederholungen, alte Cover/Metadaten, stabile Cursor, Seitenbegrenzung und ungültige API-Parameter.
+- Alle sechs nativen CTest-Tests und alle drei Browser-Suiten erfolgreich. Die neue Browser-Suite nutzt 137 synthetische History-Einträge und prüft Navigation, Logo, vier Timelines, Seitenwechsel, zusätzliche Trackwechsel, Cover, XSS-Abwehr, EN/DE, Ausfall und leere Sitzung.
+- Alle sechs öffentlichen README-Screenshots mit englischer Oberfläche und englischen synthetischen Daten neu erzeugt und visuell kontrolliert. Der neue Generator prüft auch die Sprache der eingebetteten Vorschauen.
+- Inkrementeller Build kopiert geänderte Webdateien auch ohne erneutes Linken der EXE; Hashvergleich zwischen Quell- und Build-Datei erfolgreich.
+- History bleibt auf die aktuelle App-Sitzung begrenzt. MASTER-Wechsel sind weiterhin kein Nachweis hörbarer Wiedergabe. Die produktive Bridge wurde nicht gestartet; keine zusätzliche Rekordbox-Version wurde validiert.

@@ -20,9 +20,9 @@ target_link_libraries(deckstatus_audio PUBLIC ole32 uuid)
 add_executable(DeckStatus src/deckstatus.cpp src/injector.cpp src/server.cpp src/artwork.cpp src/deckstatus.rc assets/DeckStatus.ico)
 target_include_directories(DeckStatus PRIVATE vendor vendor/httplib assets)
 target_link_libraries(DeckStatus PRIVATE version ws2_32 crypt32 deckstatus_audio)
-add_dependencies(DeckStatus DeckStatusBridge)
-add_custom_command(TARGET DeckStatus POST_BUILD
+add_custom_target(DeckStatusWeb
   COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/web" "$<TARGET_FILE_DIR:DeckStatus>/web")
+add_dependencies(DeckStatus DeckStatusBridge DeckStatusWeb)
 
 install(TARGETS DeckStatus DeckStatusBridge RUNTIME DESTINATION .)
 install(DIRECTORY web DESTINATION .)

@@ -1,6 +1,5 @@
 // Synthetic signals only. This test never opens a Windows audio device.
 const assert=require('node:assert/strict');
-const fs=require('node:fs'),path=require('node:path');
 const {withBrowser}=require('./browser_fixture.cjs');
 let active=false, stale=false, failure=false, sequence=0, deviceId='',posts=[];
 const signal=Array.from({length:1024},(_,i)=>Math.sin(2*Math.PI*i*13/1024)*.4+Math.sin(2*Math.PI*i*43/1024)*.2);
@@ -35,7 +34,7 @@ withBrowser((req,res,url)=>{
   assert.ok((await evaluate('document.getElementById("url").value')).includes('lang=de'));
   // Inspect the actual rendered settings, using only labelled synthetic input.
   await change('preset','mint');await delay(650);await screenshot('waveform-settings');
-  if(process.env.DECKSTATUS_UPDATE_SCREENSHOTS==='1')fs.copyFileSync(path.join(root,'build/test-artifacts/waveform-settings.png'),path.join(root,'docs/images/waveform-settings.png'));
+  // Public README images are generated separately with a mandatory English locale.
   const url=await evaluate('document.getElementById("url").value');
   for(const mode of ['line','fill','bars','mirror','radial','history']){
     await navigate('/waveform?mode='+mode+'&hideSilent=1&gain=2&glow=0&smoothing=0');

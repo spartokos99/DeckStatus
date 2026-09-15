@@ -43,6 +43,8 @@
     @media (max-width: 540px) { .shell { padding: 22px 16px; } .panel { padding: 20px; } .fields { grid-template-columns: 1fr 1fr; } .url { flex-direction: column; } header strong { font-size: 12px; } }
 
 nav { display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+.brand { display:flex; align-items:center; gap:10px; color:inherit; text-decoration:none; }
+.brand img { display:block; width:38px; height:38px; }
 header { gap:20px; flex-wrap:wrap; } header select { width:auto; }
 [hidden] { display:none !important; }
 .design-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }

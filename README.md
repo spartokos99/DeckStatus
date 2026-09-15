@@ -4,7 +4,7 @@
 
 # 🎛️ DeckStatus
 
-**Version 1.3.1** · [📦 Download for Windows x64](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) · [Change notes](CHANGELOG.md)
+**Current source: dashboard & Full History update (unreleased)** · [📦 Latest release: 1.3.1](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) · [Change notes](CHANGELOG.md)
 
 **Live deck data. Custom stream overlays. Audio-reactive waveforms.**
 
@@ -22,7 +22,7 @@
 
 ![Master overlay with a live timeline and smaller history cards](docs/images/master-overlay.png)
 
-*📸 All previews below are rendered from the real interface with synthetic track data or labelled test audio signals. No music, library database or Rekordbox binaries are included.*
+*📸 All screenshots use the English interface and English synthetic track data or labelled test audio signals. No music, library database or Rekordbox binaries are included.*
 
 ## 🎧 What it does
 
@@ -38,7 +38,8 @@ The application consists of two parts: `DeckStatusBridge.dll` samples native dec
 
 - Track title, artist, album, stored key, genre, label and artwork.
 - Current deck BPM **and** original, analysed library BPM.
-- Track position, total duration, track ID and the current MASTER designation.
+- Track position, total duration and a visible timeline on all four dashboard decks, plus track ID and the current MASTER designation.
+- Direct navigation to Deck overlays, Master overlay, Waveform and Full History; the web header uses the EXE icon's artwork as its logo.
 - Connection state, executable version, sample age and metadata diagnostics.
 - Missing values remain unknown; stale or disconnected decks are not presented as live.
 
@@ -67,11 +68,21 @@ Follow Rekordbox's MASTER-marked deck automatically and keep **0–50 previous t
 
 History records **master-track changes**, not proven audible playback. Moving the same track to another master deck does not duplicate it; playing it again later in the sequence can create a new entry. History keeps the last captured deck BPM and can receive missing metadata later. **Restarting the bridge clears the session history.**
 
+### 📜 Full History
+
+Open **Full History** in the navigation or visit [the history tab](http://127.0.0.1:18740/history). It lists the complete observed **MASTER-track sequence for the current app session**, including occurrences outside the overlay's 50-track window.
+
+Each row shows track/artist, artwork, album, deck, key, first-observed time and captured/original BPM. The current master is highlighted. Entries are newest first, with stable pagination in groups of 100. Older pages stay in place as new masters arrive; **Latest tracks / refresh** returns to the live list.
+
+![Full History in English, with synthetic tracks](docs/images/full-history.png)
+
+Collection begins when DeckStatus observes tracks. Browser refreshes retain it; **restarting DeckStatus clears it**. Earlier sessions cannot be reconstructed. A master change does not prove audible playback; loading a non-master deck alone does not add a row. The same track after another master track creates a new occurrence. The last observed entry stays in the list after disconnection without its live badge.
+
 ### ⏱️ Optional track timeline
 
 Show elapsed time, total duration and a progress bar. The display uses sampled Rekordbox positions, handles negative preroll and bounds the bar to 0–100%. It does not advance time on its own when no movement is sampled.
 
-In the master overlay, **only the current track shows a timeline**. Historical cards never show it. Missing timing data produces an unavailable state.
+The dashboard always shows timing on all four deck cards. In the master overlay, **only the current track shows a timeline**. Historical cards never show it. Missing or stale timing data produces an unavailable state. Overlay timeline visibility remains configurable.
 
 The timeline is a visual display: it does not play audio, show a waveform, seek or control Rekordbox.
 
@@ -131,6 +142,8 @@ Run `DeckStatus.exe --demo` without Rekordbox to try the dashboard, overlays, hi
 
 ### 📥 Portable download
 
+The latest published release is **1.3.1**. Full History, dashboard timelines and the refreshed navigation shown on this branch are newer source changes; build this branch to use them.
+
 Download **DeckStatus-1.3.1-win-x64.zip** from the [1.3.1 release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1), extract the entire archive and run `DeckStatus.exe`. Keep its DLL and `web` directory together. No installer is required.
 
 ### 🛠️ Build requirements
@@ -181,7 +194,7 @@ In a shell where `cmake` is available:
 
 ```powershell
 cmake --install build --config Release --prefix build/DeckStatus
-Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-1.3.1-win-x64.zip -Force
+Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-main-win-x64.zip -Force
 ```
 
 Generated binaries and ZIP files are intentionally excluded from Git.
@@ -209,6 +222,9 @@ The server listens on **127.0.0.1**. Track-data routes support read-only access;
 | `/api/decks/1/cover` | Artwork; 404 when unavailable |
 | `/api/master` | Current master, newest-first history and session limit |
 | `/api/master/covers/{trackId}` | Artwork for a track retained in the master session |
+| `/history` | Complete session history tab |
+| `/api/history` | Complete history, newest first; `limit=1…100`, optional positive `before` entry-ID cursor |
+| `/api/history/covers/{trackId}` | Artwork for any track observed in this session |
 | `/api/health` | 200 when connected or in demo mode; otherwise 503 |
 | `/waveform/settings` | Shared audio-source selection, visual settings and preview |
 | `/waveform` | Transparent audio visualization |
@@ -217,6 +233,8 @@ The server listens on **127.0.0.1**. Track-data routes support read-only access;
 | `POST /api/audio/source` | JSON `{"deviceId":"…"}` selects a source; `{"deviceId":""}` stops |
 
 A deck exposes `id`, `trackId`, `loaded`, `metadataAvailable`, `isMaster`, `title`, `artist`, `album`, `key`, `genre`, `label`, `bpm`, `originalBpm`, `positionMs`, `durationMs` and `coverUrl`.
+
+`/api/history` returns `entries`, `total`, `nextBefore`, `currentEntryId`, `status` and `demo`. Pass `nextBefore` as `before` for older entries; a null cursor marks the end. There is no 50-track archive cutoff, while each response stays bounded to 100 rows. The existing `/api/master` response and cover allowlist retain their overlay-window behaviour.
 
 - `bpm` is the current deck tempo; `originalBpm` comes from the library.
 - Timing fields are in milliseconds. Position can be negative.
@@ -272,6 +290,7 @@ This test uses the installation's database libraries with a temporary test datab
 ```powershell
 node tests/browser_master_test.cjs
 node tests/browser_waveform_test.cjs
+node tests/browser_dashboard_history_test.cjs
 # Or select another locally installed Chromium/Edge executable:
 node tests/browser_master_test.cjs "C:/path/to/msedge.exe"
 ```
@@ -288,7 +307,11 @@ The browser suite launches a headless browser with a private profile and synthet
 
 The waveform suite additionally verifies source selection without automatic capture, explicit start/switch/stop, six actual Canvas renderers, FFT frequency/amplitude, channel mixing, noise gate, bounded options, constant background opacity with trails, persistence, translations, silence, stale data and device loss. It opens no audio hardware.
 
-Screenshots are written to `build/test-artifacts`. `powershell -File tests/resource_test.ps1` checks the compiled EXE icon and version. The optional `build/Release/audio_test.exe --loopback-smoke` opens an output-loopback endpoint to check start/stop/restart; it saves no audio files. This hardware check is not run by CTest.
+The dashboard/history suite checks navigation, the shared logo, all four timelines, more than 100 history rows, stable cursors, artwork, safe text, EN/DE and connection recovery. Native history/API tests also cover archive retention beyond 50 entries, late metadata and invalid pagination.
+
+Test screenshots are written to `build/test-artifacts`. Regenerate **all public README screenshots in English** with `node tools/readme-screenshots.cjs`. The generator checks page/preview languages and translated labels before saving; ordinary browser tests never overwrite README images.
+
+`powershell -File tests/resource_test.ps1` checks the compiled EXE icon and version. The optional `build/Release/audio_test.exe --loopback-smoke` opens an output-loopback endpoint to check start/stop/restart; it saves no audio files. This hardware check is not run by CTest.
 
 ### 🔬 What was checked live
 

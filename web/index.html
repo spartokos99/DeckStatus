@@ -15,13 +15,11 @@
     .shell { max-width: 1440px; margin: auto; padding: 30px 40px 40px; }
     header { flex-wrap: wrap; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding-bottom: 28px; border-bottom: 1px solid #26303b; }
     .brand { display: flex; align-items: center; gap: 13px; }
-    .mark { width: 37px; height: 37px; background: #a8eccf; border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: 3px; }
-    .mark i { width: 3px; height: 13px; border-radius: 2px; background: #122c26; }
-    .mark i:nth-child(2) { height: 23px; }
-    .mark i:nth-child(3) { height: 17px; }
+    .brand { color: inherit; text-decoration: none; }
+    .brand img { width: 42px; height: 42px; }
     .brand strong { font-size: 15px; letter-spacing: -.25px; display: block; }
     .brand small { display: block; color: #8998a9; font-size: 11px; margin-top: 4px; letter-spacing: 1.7px; text-transform: uppercase; }
-    nav { flex-wrap: wrap; display: flex; align-items: center; gap: 24px; font-size: 13px; }
+    nav { flex-wrap: wrap; display: flex; align-items: center; gap: 18px; font-size: 13px; }
     nav a { text-decoration: none; }
     .local { border: 1px solid #34414d; border-radius: 20px; padding: 7px 11px; font-size: 11px; color: #aab8c7; }
     .intro { padding: 36px 0 25px; display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
@@ -61,6 +59,12 @@
     .details dd { margin: 0; overflow-wrap: anywhere; }
     .deck-footer { border-top: 1px solid #2b3742; padding-top: 15px; font-size: 11px; }
     .deck-footer a { text-decoration: none; }
+    .timeline { margin: 0 0 18px; }
+    .time-labels { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 11px; color: #b6c8d3; font-variant-numeric: tabular-nums; }
+    .time-bar { height: 5px; border-radius: 3px; overflow: hidden; background: #2b3742; }
+    .time-fill { display: block; height: 100%; width: 0; background: #a8eccf; transition: width 450ms linear; }
+    .timeline-status { color: #8c9bad; margin: 8px 0 0; font-size: 10px; }
+    @media (prefers-reduced-motion: reduce) { .time-fill { transition: none; } }
     footer { display: flex; justify-content: space-between; gap: 20px; padding: 25px 0 0; font-size: 11px; color: #8797a9; line-height: 1.7; }
     footer p { margin: 0; max-width: 720px; }
     #artwork-status { text-align: right; }
@@ -72,8 +76,8 @@
 <body>
   <div class="shell">
     <header>
-      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><div><strong>DeckStatus</strong><small data-i18n="dashboard">Deck monitor</small></div></div>
-      <nav><a href="/overlay/settings" data-i18n="deckSettings">Deck overlays</a><a href="/master-overlay/settings" data-i18n="masterSettings">Master overlay</a><a href="/api/state" target="_blank" rel="noopener" data-i18n="jsonApi">JSON API ↗</a><select data-language data-i18n-aria="language"><option value="en">English</option><option value="de">Deutsch</option></select></nav>
+      <a class="brand" href="/"><img src="/icon.svg" width="42" height="42" alt=""><div><strong>DeckStatus</strong><small data-i18n="dashboard">Deck monitor</small></div></a>
+      <nav><a href="/overlay/settings" data-i18n="deckSettings">Deck overlays</a><a href="/master-overlay/settings" data-i18n="masterSettings">Master overlay</a><a href="/waveform/settings" data-i18n="waveNav">Waveform</a><a href="/history" data-i18n="fullHistory">Full History</a><a href="/api/state" target="_blank" rel="noopener" data-i18n="jsonApi">JSON API ↗</a><select data-language data-i18n-aria="language"><option value="en">English</option><option value="de">Deutsch</option></select></nav>
     </header>
     <main>
       <div class="intro"><div><span class="eyebrow" data-i18n="session">Your session at a glance</span><h1 data-i18n="liveTitle">Live from your decks.</h1><p data-i18n="liveIntro">Track metadata, tempo and key in one place.</p></div><div class="status" id="connection" role="status"><span class="dot" aria-hidden="true"></span><span id="status-label" data-i18n="starting">Connecting…</span></div></div>
@@ -90,6 +94,7 @@
       <div class="track"><h3 class="title" data-field="title" data-i18n="noTrack">No track loaded</h3><p class="artist" data-field="artist">—</p></div>
       <dl class="numbers"><div><dt data-i18n="currentBpmLabel">Current BPM</dt><dd data-field="bpm">—</dd></div><div><dt data-i18n="key">Key</dt><dd data-field="key">—</dd></div></dl>
       <dl class="details"><dt data-i18n="album">Album</dt><dd data-field="album">—</dd><dt data-i18n="originalBpmLabel">Original BPM</dt><dd data-field="originalBpm">—</dd><dt data-i18n="genre">Genre</dt><dd data-field="genre">—</dd><dt data-i18n="label">Label</dt><dd data-field="label">—</dd><dt data-i18n="trackId">Track ID</dt><dd data-field="trackId">—</dd></dl>
+      <div class="timeline" data-available="false"><div class="time-labels"><span data-time="position">—</span><span data-time="duration">—</span></div><div class="time-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" data-i18n-aria="timeline"><span class="time-fill"></span></div><p class="timeline-status" data-i18n="timelineUnavailable"></p></div>
       <div class="deck-footer"><a data-field="overlay" target="_blank" rel="noopener" data-i18n="openDeckOverlay">Open OBS overlay ↗</a></div>
     </article>
   </template>
@@ -97,6 +102,7 @@
     import { t, getLanguage, locale, translate, diagnostic } from '/i18n.js';
     import { readSetting } from '/storage.js';
     import { normalize, deckOverlayPath } from '/master-options.js';
+    import { formatTime } from '/overlay-shared.js';
     const cards = [];
     const text = value => typeof value === 'string' && value.trim() ? value : '—';
     const bpm = value => typeof value === 'number' && Number.isFinite(value) && value > 0 ? new Intl.NumberFormat(locale(), { maximumFractionDigits: 2 }).format(value) : '—';
@@ -120,6 +126,25 @@
       for (const name of ['artist', 'album', 'key', 'genre', 'label']) field(card, name, loaded ? text(deck[name]) : '—');
       for (const name of ['bpm', 'originalBpm']) field(card, name, loaded ? bpm(deck[name]) : '—');
       field(card, 'trackId', loaded && Number.isSafeInteger(deck.trackId) ? String(deck.trackId) : '—');
+      const timeline = card.querySelector('.timeline');
+      const timing = loaded && Number.isFinite(deck.positionMs) && Math.abs(deck.positionMs) <= 86400000 &&
+        Number.isFinite(deck.durationMs) && deck.durationMs > 0 && deck.durationMs <= 86400000;
+      const position = timing ? deck.positionMs : 0;
+      const progress = timing ? Math.max(0, Math.min(100, position / deck.durationMs * 100)) : 0;
+      timeline.dataset.available = String(Boolean(timing));
+      timeline.querySelector('[data-time="position"]').textContent = timing ? formatTime(position) : '—';
+      timeline.querySelector('[data-time="duration"]').textContent = timing ? formatTime(deck.durationMs) : '—';
+      timeline.querySelector('.timeline-status').hidden = Boolean(timing);
+      const bar = timeline.querySelector('.time-bar'), fill = timeline.querySelector('.time-fill');
+      if (timing) {
+        bar.setAttribute('aria-valuenow', progress.toFixed(2));
+        bar.setAttribute('aria-valuetext', formatTime(position) + ' / ' + formatTime(deck.durationMs));
+      } else { bar.removeAttribute('aria-valuenow'); bar.removeAttribute('aria-valuetext'); }
+      const jump = !timing || timeline.dataset.track !== String(deck.trackId) || Math.abs(position - Number(timeline.dataset.position)) > 2000;
+      fill.style.transitionDuration = jump ? '0ms' : '';
+      fill.style.width = progress + '%';
+      timeline.dataset.track = timing ? String(deck.trackId) : '';
+      timeline.dataset.position = String(position);
       const img = card.querySelector('img');
       const expected = '/api/decks/' + (cards.indexOf(card) + 1) + '/cover?trackId=' + (loaded ? deck.trackId : '');
       const url = loaded && Number.isSafeInteger(deck.trackId) && deck.trackId > 0 && deck.coverUrl === expected ? expected : '';

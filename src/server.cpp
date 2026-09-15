@@ -130,6 +130,7 @@ int run_server(const std::string& host, int port,
         {"/waveform.js", "waveform.js"}, {"/waveform-options.js", "waveform-options.js"},
         {"/waveform-renderer.js", "waveform-renderer.js"}, {"/waveform-settings.js", "waveform-settings.js"},
         {"/icon.svg", "icon.svg"},
+        {"/history", "history.html"}, {"/history.js", "history.js"}, {"/history.css", "history.css"},
         {"/locales/en.json", "locales/en.json"}, {"/locales/de.json", "locales/de.json"}
     }) {
         const auto body = read_page(web_root / file);
@@ -247,14 +248,29 @@ int run_server(const std::string& host, int port,
         if (!master) { json_response(response, {{"error", "Master feed is not available"}}, 503); return; }
         json_response(response, master->snapshot());
     });
-    server.Get(R"(/api/master/covers/([1-9][0-9]{0,9}))", [master](const httplib::Request& request, auto& response) {
-        const auto input = request.matches[1].str();
+    server.Get("/api/history", [master](const httplib::Request& request, auto& response) {
+        if (!master) { json_response(response, {{"error", "History is not available"}}, 503); return; }
+        std::uint64_t before = 0, page_size = 100;
+        for (const auto* name : {"before", "limit"}) {
+            if (!request.has_param(name)) continue;
+            const auto input = request.get_param_value(name);
+            auto& value = std::string_view(name) == "before" ? before : page_size;
+            const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), value);
+            if (raw_parameter_count(request, name) != 1 || input.empty() || error != std::errc{} ||
+                end != input.data() + input.size() || value == 0 || (std::string_view(name) == "limit" && value > 100)) {
+                json_response(response, {{"error", "Invalid history pagination"}}, 400); return;
+            }
+        }
+        json_response(response, master->full_snapshot(before, static_cast<std::size_t>(page_size)));
+    });
+    server.Get(R"(/api/(master|history)/covers/([1-9][0-9]{0,9}))", [master](const httplib::Request& request, auto& response) {
+        const auto input = request.matches[2].str();
         std::uint32_t id{};
         const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), id);
         if (!master || error != std::errc{} || end != input.data() + input.size()) {
             json_response(response, {{"error", "Master cover is not available"}}, 404); return;
         }
-        auto [mime, bytes] = master->cover(id);
+        auto [mime, bytes] = request.matches[1].str() == "history" ? master->history_cover(id) : master->cover(id);
         if (bytes.empty()) { json_response(response, {{"error", "Master cover is not available"}}, 404); return; }
         if (mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" && mime != "image/gif" && mime != "image/bmp") {
             json_response(response, {{"error", "Cover format is not supported"}}, 415); return;
