@@ -1,5 +1,38 @@
 # Changelog
 
+## 2.0.1 · 2026-09-15
+
+### Scenes, accounts and audience feedback
+
+- Add a persistent, shared library of named deck, master and waveform presets, with load/save/update/delete, revision conflicts and migration of existing portal stores.
+- Insert saved presets directly into scenes as independent layers, retaining their settings and names. Keep optional default components and existing per-layer customization.
+- Group Deck overlays, Master overlay and Waveform in a Scene Components dropdown. Rename navigation groups to Start and Stream, move Scene editor and Full History into Stream, and make Admin standalone. Support keyboard, mobile and EN/DE navigation.
+- Keep the current mode visible on deck/master settings pages and refresh the English screenshots and technical guide.
+- Add sign-in, a random initial administrator password, mandatory first password change, administrator/operator roles and user management. Password changes, user edits, logout and restart revoke sessions.
+- Make Full History public, with editable 1–5-star browser ratings and persistent per-track averages, counts and distributions in Admin.
+- Add persistent monitor-sized scenes with deck/master/waveform layers, drag/resize, exact geometry, stacking, visibility, opacity, presets and live updates to one OBS URL. Detect conflicting editor saves.
+- Protect OBS renderers with scoped, revocable read keys. Persist users, ratings, presets and scenes in `DeckStatus.data`, support `--data-dir`, and keep private data out of packages/Git.
+- Replace the README with a concise English guide and provide a standalone GitHub Wiki page. Keep English/German application translations.
+- Add shared Network settings for local-only access, all IPv4 interfaces or one adapter, HTTP port and optional remote audio/ProLink controls. The initial listener remains localhost; enabling LAN access leaves remote source controls off by default.
+- Persist validated settings in `DeckStatus.network.json` with atomic replacement; show active/saved values, restart notices and server URLs. Add `--bind`, `--network-config` and `--allow-remote-control` startup overrides.
+- Preserve Host/Origin checks for LAN requests and restrict network configuration changes to local administrators on the DeckStatus PC. Disable remote audio/ProLink controls according to network policy while retaining authenticated overlay customization.
+- Extend automated tests for account permissions, persistence, data migration, preset reuse, scene rendering, ratings, navigation and network configuration. Refresh all public screenshots in English.
+
+### Upgrade
+
+1. Stop DeckStatus. Back up `DeckStatus.data` and `DeckStatus.network.json` if you have used a preview build; preserve them when upgrading.
+2. Extract the complete `DeckStatus-2.0.1-win-x64.zip`. Keep the EXE, DLL, `web` and `prolink` folders together. Existing browser preferences remain available.
+3. Start `DeckStatus.exe` for Rekordbox or `Start-ProLink.cmd` for ProLink. A new store creates an `admin` account with a random temporary password printed in the console; change it after the first login. Preview users can keep their existing credentials.
+4. **When upgrading from v1.4.0, generate new OBS URLs after signing in.** Overlays now require a scoped read key. Existing saved scene/preset data and keys from preview builds are preserved.
+
+Full History remains public at `/history`; all dashboard and configuration pages require sign-in. Played-track history resets on restart, while ratings, presets and scenes persist. For LAN access, use a trusted network: the built-in HTTP listener is not encrypted.
+
+### Compatibility and validation
+
+- **Live-tested only with the author's Rekordbox 7.2.18.0 Windows x64 installation.** Default Rekordbox source behavior and its version-specific profile are unchanged.
+- **ProLink remains experimental and has not been tested on real CDJ-3000 / DJM-A9 hardware.** Automated tests do not establish additional device compatibility.
+- Validation covers nine native tests, Java ProLink model tests, six browser suites, authenticated demo/idle-ProLink package checks, embedded EXE icons/version and package/dependency hashes. Tests use isolated stores and synthetic data; production injection and audio capture remain off.
+
 ## 1.4.0 · 2026-09-15
 
 ### 🔌 ProLink

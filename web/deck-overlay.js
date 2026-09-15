@@ -2,6 +2,7 @@ import { parseOptions } from './master-options.js';
 import { t, getLanguage } from './i18n.js';
 import { applyAppearance, makeCard, updateCardContent } from './overlay-shared.js';
 
+import {broadcastUrl} from './broadcast.js';
 const query = new URLSearchParams(location.search);
 const options = parseOptions(location.search);
 options.lang = getLanguage();
@@ -40,7 +41,7 @@ function render(state) {
 }
 async function poll() {
   try {
-    const response = await fetch('/api/state', { cache: 'no-store', signal: AbortSignal.timeout(1800) });
+    const response = await fetch(broadcastUrl('/api/state'), { cache: 'no-store', signal: AbortSignal.timeout(1800) });
     if (!response.ok) throw new Error('HTTP ' + response.status);
     render(await response.json());
   } catch (_) { render({ status: 'disconnected' }); }

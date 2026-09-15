@@ -1,4 +1,5 @@
 import { t, locale, translate } from './i18n.js';
+import {broadcastUrl} from './broadcast.js';
 
 export function applyAppearance(options) {
   const fonts = { system: '"Segoe UI", sans-serif', serif: 'Georgia, serif', mono: 'Consolas, monospace' };
@@ -74,6 +75,6 @@ export function updateCardContent(card, item, options, display) {
   if (!url) { img.hidden = true; img.removeAttribute('src'); delete img.dataset.url; }
   else if (img.dataset.url !== url || (img.hidden && Date.now() - Number(img.dataset.attempt) > 5000)) {
     img.hidden = true; img.dataset.url = url; img.dataset.attempt = String(Date.now());
-    img.alt = t('cover') + ': ' + text(item.title); img.src = url;
+    img.alt = t('cover') + ': ' + text(item.title); img.src = broadcastUrl(url);
   }
 }

@@ -4,6 +4,8 @@
 #include "server.h"
 #include "master_history.h"
 #include "prolink.h"
+#include "network.h"
+#include "portal.h"
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include <array>
@@ -183,12 +185,17 @@ int wmain(int argc, wchar_t** argv) {
         bool demo = false;
         bool prolink_mode = false;
         int port = 18740;
+        std::optional<int> port_override;
+        std::optional<std::string> bind_override;
+        std::optional<bool> remote_control_override;
+        auto network_file = executable_directory() / "DeckStatus.network.json";
+        auto data_directory = executable_directory() / "DeckStatus.data";
         DWORD pid = 0;
         std::filesystem::path database;
         for (int i = 1; i < argc; ++i) {
             const std::wstring option = argv[i];
             if (option == L"--help" || option == L"-h") {
-                std::cout << deckstatus::tr("cliHelp");
+                std::cout << deckstatus::tr("cliHelp") << deckstatus::tr("cliNetworkHelp");
                 return 0;
             }
             if (option == L"--lang") {
@@ -205,21 +212,43 @@ int wmain(int argc, wchar_t** argv) {
                 continue;
             }
             if (option == L"--demo") { demo = true; continue; }
+            if (option == L"--allow-remote-control") { remote_control_override = true; continue; }
+            if (option == L"--data-dir") { if (++i >= argc) throw std::runtime_error("Wert fuer Option fehlt."); data_directory = argv[i]; continue; }
+            if (option == L"--bind" || option == L"--network-config") {
+                if (++i >= argc) throw std::runtime_error("Wert fuer Option fehlt.");
+                if (option == L"--network-config") network_file = argv[i];
+                else {
+                    const std::wstring value = argv[i];
+                    if (value.find_first_not_of(L"0123456789.") != std::wstring::npos) throw std::runtime_error("networkInvalidSettings");
+                    std::string ascii;
+                    for (const wchar_t digit : value) ascii.push_back(static_cast<char>(digit));
+                    bind_override = std::move(ascii);
+                }
+                continue;
+            }
             if (option != L"--port" && option != L"--pid" && option != L"--database")
                 throw std::runtime_error("Unbekannte Option; siehe --help.");
             if (++i >= argc) throw std::runtime_error("Wert fuer Option fehlt.");
-            if (option == L"--port") port = static_cast<int>(number(argv[i], 65535));
+            if (option == L"--port") port_override = static_cast<int>(number(argv[i], 65535));
             else if (option == L"--pid") pid = number(argv[i], MAXDWORD);
             else database = argv[i];
         }
         if (demo && (pid || !database.empty())) throw std::runtime_error("--demo ist nicht mit --pid/--database kombinierbar.");
         SetConsoleCtrlHandler(on_console, TRUE);
         const auto directory = executable_directory();
+        deckstatus::NetworkConfig network(network_file, bind_override, port_override, remote_control_override);
+        port = network.active().port;
+        const auto host = network.active().bind;
+        deckstatus::ServerFeatures features;
+        features.network = &network;
+        deckstatus::Portal portal(data_directory);
+        features.portal = &portal;
+        const auto initial_password = portal.initial_password();
+        if (!initial_password.empty()) std::cout << deckstatus::tr("authInitialConsole") << '\n' << deckstatus::tr("authTemporaryConsole") << initial_password << '\n' << deckstatus::tr("authChangeConsole") << '\n' << std::flush;
         if (prolink_mode) {
             if (demo || pid || !database.empty()) throw std::runtime_error("ProLink mode cannot be combined with --demo, --pid or --database.");
             deckstatus::ProLink link(directory);
             deckstatus::MasterHistory history([&](std::uint32_t id) { return link.cover(id); });
-            deckstatus::ServerFeatures features;
             features.mode = "prolink";
             features.prolink_setup = [&] { return link.setup(); };
             features.prolink_control = [&](const nlohmann::json& command) { return link.control(command); };
@@ -232,7 +261,7 @@ int wmain(int argc, wchar_t** argv) {
                 }
             });
             std::cout << deckstatus::tr("prolinkStartup") << '\n';
-            return deckstatus::run_server("127.0.0.1", port, directory / "web", [&] { return link.snapshot(); },
+            return deckstatus::run_server(host, port, directory / "web", [&] { return link.snapshot(); },
                 [&](int id) -> std::pair<std::string, std::string> {
                     const auto state = link.snapshot();
                     for (const auto& deck : state["decks"]) if (deck["id"] == id && deck.value("loaded", false))
@@ -363,14 +392,16 @@ int wmain(int argc, wchar_t** argv) {
             if (demo) return {"image/bmp", demo_cover()};
             return artwork->get(track_id);
         };
-        std::cout << "Dashboard: http://127.0.0.1:" << port << "/\n"
-                  << "JSON:      http://127.0.0.1:" << port << "/api/state\n"
-                  << "OBS:       http://127.0.0.1:" << port << "/overlay?deck=1\n"
-                  << "Decks:     http://127.0.0.1:" << port << "/overlay/settings\n"
-                  << "Master:    http://127.0.0.1:" << port << "/master-overlay/settings\n"
-                  << "Waveform:  http://127.0.0.1:" << port << "/waveform/settings\n"
+        const auto base = deckstatus::network_url(host == "0.0.0.0" ? "127.0.0.1" : host, port);
+        std::cout << "Dashboard: " << base << "/\n"
+                  << "JSON:      " << base << "/api/state\n"
+                  << "OBS:       " << base << "/overlay?deck=1\n"
+                  << "Decks:     " << base << "/overlay/settings\n"
+                  << "Master:    " << base << "/master-overlay/settings\n"
+                  << "Waveform:  " << base << "/waveform/settings\n"
+                  << "Network:   " << base << "/network/settings\n"
                   << deckstatus::tr("cliStop") << "\n" << std::flush;
-        const int result = deckstatus::run_server("127.0.0.1", port, directory / "web", snapshot, cover, stopping, &master_history);
+        const int result = deckstatus::run_server(host, port, directory / "web", snapshot, cover, stopping, &master_history, &features);
         stopping = true;
         return result;
     } catch (const std::exception& error) {

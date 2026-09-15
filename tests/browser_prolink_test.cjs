@@ -4,7 +4,7 @@ let mode='rekordbox',phase='stopped',devices=[],players=[],posts=[],failed=false
 const source=[{number:1,name:'CDJ-3000',address:'192.0.2.11',kind:'player',supported:true,selectable:true},{number:2,name:'CDJ-3000',address:'192.0.2.12',kind:'player',supported:true,selectable:true},{number:33,name:'DJM-A9',address:'192.0.2.33',kind:'mixer',supported:true,selectable:false},{number:9,name:'<img src=x onerror=alert(1)>',address:'192.0.2.99',kind:'player',supported:false,selectable:false}];
 withBrowser((req,res,url)=>{
  if(!url.pathname.startsWith('/api/'))return false;res.setHeader('Content-Type','application/json');
- if(url.pathname==='/api/app')res.end(JSON.stringify({version:'1.4.0',mode,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink'}}));
+ if(url.pathname==='/api/app')res.end(JSON.stringify({version:'2.0.1',mode,canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink',networkSettings:true}}));
  else if(url.pathname==='/api/prolink/devices'){
   if(failed){res.statusCode=503;res.end('{}');return true;}
   res.end(JSON.stringify({status:phase,message:phase==='connected'?'prolinkConnected':'prolinkStopped',runtimeAvailable:true,devices:devices.map(d=>({...d,selected:players.includes(d.number),playing:phase==='connected'&&d.number===1,synced:phase==='connected',onAir:phase==='connected'&&d.number===1,master:d.number===1,firmware:'test fixture',bpm:128})),players,localAddress:phase==='connected'?'192.0.2.100':'',networkInterface:'Ethernet · synthetic fixture',virtualPlayer:phase==='connected'?7:null}));
@@ -18,7 +18,16 @@ withBrowser((req,res,url)=>{
  assert.equal(await evaluate('document.querySelector("[data-capability=prolinkSetup]").getAttribute("aria-disabled")'),'true');
  assert.equal(await evaluate('document.querySelector("[data-capability=prolinkSetup]").hasAttribute("href")'),false);
  assert.equal(await evaluate('document.querySelectorAll(".nav-group").length'),3);
- assert.equal(await evaluate('document.querySelectorAll(".nav-link").length'),8);
+ assert.equal(await evaluate('document.querySelectorAll(".nav-link").length'),11);
+ assert.deepEqual(await evaluate('[...document.querySelectorAll(".nav-group-label")].map(el=>el.textContent)'),['Start','Stream','Connections']);
+ assert.equal(await evaluate('document.querySelector("[data-capability=admin]").parentElement.matches("nav")'),true,'Admin must stand alone');
+ assert.deepEqual(await evaluate('[...document.querySelectorAll(".nav-components-menu a")].map(a=>a.dataset.href)'),['/overlay/settings','/master-overlay/settings','/waveform/settings']);
+ assert.equal(await evaluate('document.querySelector("[data-capability=scenes]").closest(".nav-group")===document.querySelector("[data-capability=history]").closest(".nav-group")'),true);
+ await evaluate('document.querySelector(".nav-components summary").focus()');
+ await call('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowDown',windowsVirtualKeyCode:40});
+ assert.equal(await evaluate('document.querySelector(".nav-components").open && document.activeElement.dataset.capability==="deckOverlays"'),true,'Dropdown keyboard open failed');
+ await call('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',windowsVirtualKeyCode:27});
+ assert.equal(await evaluate('!document.querySelector(".nav-components").open && document.activeElement.matches(".nav-components summary")'),true,'Dropdown Escape failed');
  assert.equal(posts.length,0,'Opening setup started networking');
  mode='prolink';await navigate('/prolink/settings?lang=en');await until(()=>evaluate('!document.querySelector("#prolink-content").hidden'),'ProLink settings missing');
  assert.equal(await evaluate('document.querySelector("[data-capability=rekordboxSetup]").hasAttribute("href")'),false);
@@ -34,8 +43,13 @@ withBrowser((req,res,url)=>{
  await screenshot('prolink-connected-en');
  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
  assert.equal(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),true,'Mobile navigation overflows');
+ await evaluate('document.querySelector(".nav-components summary").click()');
+ assert.equal(await evaluate('document.querySelector(".nav-components").open && document.documentElement.scrollWidth<=innerWidth'),true,'Open mobile dropdown overflows');
  await evaluate('document.querySelector("[data-language]").value="de";document.querySelector("[data-language]").dispatchEvent(new Event("change"))');
  assert.equal(await evaluate('document.getElementById("discover").textContent'),'Geräte suchen');
+ assert.equal(await evaluate('document.querySelector("[data-i18n=navComponents]").textContent'),'Szenen-Komponenten');
+ await evaluate('document.querySelector("h1").click()');
+ assert.equal(await evaluate('document.querySelector(".nav-components").open'),false,'Outside click did not close dropdown');
  assert.ok(await evaluate('document.getElementById("app-mode").textContent.startsWith("Modus")'));
  failed=true;await until(()=>evaluate('!document.getElementById("connection-error").hidden'),'Connection failure not shown');
  assert.equal(await evaluate('document.getElementById("connect").disabled'),true);failed=false;

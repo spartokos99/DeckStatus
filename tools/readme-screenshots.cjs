@@ -16,14 +16,28 @@ const current={...track(0,2),isMaster:true,coverUrl:'/api/master/covers/1001'};
 const history=[1,2].map(i=>({...track(i),coverUrl:'/api/master/covers/'+(i+1001)}));
 const signal=Array.from({length:1024},(_,i)=>Math.sin(2*Math.PI*13*i/1024)*.36+Math.sin(2*Math.PI*31*i/1024)*.16);
 let sequence=0, screenshotMode='rekordbox';
+const demoUser={id:'synthetic-admin',username:'admin',role:'admin',mustChangePassword:false};
+const demoScene={id:'synthetic-scene',key:'synthetic-example-key',revision:1,name:'Late-night studio',width:1920,height:1080,background:'transparent',items:[
+ {id:'master',type:'master',x:70,y:70,width:800,height:720,opacity:1,visible:true,options:{width:752,history:2,historyScale:.82,timeline:true,lang:'en'}},
+ {id:'deck',type:'deck',x:1130,y:180,width:680,height:300,opacity:1,visible:true,options:{deck:2,width:660,timeline:true,fontSize:24,lang:'en'}},
+ {id:'wave',type:'waveform',x:100,y:830,width:1720,height:200,opacity:1,visible:true,options:{mode:'mirror',width:1720,height:200,color:'#a8eccf',color2:'#48bce8',lang:'en'}}]};
+for(const [i,entry]of entries.entries()){entry.ratingId='synthetic-rating-'+i;entry.rating={count:16+i*3,average:(68+i*15)/(16+i*3),mine:4};}
 const colours=['#56ae99','#597fb4','#b071a0','#bd9b64'];
 function cover(index){const colour=colours[index%4];return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><rect width="300" height="300" fill="#142c32"/><circle cx="180" cy="145" r="130" fill="${colour}"/><circle cx="180" cy="145" r="88" fill="#142c32"/><circle cx="180" cy="145" r="35" fill="${colour}"/><path d="M0 250L300 60V110L0 300Z" fill="#cceadd" opacity=".45"/></svg>`;}
 withBrowser((req,res,url)=>{
-  if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({version:'1.4.0',mode:screenshotMode,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:screenshotMode==='rekordbox',prolinkSetup:screenshotMode==='prolink'}}));return true;}
+  if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({version:'2.0.1',mode:screenshotMode,user:demoUser,canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:screenshotMode==='rekordbox',prolinkSetup:screenshotMode==='prolink',networkSettings:true,scenes:true,admin:true}}));return true;}
   if(url.pathname==='/api/prolink/devices'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'connected',message:'prolinkConnected',runtimeAvailable:true,players:[1,2],networkInterface:'Ethernet · synthetic fixture',localAddress:'192.0.2.100',virtualPlayer:7,devices:[{number:1,name:'CDJ-3000',address:'192.0.2.11',selectable:true,supported:true,selected:true,playing:true,onAir:true,synced:true,master:true,bpm:128.5},{number:2,name:'CDJ-3000',address:'192.0.2.12',selectable:true,supported:true,selected:true,playing:true,onAir:false,synced:true,master:false,bpm:128.5},{number:33,name:'DJM-A9',address:'192.0.2.33',selectable:false,supported:true}]}));return true;}
   if(!url.pathname.startsWith('/api/'))return false;
+  if(url.pathname==='/api/network'){res.setHeader('Content-Type','application/json');const settings={bind:'0.0.0.0',port:18740,allowRemoteControl:false};res.end(JSON.stringify({active:settings,saved:settings,canConfigure:true,restartRequired:false,commandLineOverrides:false,interfaces:[{name:'Ethernet · synthetic fixture',address:'192.0.2.100'}],urls:['http://127.0.0.1:18740','http://192.0.2.100:18740']}));return true;}
   if(url.pathname.includes('/cover')){const index=Number(url.searchParams.get('trackId')||url.pathname.split('/').at(-1))||1001;res.setHeader('Content-Type','image/svg+xml');res.end(cover(index-1001));return true;}
   res.setHeader('Content-Type','application/json');
+  if(url.pathname==='/api/scenes'){res.end(JSON.stringify({scenes:[demoScene]}));return true;}
+  if(url.pathname==='/api/presets'){res.end(JSON.stringify({presets:demoScene.items.map(item=>({id:'synthetic-preset-'+item.id,revision:1,name:{master:'Studio master',deck:'Clean deck',waveform:'Mint waveform'}[item.type],type:item.type,options:item.options}))}));return true;}
+  if(url.pathname==='/api/scene'){res.end(JSON.stringify(demoScene));return true;}
+  if(url.pathname==='/api/broadcast'){res.end(JSON.stringify({deck:'synthetic-deck-key',master:'synthetic-master-key',waveform:'synthetic-wave-key'}));return true;}
+  if(url.pathname==='/api/auth/me'){res.end(JSON.stringify({user:null}));return true;}
+  if(url.pathname==='/api/admin/users'){res.end(JSON.stringify({users:[demoUser]}));return true;}
+  if(url.pathname==='/api/admin/ratings'){res.end(JSON.stringify({tracks:entries.map((entry,i)=>({...entry,...entry.rating,distribution:[0,1,2,5,8+i*3]}))}));return true;}
   if(url.pathname==='/api/state')res.end(JSON.stringify({status:'connected',demo:false,message:'Connected',version:'7.2.18.0',updatedAt:Date.UTC(2026,8,15,20,32),sampleAgeMs:24,artworkStatus:'Ready',masterDeckId:2,decks}));
   else if(url.pathname==='/api/master')res.end(JSON.stringify({status:'connected',demo:false,current,history,historyLimit:50}));
   else if(url.pathname==='/api/history')res.end(JSON.stringify({status:'connected',demo:false,entries:[...entries].reverse(),total:entries.length,nextBefore:null}));
@@ -56,10 +70,12 @@ withBrowser((req,res,url)=>{
   await size(1440,1240);await navigate('/overlay/settings?deck=1&timeline=1&lang=en');
   await until(()=>evaluate('document.getElementById("preview").contentDocument?.querySelector("[data-time=position]")?.textContent==="1:05"'),'Settings preview missing');
   await evaluate('document.getElementById("preset").value="light";document.getElementById("preset").dispatchEvent(new Event("change"))');await delay(500);
+  await evaluate('document.getElementById("saved-preset").value="synthetic-preset-deck";document.getElementById("saved-preset").dispatchEvent(new Event("change"))');
   await capture('deckstatus-settings',1440,1200);
 
   await navigate('/waveform/settings?lang=en');
   await until(()=>evaluate('document.getElementById("preview").contentDocument?.querySelector("canvas")?.dataset.signal==="live" && document.getElementById("device").options.length===2'),'Waveform preview missing');await delay(150);
+  await evaluate('document.getElementById("saved-preset").value="synthetic-preset-wave";document.getElementById("saved-preset").dispatchEvent(new Event("change"))');
   await capture('waveform-settings',1440,1240);
 
   await navigate('/history?lang=en');await until(()=>evaluate('document.querySelectorAll("tbody tr").length===8 && [...document.querySelectorAll("tbody img")].every(image=>!image.hidden&&image.naturalWidth>0)'),'Full History preview missing');await delay(200);
@@ -68,6 +84,18 @@ withBrowser((req,res,url)=>{
   screenshotMode='prolink';await size(1440,1340);await navigate('/prolink/settings?lang=en');
   await until(()=>evaluate('document.querySelectorAll(".device-card").length===3 && document.getElementById("app-mode").textContent.includes("ProLink")'),'ProLink setup preview missing');
   await capture('prolink-settings',1440,1340);screenshotMode='rekordbox';
+
+  await size(1440,1340);await navigate('/network/settings?lang=en');
+  await until(()=>evaluate('document.getElementById("network-urls").children.length===2 && !document.getElementById("network-fields").disabled'),'Network settings preview missing');
+  await capture('network-settings',1440,1340);
+
+  await size(1440,1420);await navigate('/scenes?lang=en');
+  await until(()=>evaluate('document.querySelectorAll(".scene-item iframe").length===3 && [...document.querySelectorAll(".scene-item iframe")].filter(f=>f.src.includes("overlay")).every(f=>f.contentDocument?.querySelector(".track"))'),'Scene preview missing');await delay(900);
+  await evaluate('document.getElementById("scene-component").value="synthetic-preset-master";document.getElementById("scene-component").dispatchEvent(new Event("change"))');
+  await capture('scene-editor',1440,1420);
+
+  await size(1440,1120);await navigate('/admin?lang=en');await until(()=>evaluate('document.querySelectorAll("#rating-rows tr").length===8'),'Rating admin preview missing');
+  await capture('admin-ratings',1440,1120);
 
   await size(1200,600);await navigate('/?lang=en');await until(()=>evaluate('document.querySelectorAll(".deck").length===4'),'Style gallery setup missing');
   await evaluate(`(async()=>{
@@ -82,7 +110,7 @@ withBrowser((req,res,url)=>{
   })()`);
   await until(()=>evaluate('[...document.querySelectorAll("iframe")].every(frame=>frame.contentDocument?.querySelector("[data-field=title]")?.textContent==="Night Drive")'),'Style gallery missing');await delay(200);
   await capture('deckstatus-styles',1200,580);
-  for(const file of ['README.md','README.de.md']){
+  for(const file of ['README.md']){
     const markdown=fs.readFileSync(path.join(root,file),'utf8');
     for(const match of markdown.matchAll(/!\[[^\]]*\]\(docs\/images\/([^)]*\.png)\)/g))assert.ok(images.includes(match[1]),'README screenshot was not regenerated in English: '+match[1]);
   }

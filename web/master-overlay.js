@@ -1,4 +1,5 @@
 import { parseOptions } from './master-options.js';
+import {broadcastUrl} from './broadcast.js';
 import { getLanguage, t } from './i18n.js';
 import { applyAppearance, makeCard, updateCardContent } from './overlay-shared.js';
 
@@ -115,7 +116,7 @@ async function poll() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 1800);
   try {
-    const response = await fetch('/api/master', { cache: 'no-store', signal: controller.signal });
+    const response = await fetch(broadcastUrl('/api/master'), { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
     if (!data || !Array.isArray(data.history)) throw new Error('Invalid master feed');

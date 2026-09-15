@@ -1,0 +1,5 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const testPassword='Isolated smoke test passphrase 42!';
+function isolatedStore(prefix){const parent=path.resolve('build/test-artifacts');fs.mkdirSync(parent,{recursive:true});const folder=fs.mkdtempSync(path.join(parent,prefix+' '));return {folder,data:path.join(folder,'DeckStatus.data'),cleanup(){assert.equal(path.dirname(path.resolve(folder)),parent,'Unexpected cleanup path');fs.rmSync(folder,{recursive:true,force:true});}};}
+async function authenticate(request,log){const temporary=log.match(/(?:Temporary password|Temporäres Passwort): ([a-f0-9]+)/)?.[1];let response=await request('/api/auth/login',{username:'admin',password:temporary||testPassword});assert.equal(response.status,200,'Test sign-in failed');if(temporary){response=await request('/api/auth/password',{currentPassword:temporary,password:testPassword});assert.equal(response.status,200,'Test password change failed');assert.equal((await request('/api/auth/login',{username:'admin',password:testPassword})).status,200);}}
+module.exports={isolatedStore,authenticate};

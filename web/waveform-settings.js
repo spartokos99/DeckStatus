@@ -1,9 +1,14 @@
 import {t,translate,getLanguage,locale} from './i18n.js';
 import {readSetting,writeSetting} from './storage.js';
+import {appReady} from './navigation.js';
+import {broadcastUrl,loadBroadcastKeys} from './broadcast.js';
+import {setupPresets} from './component-presets.js';
+const broadcastKeys=await loadBroadcastKeys();
 import {controls,defaults,presets,normalize,overlayUrl} from './waveform-options.js';
 const $=id=>document.getElementById(id), key='deckstatus.waveform.options';
 let saved={};try{saved=JSON.parse(readSetting(key)||'{}');}catch{}
 let options=normalize(saved), devices=[], deviceError, audioState={status:'stopped'}, busy=false, previewTimer;
+let canControl=false;
 const main=new Set(['mode','width','height','color','color2','background','opacity','gradient']);
 const signal=new Set(['channel','gain','smoothing','gate','minHz','maxHz','historySeconds']);
 for(const [name,type,a,b,step] of controls){
@@ -23,7 +28,7 @@ function sync(fill=true){
     $(name+'-value').textContent=type==='range'?Number(options[name]).toLocaleString(locale()):'';}
   $('maxHz').value=options.maxHz;
   writeSetting(key,JSON.stringify(options));
-  const url=overlayUrl(options,getLanguage());$('url').value=url;$('open').href=url;
+  const url=new URL(broadcastUrl(overlayUrl(options,getLanguage()),broadcastKeys.waveform),location.origin).href;$('url').value=url;$('open').href=url;
   $('dimensions').textContent=options.width+' × '+options.height+' px';
   $('preview').width=options.width;$('preview').height=options.height;
   clearTimeout(previewTimer);previewTimer=setTimeout(()=>{$('preview').src=url;},120);
@@ -42,7 +47,8 @@ function renderDevices(){
   renderStatus();
 }
 function renderStatus(){
-  $('start').disabled=busy||!$('device').value;$('stop').disabled=busy||audioState.status==='stopped';$('refresh').disabled=busy;
+  $('start').disabled=!canControl||busy||!$('device').value;$('stop').disabled=!canControl||busy||audioState.status==='stopped';$('refresh').disabled=busy;
+  $('remote-readonly').hidden=canControl;
   const message=deviceError||audioState.error||({stopped:'waveStopped',starting:'waveStarting',capturing:audioState.fresh?'waveCapturing':'waveWaiting',error:'audioError'}[audioState.status]||'audioError');
   $('audio-status').textContent=t(message)+(audioState.deviceName?' · '+audioState.deviceName:'');
   let sum=0;for(const sample of audioState.left||[])if(Number.isFinite(sample))sum+=sample*sample;
@@ -53,6 +59,7 @@ async function refreshDevices(){
   catch{deviceError='waveServerUnavailable';devices=[];}renderDevices();
 }
 async function source(deviceId){
+  if(!canControl)return;
   busy=true;renderStatus();
   try{const response=await fetch('/api/audio/source',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({deviceId}),signal:AbortSignal.timeout(5000)});
     const result=await response.json();if(!response.ok){deviceError=result.error==='audioDeviceLost'?'audioDeviceLost':'audioError';}else{audioState=result;deviceError=null;}}
@@ -67,5 +74,8 @@ async function poll(){
 }
 window.addEventListener('pagehide',()=>{disposed=true;clearTimeout(pollTimer);clearTimeout(previewTimer);});
 window.addEventListener('languagechange',()=>{translate();renderDevices();sync();document.title=t('waveSettings')+' · DeckStatus';});
-translate();sync();await poll();await refreshDevices();
+function appMode(app){canControl=!!app&&app.canControl!==false;renderStatus();}
+window.addEventListener('appmodechange',event=>appMode(event.detail));
+translate();sync();appMode(await appReady);await poll();await refreshDevices();
 document.title=t('waveSettings')+' · DeckStatus';
+setupPresets({type:'waveform',read:()=>({...options,lang:getLanguage()}),apply:value=>{options=normalize(value);$('preset').value='custom';sync();}});

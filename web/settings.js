@@ -1,6 +1,9 @@
 import { readSetting, writeSetting } from './storage.js';
 import { defaults, presets, normalize, parseOptions, overlayPath, deckOverlayPath } from './master-options.js';
 import { t, getLanguage, locale } from './i18n.js';
+import {broadcastUrl,loadBroadcastKeys} from './broadcast.js';
+import {setupPresets} from './component-presets.js';
+const broadcastKeys=await loadBroadcastKeys();
 const mode = location.pathname.startsWith('/master-overlay') ? 'master' : 'deck';
 const byId = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);
@@ -14,7 +17,7 @@ const stored = id => normalize({ ...(read(key(id)) || defaults), deck: id, lang:
 let options = stored(deck);
 if ([...query.keys()].some(name => name in defaults && !['lang', 'deck'].includes(name))) options = normalize({ ...parseOptions(location.search), deck, lang: getLanguage() });
 let pending, state = null;
-document.querySelectorAll('[data-mode]').forEach(node => { node.hidden = node.dataset.mode !== mode; });
+document.querySelectorAll('main [data-mode]').forEach(node => { node.hidden = node.dataset.mode !== mode; });
 byId('deck').value = deck;
 
 function labels() {
@@ -37,7 +40,7 @@ function syncControls() {
 function apply() {
   clearTimeout(pending);
   options.lang = getLanguage();
-  const path = (mode === 'master' ? overlayPath : deckOverlayPath)(options);
+  const path = broadcastUrl((mode === 'master' ? overlayPath : deckOverlayPath)(options),broadcastKeys[mode]);
   byId('url').value = new URL(path, location.origin).href;
   byId('open').href = path;
   // Reserve space for a full history, larger fonts and a stacked cover.
@@ -52,7 +55,7 @@ function apply() {
   if (mode === 'deck') {
     byId('deck-links').replaceChildren(...[1,2,3,4].map(id => {
       const link = document.createElement('a'); link.textContent = t('deck', { id }) + ' ↗';
-      link.href = deckOverlayPath(stored(id)); link.target = '_blank'; link.rel = 'noopener'; return link;
+      link.href = broadcastUrl(deckOverlayPath(stored(id)),broadcastKeys.deck); link.target = '_blank'; link.rel = 'noopener'; return link;
     }));
   }
   labels();
@@ -87,3 +90,8 @@ async function poll() {
   labels(); setTimeout(poll, 1000);
 }
 syncControls(); apply(); poll();
+setupPresets({type:mode,read:()=>({...options,deck}),apply:value=>{
+  options=normalize({...value,lang:getLanguage()});
+  if(mode==='deck'){deck=options.deck;byId('deck').value=deck;save('deckstatus.deck.selected',deck);}
+  syncControls();apply();
+}});

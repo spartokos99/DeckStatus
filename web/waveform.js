@@ -1,4 +1,5 @@
 import {normalize} from './waveform-options.js';
+import {broadcastUrl} from './broadcast.js';
 import {WaveformRenderer} from './waveform-renderer.js';
 import {t} from './i18n.js';
 const canvas = document.getElementById('waveform');
@@ -8,7 +9,7 @@ const renderer = new WaveformRenderer(canvas,options);
 let disposed = false, timer;
 async function poll() {
   try {
-    const response = await fetch('/api/audio/state',{cache:'no-store',signal:AbortSignal.timeout(1500)});
+    const response = await fetch(broadcastUrl('/api/audio/state'),{cache:'no-store',signal:AbortSignal.timeout(1500)});
     if(!response.ok)throw Error('Audio unavailable');
     renderer.update(await response.json());
   } catch { renderer.clearSignal(); }

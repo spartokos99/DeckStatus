@@ -40,7 +40,7 @@ The helper uses **Beat Link 8.0.0** and its dependencies. It joins as a virtual 
 
 Windows Firewall must allow the bundled `prolink/runtime/bin/java.exe` on the private DJ network. PRO DJ LINK uses UDP 50000–50002 and additional player metadata/NFS traffic. Rekordbox, Beat Link Trigger or another Link client on the same PC may already occupy the ports. Stop that client before connecting. No automatic firewall rules, adapter settings or device configuration are changed.
 
-The web server still binds to `127.0.0.1`. The Java helper has no HTTP service: bounded newline-delimited JSON travels over inherited anonymous pipes. The host launches it without a visible console and owns it through a Windows job object. Closing/crashing the host terminates its helper. Stale helper or player reports stop producing live deck data. No ProLink networking or Java process starts in Rekordbox mode.
+The web server initially binds to `127.0.0.1`; the current source supports optional [network access](network.md). The Java helper has no HTTP service: bounded newline-delimited JSON travels over inherited anonymous pipes. The host launches it without a visible console and owns it through a Windows job object. Closing/crashing the host terminates its helper. Stale helper or player reports stop producing live deck data. No ProLink networking or Java process starts in Rekordbox mode.
 
 The portable ZIP includes an unmodified **Eclipse Temurin 21.0.12.1+1 Windows x64 JRE**. Users do not need to install Java. Beat Link may temporarily cache metadata export files downloaded from players. No audio recording or playback is added. The existing WASAPI waveform remains a separate feature and starts with capture off.
 

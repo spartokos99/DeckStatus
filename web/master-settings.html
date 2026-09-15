@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/icon.svg"><title>DeckStatus overlay settings</title><link rel="stylesheet" href="/settings.css"><link rel="stylesheet" href="/navigation.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/icon.svg"><title>DeckStatus overlay settings</title><link rel="stylesheet" href="/settings.css"><link rel="stylesheet" href="/navigation.css"><link rel="stylesheet" href="/component-presets.css"></head>
 <body><div class="shell">
 <header></header>
 <div class="intro"><span class="eyebrow" data-i18n="stream"></span><h1 id="heading"></h1><p id="intro"></p></div>
@@ -13,7 +13,7 @@
 <div class="setting" ><label for="duration"><span data-i18n="duration"></span> <output id="duration-value"></output></label><input data-option id="duration" type="range" min="0" max="2000" step="50"><small data-i18n="durationHelp"></small></div>
 <div class="setting" ><label for="width"><span data-i18n="width"></span> <output id="width-value"></output></label><input data-option id="width" type="number" min="320" max="1600" step="10"></div>
 <h2 data-i18n="appearance"></h2>
-<div class="setting" ><label for="preset"><span data-i18n="preset"></span> <output id="preset-value"></output></label><select id="preset"><option value="custom" data-i18n="custom"></option><option value="midnight" data-i18n="midnight"></option><option value="light" data-i18n="light"></option><option value="minimal" data-i18n="minimal"></option></select><small data-i18n="presetHelp"></small></div>
+<div class="setting" ><label for="preset"><span data-i18n="presetBuiltIn"></span> <output id="preset-value"></output></label><select id="preset"><option value="custom" data-i18n="custom"></option><option value="midnight" data-i18n="midnight"></option><option value="light" data-i18n="light"></option><option value="minimal" data-i18n="minimal"></option></select><small data-i18n="presetHelp"></small></div>
 <div class="design-grid">
 <div class="setting" ><label for="background"><span data-i18n="background"></span> <output id="background-value"></output></label><input data-option id="background" type="color"></div><div class="setting" ><label for="textColor"><span data-i18n="textColor"></span> <output id="textColor-value"></output></label><input data-option id="textColor" type="color"></div><div class="setting" ><label for="mutedColor"><span data-i18n="mutedColor"></span> <output id="mutedColor-value"></output></label><input data-option id="mutedColor" type="color"></div><div class="setting" ><label for="accent"><span data-i18n="accent"></span> <output id="accent-value"></output></label><input data-option id="accent" type="color"></div>
 <div class="setting" ><label for="opacity"><span data-i18n="opacity"></span> <output id="opacity-value"></output></label><input data-option id="opacity" type="range" min="0" max="100" step="1"></div>
@@ -24,6 +24,7 @@
 <button id="reset" type="button" data-i18n="reset"></button>
 <div class="setting" data-mode="deck" style="margin-top:20px"><button id="all-decks" type="button" data-i18n="allDecks"></button><small data-i18n="allDecksHelp"></small></div>
 </section><section class="preview-column">
+<section id="component-presets" class="component-presets" data-i18n-aria="presetLibrary"></section>
 <div class="preview-heading"><h2 data-i18n="preview"></h2><span class="status" id="status" role="status"></span></div>
 <div class="canvas"><iframe id="preview" data-i18n-title="preview"></iframe></div><p class="hint" data-i18n="previewHint"></p>
 <div class="url-panel"><h2 data-i18n="useObs"></h2><p data-i18n="obsHelp"></p>

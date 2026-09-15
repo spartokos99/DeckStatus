@@ -1,0 +1,53 @@
+const assert=require('node:assert/strict');
+const {withBrowser}=require('./browser_fixture.cjs');
+let active={bind:'127.0.0.1',port:18740,allowRemoteControl:false},saved={...active},canConfigure=true,canControl=true,mode='rekordbox',fail=false,reads=0;
+const posts=[];
+const network=()=>({active,saved,canConfigure,restartRequired:JSON.stringify(active)!==JSON.stringify(saved),commandLineOverrides:false,interfaces:[{address:'192.0.2.10',name:'Ethernet · synthetic fixture'},{address:'192.0.2.20',name:'<img src=x onerror=alert(1)>'}],urls:active.bind==='127.0.0.1'?['http://127.0.0.1:'+active.port]:['http://127.0.0.1:'+active.port,'http://192.0.2.10:'+active.port]});
+withBrowser((req,res,url)=>{
+ if(!url.pathname.startsWith('/api/'))return false;res.setHeader('Content-Type','application/json');
+ if(url.pathname==='/api/app')res.end(JSON.stringify({version:'2.0.1',mode,canControl,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,networkSettings:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink'}}));
+ else if(req.method==='POST'){
+  let body='';req.on('data',data=>body+=data);req.on('end',()=>{posts.push({path:url.pathname,body:JSON.parse(body)});if(url.pathname==='/api/network')saved=JSON.parse(body);res.end(JSON.stringify(network()));});
+ }else if(url.pathname==='/api/network'){reads++;if(fail){res.statusCode=503;res.end('{}');}else res.end(JSON.stringify(network()));}
+ else if(url.pathname==='/api/audio/devices')res.end(JSON.stringify({devices:[{id:'synthetic',name:'Synthetic input',kind:'input'}]}));
+ else if(url.pathname==='/api/audio/state')res.end(JSON.stringify({status:'stopped',fresh:false,left:[],right:[]}));
+ else if(url.pathname==='/api/prolink/devices')res.end(JSON.stringify({status:'stopped',message:'prolinkStopped',runtimeAvailable:true,devices:[{number:1,name:'CDJ-3000',address:'192.0.2.11',selectable:true,supported:true}],players:[]}));
+ else{res.statusCode=404;res.end('{}');}return true;
+},async({navigate,evaluate,until,call,screenshot})=>{
+ const change=async(id,value)=>evaluate(`(()=>{const input=document.getElementById(${JSON.stringify(id)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('change'));})()`);
+ await navigate('/network/settings?lang=en');await until(()=>evaluate('!document.getElementById("network-fields").disabled'),'Network settings did not load');
+ assert.equal(await evaluate('document.querySelector("[data-capability=networkSettings]").getAttribute("aria-disabled")'),'false');
+ assert.equal(await evaluate('document.getElementById("network-access").value'),'local');assert.equal(posts.length,0);
+ await change('network-access','lan');await change('network-port','18741');await evaluate('document.getElementById("network-control").checked=true');
+ const start=reads;await until(()=>reads>start,'Network status did not refresh');
+ assert.equal(await evaluate('document.getElementById("network-port").value'),'18741','Polling overwrote unsaved edits');
+ await change('network-port','0');await evaluate('document.getElementById("network-save").click()');assert.equal(posts.length,0,'Invalid port submitted');
+ await change('network-port','18741');await evaluate('document.getElementById("network-save").click()');await until(()=>posts.length===1,'Settings not submitted');
+ assert.deepEqual(posts[0].body,{bind:'0.0.0.0',port:18741,allowRemoteControl:true});
+ await until(()=>evaluate('!document.getElementById("network-restart").hidden'),'Restart notice missing');
+ assert.equal(await evaluate('document.getElementById("network-active").textContent'),'This PC only');
+ active={...saved};await navigate('/network/settings?lang=en');await until(()=>evaluate('document.getElementById("network-urls").children.length===2'),'LAN addresses missing');
+ assert.equal(await evaluate('document.getElementById("network-restart").hidden'),true);
+ await change('network-access','interface');await change('network-interface','192.0.2.20');
+ assert.equal(await evaluate('document.querySelectorAll("#network-interface img").length'),0,'Adapter name interpreted as HTML');
+ await evaluate('document.getElementById("network-save").click()');await until(()=>posts.length===2,'Interface setting not saved');assert.equal(saved.bind,'192.0.2.20');
+ await navigate('/network/settings?lang=en');await until(()=>evaluate('document.getElementById("network-interface").value==="192.0.2.20"'),'Specific address not retained');
+ await screenshot('network-settings-en');
+ await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
+ assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Network page overflows on mobile');
+ await evaluate('document.querySelector("[data-language]").value="de";document.querySelector("[data-language]").dispatchEvent(new Event("change"))');
+ assert.equal(await evaluate('document.getElementById("network-save").textContent'),'Für nächsten Start speichern');
+ fail=true;await until(()=>evaluate('!document.getElementById("network-error").hidden'),'Network failure missing');assert.equal(await evaluate('document.getElementById("network-fields").disabled'),true);fail=false;
+ canConfigure=false;canControl=false;await navigate('/network/settings?lang=en');await until(()=>evaluate('!document.getElementById("network-local-only").hidden'),'Remote settings not gated');
+ assert.equal(await evaluate('document.getElementById("network-fields").disabled'),true);
+ await evaluate('document.getElementById("network-save").click()');assert.equal(posts.length,2);
+ assert.equal(await evaluate('document.getElementById("network-urls").textContent.includes("127.0.0.1")'),false);
+ mode='prolink';await navigate('/prolink/settings?lang=en');await until(()=>evaluate('!document.getElementById("prolink-content").hidden && document.querySelector("[data-player]")'),'Remote ProLink missing');
+ assert.equal(await evaluate('document.getElementById("discover").disabled'),true);assert.equal(await evaluate('document.querySelector("[data-player]").disabled'),true);
+ await evaluate('document.getElementById("discover").click()');assert.equal(posts.length,2);
+ await navigate('/waveform/settings?lang=en');await until(()=>evaluate('document.getElementById("device").options.length===2'),'Audio list missing');
+ await change('device','synthetic');assert.equal(await evaluate('document.getElementById("start").disabled'),true);
+ assert.equal(await evaluate('document.getElementById("gain").disabled'),false,'Read-only access disabled visual customization');
+ await evaluate('document.getElementById("start").click()');assert.equal(posts.length,2);
+ console.log('Network UI passed: persistence/restart, unsaved edits, interface/port, safe text, URLs, EN/DE/mobile, outage and remote control gates.');
+}).catch(error=>{console.error(error);process.exitCode=1;});

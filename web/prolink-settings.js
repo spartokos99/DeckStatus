@@ -1,6 +1,6 @@
 import { t, diagnostic, translate, locale } from './i18n.js';
 import { appReady } from './navigation.js';
-let active = false, busy = false, last = null;
+let active = false, busy = false, last = null, canControl = false;
 const selected = new Set();
 const byId = id => document.getElementById(id);
 function error(message) { const el=byId('connection-error');el.hidden=!message;el.textContent=message; }
@@ -8,9 +8,9 @@ function render(state) {
   last = state;
   const connecting = state.status === 'connecting', connected = state.status === 'connected';
   byId('prolink-status').textContent = diagnostic(state.message);
-  byId('discover').disabled = busy || connected || connecting || state.runtimeAvailable === false;
+  byId('discover').disabled = !canControl || busy || connected || connecting || state.runtimeAvailable === false;
   byId('connect').disabled = busy || connected || connecting || selected.size < 1 || selected.size > 4 || state.runtimeAvailable === false;
-  byId('disconnect').disabled = busy || state.status === 'stopped';
+  byId('disconnect').disabled = !canControl || busy || state.status === 'stopped';
   const details=byId('network-details');details.replaceChildren();
   for(const [key,value] of [['prolinkInterface',state.networkInterface],['prolinkAddress',state.localAddress],['prolinkVirtualPlayer',state.virtualPlayer]]) {
     if(value===null || value===undefined || value==='')continue;
@@ -25,7 +25,7 @@ function render(state) {
     const card=document.createElement('article');card.className='device-card';card.dataset.selected=String(connected?device.selected===true:selected.has(device.number));
     const heading=document.createElement('h3'),address=document.createElement('p');heading.textContent=device.name;address.className='device-address';address.textContent=device.address+' · '+t('prolinkDeviceNumber',{number:device.number});card.append(heading,address);
     if(device.selectable){
-      const label=document.createElement('label'),input=document.createElement('input'),text=document.createElement('span');input.type='checkbox';input.dataset.player=device.number;input.checked=connected||connecting?device.selected===true:selected.has(device.number);input.disabled=busy||connected||connecting;
+      const label=document.createElement('label'),input=document.createElement('input'),text=document.createElement('span');input.type='checkbox';input.dataset.player=device.number;input.checked=connected||connecting?device.selected===true:selected.has(device.number);input.disabled=!canControl||busy||connected||connecting;
       const order=(connected||connecting?state.players||[]:[...selected].sort((a,b)=>a-b)).indexOf(device.number);
       text.textContent=order>=0?t('prolinkMappedDeck',{deck:order+1}):t('prolinkUsePlayer');
       input.addEventListener('change',()=>{if(input.checked)selected.add(device.number);else selected.delete(device.number);render(last);});label.append(input,text);card.append(label);
@@ -40,7 +40,7 @@ function render(state) {
   }
   if(focused)container.querySelector('[data-player="'+CSS.escape(focused)+'"]')?.focus({preventScroll:true});
   byId('no-devices').hidden=devices.length>0;
-  byId('connect').disabled=busy||connected||connecting||selected.size<1||selected.size>4||state.runtimeAvailable===false;
+  byId('connect').disabled=!canControl||busy||connected||connecting||selected.size<1||selected.size>4||state.runtimeAvailable===false;
   if(state.runtimeAvailable===false)error(t('prolinkRuntimeMissing'));
 }
 async function poll() {
@@ -49,7 +49,7 @@ async function poll() {
   catch(err){error(err.message);byId('connect').disabled=true;byId('prolink-status').textContent=t('disconnected');byId('devices').querySelectorAll('.device-badge').forEach(badge=>badge.dataset.active='false');}
 }
 async function command(action) {
-  if(!active||busy)return;busy=true;error('');if(last)render(last);
+  if(!active||!canControl||busy)return;busy=true;error('');if(last)render(last);
   try {
     const body={action};if(action==='connect')body.players=[...selected].sort((a,b)=>a-b);
     const response=await fetch('/api/prolink/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(4000)});
@@ -58,7 +58,13 @@ async function command(action) {
   } catch(err){error(err.message);} finally{busy=false;if(last)render(last);}
 }
 for(const action of ['discover','connect','disconnect'])byId(action).addEventListener('click',()=>command(action));
-function mode(app){active=app?.mode==='prolink'&&app.capabilities?.prolinkSetup===true;byId('prolink-content').hidden=!active;byId('mode-unavailable').hidden=active;if(active)poll();}
+function mode(app){
+  active=app?.mode==='prolink'&&app.capabilities?.prolinkSetup===true;canControl=!!app&&app.canControl!==false;
+  byId('remote-readonly').hidden=canControl;byId('prolink-content').hidden=!active;byId('mode-unavailable').hidden=active;
+  if(last)render(last);
+  if(!active||!canControl||!last){for(const action of ['discover','connect','disconnect'])byId(action).disabled=true;byId('devices').querySelectorAll('[data-player]').forEach(input=>input.disabled=true);}
+  if(active)poll();
+}
 window.addEventListener('appmodechange',event=>mode(event.detail));
 window.addEventListener('languagechange',()=>{translate();if(last)render(last);});
 mode(await appReady);setInterval(poll,1000);

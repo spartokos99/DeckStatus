@@ -1,4 +1,5 @@
 import { t, translate, locale } from './i18n.js';
+import {api} from './auth.js';
 const $ = id => document.getElementById(id);
 const rows = new Map(), cursors = [null];
 let page = 0, state = { entries: [], total: 0, status: 'starting' }, busy = false, timer, disposed = false;
@@ -13,11 +14,17 @@ function rowFor(entry) {
     image.addEventListener('load', () => { image.hidden = false; });
     image.addEventListener('error', () => { image.hidden = true; });
     rows.set(entry.entryId, row);
+    const rating=document.createElement('td');rating.className='history-rating';const stars=document.createElement('div');stars.className='rating-stars';stars.setAttribute('role','group');stars.setAttribute('aria-label',t('ratingYourVote'));
+    for(let value=1;value<=5;value++){const button=document.createElement('button');button.type='button';button.textContent='★';button.dataset.stars=value;button.setAttribute('aria-label',t('ratingStars',{count:value}));button.addEventListener('click',async()=>{stars.querySelectorAll('button').forEach(b=>b.disabled=true);try{const result=await api('/api/public/rating',{track:row.dataset.ratingId,stars:value});for(const item of state.entries)if(item.ratingId===row.dataset.ratingId)item.rating=result;$('rating-feedback').textContent=t('ratingThanks');render();}catch(error){$('rating-feedback').textContent=error.message;}finally{stars.querySelectorAll('button').forEach(b=>b.disabled=false);}});stars.append(button);}
+    const average=document.createElement('span');average.className='rating-average';rating.append(stars,average);row.append(rating);
   }
   const field = (name, value) => { row.querySelector('[data-field="' + name + '"]').textContent = value; };
   const current = entry.isMaster === true && (state.status === 'connected' || state.status === 'demo');
   row.dataset.entryId = entry.entryId; row.dataset.current = String(current);
   field('number', entry.entryId);
+  row.dataset.ratingId=entry.ratingId||'';
+  row.querySelectorAll('[data-stars]').forEach(button=>{const active=Number(button.dataset.stars)<=entry.rating?.mine;button.dataset.active=active;button.setAttribute('aria-pressed',String(Number(button.dataset.stars)===entry.rating?.mine));button.setAttribute('aria-label',t('ratingStars',{count:button.dataset.stars}));button.disabled=!entry.ratingId;});
+  row.querySelector('.rating-average').textContent=entry.rating?.count?t('ratingSummary',{average:entry.rating.average.toLocaleString(locale(),{maximumFractionDigits:1}),count:entry.rating.count}):t(entry.ratingId?'ratingNoVotes':'ratingUnavailable');
   const date = Number.isFinite(entry.startedAt) ? new Date(entry.startedAt) : null;
   const validDate = date && Number.isFinite(date.getTime());
   field('time', validDate ? date.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—');
@@ -73,4 +80,5 @@ $('newer').addEventListener('click', () => { if (busy || !page) return; --page; 
 $('refresh').addEventListener('click', () => { if (busy) return; page = 0; cursors.splice(1); load(); });
 window.addEventListener('languagechange', render);
 window.addEventListener('pagehide', () => { disposed = true; clearTimeout(timer); });
+const ratingHeading=document.createElement('th');ratingHeading.scope='col';ratingHeading.dataset.i18n='ratingYourVote';document.querySelector('thead tr').append(ratingHeading);
 translate(); load();

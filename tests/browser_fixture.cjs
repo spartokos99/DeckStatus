@@ -11,9 +11,11 @@ async function withBrowser(handler,test){
     res.setHeader('Cache-Control','no-store');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
     const url=new URL(req.url,'http://localhost');if(handler(req,res,url))return;
-    if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({version:'1.4.0',mode:'rekordbox',capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false}}));}
+    if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({version:'2.0.1',mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));}
     const routes={'/waveform':'waveform.html','/waveform/settings':'waveform-settings.html','/':'index.html','/history':'history.html','/overlay':'overlay.html','/master-overlay':'master-overlay.html','/overlay/settings':'master-settings.html','/master-overlay/settings':'master-settings.html'};
     routes['/prolink/settings']='prolink-settings.html';routes['/rekordbox/settings']='rekordbox-settings.html';
+    routes['/network/settings']='network-settings.html';
+    Object.assign(routes,{'/login':'login.html','/account/password':'password.html','/admin':'admin.html','/scenes':'scene-editor.html','/scene':'scene.html'});
     const name=routes[url.pathname]||url.pathname.slice(1);
     if(!/^(?:[a-z0-9-]+\.(?:js|html|css|svg)|locales\/(?:en|de)\.json)$/.test(name)){res.statusCode=404;return res.end();}
     const asset=path.join(root,'web',name);if(!fs.existsSync(asset)){res.statusCode=404;return res.end();}
@@ -22,7 +24,7 @@ async function withBrowser(handler,test){
   });
   let browser,socket;
   try{
-    await new Promise(resolve=>fixture.listen(0,'127.0.0.1',resolve));const base='http://127.0.0.1:'+fixture.address().port;
+    await new Promise(resolve=>fixture.listen(0,'127.0.0.1',resolve));const base=handler.baseUrl||'http://127.0.0.1:'+fixture.address().port;
     browser=spawn(process.argv[2]||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',['--headless=new','--no-first-run','--disable-background-networking','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{windowsHide:true,stdio:'ignore'});
     let error;browser.on('error',e=>{error=e;});const portFile=path.join(profile,'DevToolsActivePort');
     await until(()=>{if(error)throw error;return fs.existsSync(portFile);},'Browser did not start',15000);

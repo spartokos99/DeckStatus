@@ -52,6 +52,12 @@ CMakeUserPresets.json
 /vendor/RekordBoxSongExporter/
 
 # Local configuration, credentials and Rekordbox library data
+DeckStatus.network.json
+DeckStatus.network.json.tmp-*
+DeckStatus.data/
+portal.json
+portal.json.tmp-*
+portal.lock
 .env
 .env.*
 !.env.example

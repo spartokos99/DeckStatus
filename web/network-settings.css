@@ -1,0 +1,6 @@
+.network-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.2fr);gap:22px}.network-grid>*{min-width:0}
+#network-fields{border:0;margin:20px 0 0;padding:0;min-width:0}.network-check{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.6}.network-check input{width:auto;margin-top:4px;accent-color:#a8eccf}
+.network-url{display:flex;gap:8px;margin:12px 0}.network-url input{min-width:0;flex:1;font-family:ui-monospace,monospace;font-size:12px;padding:12px;border:1px solid #395349;border-radius:7px;background:#0b191c;color:#d9ede5}.network-url button{width:auto;flex-shrink:0;font-size:12px}
+.network-address-title{margin-top:28px!important}.network-connect-help{margin-top:22px}.network-grid .setting{margin-bottom:20px}.network-grid .connection-details{margin-bottom:20px}
+#network-feedback{color:#a8eccf;min-height:1.5em}#network-fields:disabled{opacity:.65}
+@media(max-width:800px){.network-grid{grid-template-columns:1fr}}
