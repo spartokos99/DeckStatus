@@ -8,7 +8,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace rb {
+namespace deckstatus {
 class MasterHistory;
 
 // cover returns { MIME type, binary image data }; empty data means no cover.
@@ -19,4 +19,4 @@ int run_server(const std::string& host, int port,
                std::function<std::pair<std::string, std::string>(int)> cover,
                std::atomic_bool& stop, MasterHistory* master = nullptr);
 
-} // namespace rb
+} // namespace deckstatus

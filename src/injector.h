@@ -1,9 +1,9 @@
 #pragma once
-#include "protocol.h"
+#include "deckstatus_protocol.h"
 #include <filesystem>
 #include <memory>
 
-namespace rb {
+namespace deckstatus {
 struct Target { DWORD pid; std::filesystem::path executable; std::wstring version; };
 Target find_target(DWORD requested_pid = 0);
 

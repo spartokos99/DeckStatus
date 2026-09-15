@@ -42,15 +42,15 @@ struct TestServer {
     std::atomic_bool stop{};
     std::atomic_bool done{};
     std::atomic_int result{-1};
-    rb::MasterHistory master;
+    deckstatus::MasterHistory master;
     std::jthread thread;
 
     TestServer(int port, const std::filesystem::path& root,
                std::function<Json()> snapshot,
                std::function<std::pair<std::string, std::string>(int)> cover)
-        : master([cover](std::uint32_t id) { return id == 11 ? cover(1) : rb::MasterHistory::Cover{}; }),
+        : master([cover](std::uint32_t id) { return id == 11 ? cover(1) : deckstatus::MasterHistory::Cover{}; }),
           thread([this, port, root, snapshot, cover] {
-            result = rb::run_server("127.0.0.1", port, root, snapshot, cover, stop, &master);
+            result = deckstatus::run_server("127.0.0.1", port, root, snapshot, cover, stop, &master);
             done = true;
         }) {}
 
@@ -125,7 +125,7 @@ int main(int argc, char** argv) {
         const auto deck = client.Get("/api/decks/1");
         expect_status(deck, 200, "Individual deck missing");
         require(Json::parse(deck->body)["trackId"] == 11, "Wrong individual deck");
-        for (const char* path : {"/api/decks/0", "/api/decks/2", "/api/decks/5", "/api/decks/one", "/src/main.cpp", "/missing"})
+        for (const char* path : {"/api/decks/0", "/api/decks/2", "/api/decks/5", "/api/decks/one", "/src/deckstatus.cpp", "/missing"})
             expect_status(client.Get(path), 404, "Unknown route or absent deck should return 404");
 
         for (const char* path : {"/", "/index.html", "/overlay", "/overlay.html", "/overlay?deck=4",
@@ -136,7 +136,7 @@ int main(int argc, char** argv) {
             require(page->body.find("<!doctype html>") != std::string::npos, "HTML document missing");
         }
         for (const char* path : {"/master-overlay.js", "/master-options.js", "/deck-overlay.js",
-                                 "/overlay-shared.js", "/settings.js", "/i18n.js"}) {
+                                 "/overlay-shared.js", "/settings.js", "/i18n.js", "/storage.js"}) {
             const auto script = client.Get(path);
             expect_status(script, 200, "Master script missing");
             require(script->get_header_value("Content-Type").starts_with("text/javascript"), "Module MIME missing");
@@ -232,14 +232,14 @@ int main(int argc, char** argv) {
         expect_status(client.Get("/api/state"), 200, "Server should survive a snapshot exception");
 
         std::atomic_bool already_stopped{true};
-        require(rb::run_server("127.0.0.1", port, web_root, snapshot, cover, already_stopped) == 0,
+        require(deckstatus::run_server("127.0.0.1", port, web_root, snapshot, cover, already_stopped) == 0,
                 "Server should accept cancellation before startup");
         std::atomic_bool not_stopped{};
-        require(rb::run_server("127.0.0.1", 0, web_root, snapshot, cover, not_stopped) == 1,
+        require(deckstatus::run_server("127.0.0.1", 0, web_root, snapshot, cover, not_stopped) == 1,
                 "Invalid port should be rejected");
-        require(rb::run_server("127.0.0.1", port, web_root / "missing-assets", snapshot, cover, not_stopped) == 1,
+        require(deckstatus::run_server("127.0.0.1", port, web_root / "missing-assets", snapshot, cover, not_stopped) == 1,
                 "Missing assets should fail startup");
-        require(rb::run_server("127.0.0.1", port, web_root, snapshot, cover, not_stopped) == 1,
+        require(deckstatus::run_server("127.0.0.1", port, web_root, snapshot, cover, not_stopped) == 1,
                 "Occupied port should fail startup");
 
         server.stop = true;

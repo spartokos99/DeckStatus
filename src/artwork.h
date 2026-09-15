@@ -1,6 +1,6 @@
 #pragma once
 
-#include "protocol.h"
+#include "deckstatus_protocol.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-namespace rb {
+namespace deckstatus {
 
 // Looks up artwork and metadata in the local collection, without modifying it.
 // Calls can safely run on different server threads (with distinct DeckData values).
@@ -31,4 +31,4 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-} // namespace rb
+} // namespace deckstatus

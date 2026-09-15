@@ -16,7 +16,7 @@ Json sample(unsigned track, unsigned deck = 1, bool metadata = true) {
 int main() {
     try {
         int calls = 0;
-        rb::MasterHistory feed([&](std::uint32_t id) { ++calls; return rb::MasterHistory::Cover{"image/png", std::to_string(id)}; });
+        deckstatus::MasterHistory feed([&](std::uint32_t id) { ++calls; return deckstatus::MasterHistory::Cover{"image/png", std::to_string(id)}; });
         require(feed.snapshot()["current"].is_null(), "Empty session must have no master");
         feed.update(sample(11));
         const auto first = feed.snapshot()["current"]["entryId"];
@@ -62,10 +62,10 @@ int main() {
         require(feed.cover(11).second.empty() && calls == 1, "Evicted cover remained accessible");
         require(feed.snapshot() == state, "Reading history changed the session");
         // Deterministically evict during an artwork lookup; the result must be rejected.
-        rb::MasterHistory* racing_feed = nullptr;
-        rb::MasterHistory racing([&](std::uint32_t) {
+        deckstatus::MasterHistory* racing_feed = nullptr;
+        deckstatus::MasterHistory racing([&](std::uint32_t) {
             for (unsigned id = 2; id <= 53; ++id) racing_feed->update(sample(id));
-            return rb::MasterHistory::Cover{"image/png", "old bytes"};
+            return deckstatus::MasterHistory::Cover{"image/png", "old bytes"};
         });
         racing_feed = &racing;
         racing.update(sample(1));

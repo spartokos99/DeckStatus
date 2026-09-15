@@ -1,4 +1,4 @@
-#include "protocol.h"
+#include "deckstatus_protocol.h"
 #include "scanner.h"
 
 #include <array>
@@ -13,8 +13,8 @@
 
 namespace {
 
-using rb::memory::read;
-using rb::memory::read_bytes;
+using deckstatus::memory::read;
+using deckstatus::memory::read_bytes;
 
 // Exact 7.2.18.0 Windows x64 profile. Every field and code guard is documented
 // in docs/rekordbox-7.2.18.md. Other versions/builds fail closed.
@@ -54,14 +54,14 @@ public:
     }
     bool open() {
         const auto pid = GetCurrentProcessId();
-        mapping = OpenFileMappingW(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, rb::object_name(pid, L"State").c_str());
-        mutex = OpenMutexW(SYNCHRONIZE | MUTEX_MODIFY_STATE, FALSE, rb::object_name(pid, L"Lock").c_str());
-        stop = OpenEventW(SYNCHRONIZE, FALSE, rb::object_name(pid, L"Stop").c_str());
-        ready = OpenEventW(EVENT_MODIFY_STATE, FALSE, rb::object_name(pid, L"Ready").c_str());
-        stopped = OpenEventW(EVENT_MODIFY_STATE, FALSE, rb::object_name(pid, L"Stopped").c_str());
+        mapping = OpenFileMappingW(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, deckstatus::object_name(pid, L"State").c_str());
+        mutex = OpenMutexW(SYNCHRONIZE | MUTEX_MODIFY_STATE, FALSE, deckstatus::object_name(pid, L"Lock").c_str());
+        stop = OpenEventW(SYNCHRONIZE, FALSE, deckstatus::object_name(pid, L"Stop").c_str());
+        ready = OpenEventW(EVENT_MODIFY_STATE, FALSE, deckstatus::object_name(pid, L"Ready").c_str());
+        stopped = OpenEventW(EVENT_MODIFY_STATE, FALSE, deckstatus::object_name(pid, L"Stopped").c_str());
         if (!mapping || !mutex || !stop || !ready || !stopped) return false;
-        state = static_cast<rb::SharedState*>(MapViewOfFile(mapping, FILE_MAP_READ | FILE_MAP_WRITE,
-                                                          0, 0, sizeof(rb::SharedState)));
+        state = static_cast<deckstatus::SharedState*>(MapViewOfFile(mapping, FILE_MAP_READ | FILE_MAP_WRITE,
+                                                          0, 0, sizeof(deckstatus::SharedState)));
         return state != nullptr;
     }
     bool acquire() const {
@@ -77,7 +77,7 @@ public:
         ReleaseMutex(mutex);
         return valid;
     }
-    bool publish(const rb::SharedState& snapshot) const {
+    bool publish(const deckstatus::SharedState& snapshot) const {
         if (!acquire()) return false;
         if (!valid_protocol()) { ReleaseMutex(mutex); return false; }
         state->sample_tick = snapshot.sample_tick;
@@ -93,12 +93,12 @@ public:
     void finish() const { if (stopped) SetEvent(stopped); }
 
     HANDLE mapping{}, mutex{}, stop{}, ready{}, stopped{};
-    rb::SharedState* state{};
+    deckstatus::SharedState* state{};
 
 private:
     bool valid_protocol() const {
-        return state && state->magic == rb::protocol_magic &&
-               state->version == rb::protocol_version && state->size == sizeof(rb::SharedState);
+        return state && state->magic == deckstatus::protocol_magic &&
+               state->version == deckstatus::protocol_version && state->size == sizeof(deckstatus::SharedState);
     }
 };
 
@@ -192,7 +192,7 @@ bool time_device(std::uintptr_t base, std::uintptr_t player, std::size_t offset,
            member(device, 0x9C, value) && member(player, offset, verified) && verified == device;
 }
 
-void timeline_of_player(std::uintptr_t base, std::uintptr_t player, rb::DeckData& deck) {
+void timeline_of_player(std::uintptr_t base, std::uintptr_t player, deckstatus::DeckData& deck) {
     std::uint32_t position{}, duration{}, verified_id{};
     if (!deck.track_id || !time_device(base, player, 0xCD8, "@CurrentTime", position) ||
         !time_device(base, player, 0xCE0, "@TotalTime", duration) || !duration || duration > 86400000 ||
@@ -204,7 +204,7 @@ void timeline_of_player(std::uintptr_t base, std::uintptr_t player, rb::DeckData
     deck.timeline_available = 1;
 }
 
-void sample_loop(Channel& channel, rb::SharedState& snapshot, std::uintptr_t base) {
+void sample_loop(Channel& channel, deckstatus::SharedState& snapshot, std::uintptr_t base) {
     const auto main_global = base + main_global_rva;
     while (channel.alive()) {
         std::uintptr_t component = 0, manager = 0;
@@ -216,7 +216,7 @@ void sample_loop(Channel& channel, rb::SharedState& snapshot, std::uintptr_t bas
         std::array<std::uint32_t, 4> master_states{};
         snapshot.master_deck = 0;
         for (unsigned index = 0; index < 4; ++index) {
-            rb::DeckData current{};
+            deckstatus::DeckData current{};
             current.id = index + 1;
             std::uintptr_t player = 0, vtable = 0, verified_player = 0;
             std::uint32_t player_index = 0, track_id = 0, verified_id = 0, bpm = 0;
@@ -263,14 +263,14 @@ void sample_loop(Channel& channel, rb::SharedState& snapshot, std::uintptr_t bas
             }
         }
         snapshot.sample_tick = GetTickCount64();
-        snapshot.status = valid_players ? rb::BridgeStatus::connected : rb::BridgeStatus::starting;
+        snapshot.status = valid_players ? deckstatus::BridgeStatus::connected : deckstatus::BridgeStatus::starting;
         text(snapshot.message, valid_players ? "Connected to Rekordbox 7.2.18; sampling live deck IDs, BPM and Master." :
              "Waiting for Rekordbox deck UI and BPM devices.");
         if (!channel.publish(snapshot)) return;
         if (WaitForSingleObject(channel.stop, 100) != WAIT_TIMEOUT) break;
     }
     snapshot.sample_tick = GetTickCount64();
-    snapshot.status = rb::BridgeStatus::stopped;
+    snapshot.status = deckstatus::BridgeStatus::stopped;
     text(snapshot.message, "Bridge stopped.");
     channel.publish(snapshot);
 }
@@ -278,22 +278,22 @@ void sample_loop(Channel& channel, rb::SharedState& snapshot, std::uintptr_t bas
 void run() {
     Channel channel;
     if (!channel.open()) { channel.finish(); return; }
-    rb::SharedState snapshot{};
+    deckstatus::SharedState snapshot{};
     for (unsigned index = 0; index < 4; ++index) snapshot.decks[index].id = index + 1;
     try {
         if (!channel.alive()) { channel.finish(); return; }
         if (!get_version(snapshot.rekordbox_version, sizeof(snapshot.rekordbox_version))) {
-            snapshot.status = rb::BridgeStatus::unsupported;
+            snapshot.status = deckstatus::BridgeStatus::unsupported;
             text(snapshot.message, "This bridge supports the documented rekordbox.exe 7.2.18.0 x64 build only.");
         } else {
-            rb::memory::ImageScanner scanner;
+            deckstatus::memory::ImageScanner scanner;
             const auto module = GetModuleHandleW(nullptr);
             const auto base = reinterpret_cast<std::uintptr_t>(module);
             if (!scanner.initialize(module)) {
-                snapshot.status = rb::BridgeStatus::unsupported;
+                snapshot.status = deckstatus::BridgeStatus::unsupported;
                 text(snapshot.message, "Cannot validate executable image sections.");
             } else if (!resolve(base, snapshot.message, sizeof(snapshot.message))) {
-                snapshot.status = rb::BridgeStatus::unsupported;
+                snapshot.status = deckstatus::BridgeStatus::unsupported;
             } else {
                 sample_loop(channel, snapshot, base);
                 channel.finish();
@@ -301,10 +301,10 @@ void run() {
             }
         }
     } catch (const std::exception& exception) {
-        snapshot.status = rb::BridgeStatus::error;
+        snapshot.status = deckstatus::BridgeStatus::error;
         snprintf(snapshot.message, sizeof(snapshot.message), "Bridge failed: %.450s", exception.what());
     } catch (...) {
-        snapshot.status = rb::BridgeStatus::error;
+        snapshot.status = deckstatus::BridgeStatus::error;
         text(snapshot.message, "Unexpected bridge failure.");
     }
     snapshot.sample_tick = GetTickCount64();

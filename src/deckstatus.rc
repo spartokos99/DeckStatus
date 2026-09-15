@@ -1,0 +1,34 @@
+#include <winver.h>
+1 VERSIONINFO
+FILEVERSION 0,1,0,0
+PRODUCTVERSION 0,1,0,0
+FILEOS VOS_NT_WINDOWS32
+#ifdef DECKSTATUS_BRIDGE
+FILETYPE VFT_DLL
+#else
+FILETYPE VFT_APP
+#endif
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "ProductName", "DeckStatus\0"
+            VALUE "ProductVersion", "0.1.0\0"
+            VALUE "FileVersion", "0.1.0.0\0"
+#ifdef DECKSTATUS_BRIDGE
+            VALUE "FileDescription", "DeckStatus - Rekordbox data bridge\0"
+            VALUE "InternalName", "DeckStatusBridge\0"
+            VALUE "OriginalFilename", "DeckStatusBridge.dll\0"
+#else
+            VALUE "FileDescription", "DeckStatus - Live deck data and stream overlays\0"
+            VALUE "InternalName", "DeckStatus\0"
+            VALUE "OriginalFilename", "DeckStatus.exe\0"
+#endif
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

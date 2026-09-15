@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace rb::memory {
+namespace deckstatus::memory {
 
 inline bool read_bytes(std::uintptr_t address, void* destination, std::size_t count) {
     if (!address || !destination || !count || address > UINTPTR_MAX - count) return false;
@@ -171,4 +171,4 @@ private:
     std::vector<Section> sections_;
 };
 
-} // namespace rb::memory
+} // namespace deckstatus::memory

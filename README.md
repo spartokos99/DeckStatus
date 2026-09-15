@@ -1,12 +1,12 @@
 <div align="center">
 
-# Rekordbox Web Bridge
+# 🎛️ DeckStatus
 
 **Live deck data. Custom stream overlays. Your master track and its history.**
 
-Windows x64 · C++20 · Local HTTP API · English / Deutsch
+🪟 **Windows x64** · ⚡ **C++20** · 🌐 **Local HTTP API** · 🇬🇧 / 🇩🇪 **English & Deutsch**
 
-[Getting started](#getting-started) · [Features](#features) · [Tests](#tests-and-validation) · [HTTP API](#http-api) · [Deutsch](README.de.md)
+[🚀 Getting started](#getting-started) · [✨ Features](#features) · [🧪 Tests](#tests-and-validation) · [🌐 HTTP API](#http-api) · [Deutsch](README.de.md)
 
 </div>
 
@@ -18,17 +18,19 @@ Windows x64 · C++20 · Local HTTP API · English / Deutsch
 
 ![Master overlay with a live timeline and smaller history cards](docs/images/master-overlay.png)
 
-*Rendered by the included overlay using synthetic track data. No music, library database or Rekordbox binaries are included.*
+*📸 All previews below are rendered from the real interface with synthetic track data. No music, library database or Rekordbox binaries are included.*
 
-## What it does
+## 🎧 What it does
 
-Rekordbox Web Bridge reads the decks in an already-running Rekordbox process and makes their data available through a local web server. Use its dashboard to monitor four decks, add transparent browser-source overlays to your stream, or consume the JSON API in your own tools.
+DeckStatus reads the decks in an already-running Rekordbox process and makes their data available through a local web server. Use its dashboard to monitor four decks, add transparent browser-source overlays to your stream, or consume the JSON API in your own tools.
 
-The application consists of two parts: `rb_bridge.dll` samples native deck state inside Rekordbox, while `rb_inj.exe` handles the HTTP server, history, library metadata and artwork. The injected DLL reads state without calling undocumented Rekordbox functions. Library queries run in the separate host process using a read-only database connection.
+The application consists of two parts: `DeckStatusBridge.dll` samples native deck state inside Rekordbox, while `DeckStatus.exe` handles the HTTP server, history, library metadata and artwork. The injected DLL reads state without calling undocumented Rekordbox functions. Library queries run in the separate host process using a read-only database connection.
 
-## Features
+<a id="features"></a>
 
-### Four decks and a live dashboard
+## ✨ Features
+
+### 🎚️ Four decks and a live dashboard
 
 - Track title, artist, album, stored key, genre, label and artwork.
 - Current deck BPM **and** original, analysed library BPM.
@@ -38,13 +40,17 @@ The application consists of two parts: `rb_bridge.dll` samples native deck state
 
 Native sampling runs approximately every **100 ms**. Overlays poll every **250 ms**, and the dashboard every **500 ms**. Library metadata is refreshed on track changes and periodically thereafter.
 
-### Individual deck overlays
+![DeckStatus dashboard with four synthetic decks and connection details](docs/images/deckstatus-dashboard.png)
+
+### 🖥️ Individual deck overlays
 
 One settings page configures all four decks. Each deck has its own saved configuration and OBS URL; **Apply to all decks** copies a design across them.
 
 Choose whether to show **title, artist, album, key, BPM and cover**, enable the optional timeline, and preview the result before copying the URL. The BPM field includes both current and original tempo.
 
-### Master overlay and track history
+![DeckStatus settings with a live deck preview and a ready-to-copy OBS URL](docs/images/deckstatus-settings.png)
+
+### 👑 Master overlay and track history
 
 Follow Rekordbox's MASTER-marked deck automatically and keep **0–50 previous tracks** below it.
 
@@ -57,7 +63,7 @@ Follow Rekordbox's MASTER-marked deck automatically and keep **0–50 previous t
 
 History records **master-track changes**, not proven audible playback. Moving the same track to another master deck does not duplicate it; playing it again later in the sequence can create a new entry. History keeps the last captured deck BPM and can receive missing metadata later. **Restarting the bridge clears the session history.**
 
-### Optional track timeline
+### ⏱️ Optional track timeline
 
 Show elapsed time, total duration and a progress bar. The display uses sampled Rekordbox positions, handles negative preroll and bounds the bar to 0–100%. It does not advance time on its own when no movement is sampled.
 
@@ -65,7 +71,9 @@ In the master overlay, **only the current track shows a timeline**. Historical c
 
 The timeline is a visual display: it does not play audio, show a waveform, seek or control Rekordbox.
 
-### Make the overlay yours
+### 🎨 Make the overlay yours
+
+![Three DeckStatus styles: Midnight, Light and Minimal with a transparent background](docs/images/deckstatus-styles.png)
 
 | Setting | Options |
 |---|---|
@@ -81,19 +89,21 @@ The timeline is a visual display: it does not play audio, show a waveform, seek 
 
 Settings are saved in the browser. Generated overlay URLs contain their configuration, including language, so an OBS browser source works independently of the settings page's local storage. Replace the URL in OBS after changing a design.
 
-### English and German
+### 🌍 English and German
 
 **English is the default.** Switch between English and Deutsch in the dashboard or either settings page. Your browser remembers the choice; overlay URLs carry `lang=en` or `lang=de`.
 
 Console help and diagnostics also support both languages through `--lang en|de`. Track metadata is displayed as stored in the library.
 
-### Demo mode
+### 🧩 Demo mode
 
-Run `rb_inj.exe --demo` without Rekordbox to try the dashboard, overlays, history and timeline. Two synthetic tracks alternate as master every eight seconds. Demo data is visibly marked.
+Run `DeckStatus.exe --demo` without Rekordbox to try the dashboard, overlays, history and timeline. Two synthetic tracks alternate as master every eight seconds. Demo data is visibly marked.
 
-## Getting started
+<a id="getting-started"></a>
 
-### Build requirements
+## 🚀 Getting started
+
+### 🛠️ Build requirements
 
 - Windows x64.
 - Visual Studio 2022/2026 C++ build tools, a Windows SDK and CMake **3.25+**.
@@ -102,7 +112,7 @@ Run `rb_inj.exe --demo` without Rekordbox to try the dashboard, overlays, histor
 
 The recorded build and live validation used **Visual Studio 2026 / MSVC 19.51**. The native application uses the static MSVC runtime; no .NET, Python or Node.js runtime is required to run it. Its C++ header dependencies are included.
 
-### Build from source
+### 📦 Build from source
 
 Run from the repository directory:
 
@@ -110,43 +120,49 @@ Run from the repository directory:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-The script configures an x64 Release build and runs CTest. The output is in `build\Release`. Alternatively, open `rb_inj.sln` in Rider/Visual Studio or use `CMakeLists.txt`.
+The script configures an x64 Release build and runs CTest. The output is in `build\Release`. Alternatively, open `DeckStatus.sln` in Rider/Visual Studio or use `CMakeLists.txt`.
 
 A fresh checkout does not contain the author's local CMake cache. The optional database test is skipped unless an installed Rekordbox executable is configured; see [Tests](#tests-and-validation).
 
-### Start the bridge
+### ▶️ Start DeckStatus
 
 1. Start the **tested Rekordbox build** and switch to Performance mode.
-2. Run `build\Release\rb_inj.exe`.
+2. Run `build\Release\DeckStatus.exe`.
 3. Open [http://127.0.0.1:18740/](http://127.0.0.1:18740/).
 4. Load tracks and open the [deck settings](http://127.0.0.1:18740/overlay/settings) or [master settings](http://127.0.0.1:18740/master-overlay/settings).
 5. Copy the generated URL into an OBS **Browser Source**, using the suggested source dimensions.
 
-Keep `rb_bridge.dll` and the entire `web` folder beside `rb_inj.exe`. Run Rekordbox and the bridge as the same Windows user with matching privileges.
+Keep `DeckStatusBridge.dll` and the entire `web` folder beside `DeckStatus.exe`. Run Rekordbox and the bridge as the same Windows user with matching privileges.
 
 Stop with **Ctrl+C**. The DLL stops its worker and unloads. Restart the bridge after restarting Rekordbox; use `--pid` if more than one Rekordbox process is running.
 
 ```powershell
-.\build\Release\rb_inj.exe --help
-.\build\Release\rb_inj.exe --lang de
-.\build\Release\rb_inj.exe --port 18741
-.\build\Release\rb_inj.exe --pid 1234
-.\build\Release\rb_inj.exe --database 'D:\DJ Library\master.db'
-.\build\Release\rb_inj.exe --demo
+.\build\Release\DeckStatus.exe --help
+.\build\Release\DeckStatus.exe --lang de
+.\build\Release\DeckStatus.exe --port 18741
+.\build\Release\DeckStatus.exe --pid 1234
+.\build\Release\DeckStatus.exe --database 'D:\DJ Library\master.db'
+.\build\Release\DeckStatus.exe --demo
 ```
 
-### Create a portable package
+### 🧳 Create a portable package
 
 In a shell where `cmake` is available:
 
 ```powershell
-cmake --install build --config Release --prefix build/package
-Compress-Archive -Path build/package/* -DestinationPath build/rb_inj-win-x64.zip -Force
+cmake --install build --config Release --prefix build/DeckStatus
+Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-win-x64.zip -Force
 ```
 
 Generated binaries and ZIP files are intentionally excluded from Git.
 
-## HTTP API
+### 🔄 Upgrading to DeckStatus
+
+Stop the previous instance before starting `DeckStatus.exe`. Keep the matching `DeckStatusBridge.dll` and `web` directory beside it. On the same browser origin, saved language and overlay settings from earlier builds are copied to the new `deckstatus.*` storage keys automatically. Existing overlay URLs continue to work.
+
+<a id="http-api"></a>
+
+## 🌐 HTTP API
 
 The server listens on **127.0.0.1**. Routes support read-only access; cross-origin browser requests are rejected. The API has no playback-control endpoints.
 
@@ -181,7 +197,9 @@ Invoke-RestMethod http://127.0.0.1:18740/api/state
 Invoke-RestMethod http://127.0.0.1:18740/api/master
 ```
 
-## Tests and validation
+<a id="tests-and-validation"></a>
+
+## 🧪 Tests and validation
 
 **Recorded live testing is limited to the author's Rekordbox 7.2.18.0 Windows x64 build.** Passing automated tests does not establish support for another version.
 
@@ -197,7 +215,7 @@ All **five native CTest tests** passed in the recorded local validation:
 
 The injection test starts its **own fixture process**, named `rekordbox.exe`. It contains no Rekordbox code and does not attach to a user's running Rekordbox instance.
 
-### Run native tests
+### ⚙️ Run native tests
 
 ```powershell
 ctest --test-dir build -C Release --output-on-failure
@@ -213,7 +231,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 This test uses the installation's database libraries with a temporary test database. Without that option, `artwork_database` reports **Skipped**.
 
-### Run browser tests
+### 🧭 Run browser tests
 
 ```powershell
 node tests/browser_master_test.cjs
@@ -233,7 +251,7 @@ The browser suite launches a headless browser with a private profile and synthet
 
 Screenshots are written to `build/test-artifacts`.
 
-### What was checked live
+### 🔬 What was checked live
 
 Four loaded decks supplied metadata, artwork, tempo and timing. Native device values were compared with API output. Master changes and retained artwork were observed, and the real server was checked in Edge.
 
@@ -241,7 +259,7 @@ Live timeline validation used **stationary positions**. Seek jumps, negative pre
 
 See [the validation record](docs/validation.md) and [the exact executable profile](docs/rekordbox-7.2.18.md) for the evidence and its limits. These detailed engineering notes are currently in German.
 
-## Compatibility and limitations
+## ⚠️ Compatibility and limitations
 
 The tested executable is **7.2.18.0**, Windows AMD64, with the documented SHA-256:
 
@@ -257,7 +275,7 @@ The hash is a reference fingerprint; the DLL does not calculate SHA-256 at runti
 - The application reads the library and artwork; it does not modify the collection or audio files.
 - Executable updates require a separately investigated and validated memory profile.
 
-## Project layout
+## 🗂️ Project layout
 
 ```text
 src/        Native bridge, injector, HTTP server, metadata and history
@@ -268,7 +286,7 @@ vendor/     Bundled header dependencies and their licences
 build.ps1   Windows build and CTest entry point
 ```
 
-## Credits
+## 🤝 Credits
 
 Bundled dependencies are **cpp-httplib 0.20.0** and **nlohmann/json 3.12.0**, under their respective MIT licences. Interoperability references and the notice for the pyrekordbox-derived constants are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [metadata source notes](docs/artwork-sources.md).
 

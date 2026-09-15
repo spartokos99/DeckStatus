@@ -25,7 +25,7 @@ const routes = new Map([
   ['/master-overlay', 'master-overlay.html'], ['/master-overlay/settings', 'master-settings.html'],
   ['/master-overlay.js', 'master-overlay.js'], ['/master-options.js', 'master-options.js'], ['/overlay', 'overlay.html']
 ]);
-for (const asset of ['deck-overlay.js', 'overlay-shared.js', 'overlay.css', 'settings.css', 'settings.js', 'i18n.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
+for (const asset of ['deck-overlay.js', 'overlay-shared.js', 'overlay.css', 'settings.css', 'settings.js', 'i18n.js', 'storage.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
 routes.set('/overlay/settings', 'master-settings.html');
 routes.set('/', 'index.html');
 const fixture = http.createServer((request, response) => {
@@ -263,7 +263,7 @@ async function until(fn, message, timeout = 6000) {
     await evaluate('document.getElementById("deck").value="2"; document.getElementById("deck").dispatchEvent(new Event("change"))');
     assert.equal(await evaluate('document.getElementById("fontSize").value'), '32', 'Deck settings were not retained');
     await evaluate('document.getElementById("all-decks").click()');
-    assert.deepEqual(await evaluate('[1,2,3,4].map(id => JSON.parse(localStorage.getItem("rb.deck.options."+id)).fontSize)'), [32,32,32,32]);
+    assert.deepEqual(await evaluate('[1,2,3,4].map(id => JSON.parse(localStorage.getItem("deckstatus.deck.options."+id)).fontSize)'), [32,32,32,32]);
     await evaluate('document.querySelector("[data-language]").value="en"; document.querySelector("[data-language]").dispatchEvent(new Event("change"))');
     assert.equal(await evaluate('document.querySelector("h1").textContent'), 'Your decks. Your style.');
     assert.equal(await evaluate('new URL(document.getElementById("url").value).searchParams.get("lang")'), 'en');
@@ -296,6 +296,22 @@ async function until(fn, message, timeout = 6000) {
     await until(() => evaluate('document.querySelector(".card") !== null'), 'Unknown language fallback failed');
     assert.equal(await evaluate('document.documentElement.lang'), 'en');
     assert.equal(await evaluate('getComputedStyle(document.querySelector(".card")).backgroundColor'), 'rgb(17, 33, 34)');
+    // Upgrade old browser settings without overwriting newer DeckStatus choices.
+    await navigate('/overlay/settings?deck=2');
+    await until(() => evaluate('document.getElementById("url").value.includes("deck=2")'), 'Migration setup failed');
+    await evaluate('localStorage.clear(); localStorage.setItem("rb.language","de"); localStorage.setItem("rb.deck.options.2", JSON.stringify({ fontSize: 35, timeline: true, accent: "#ffcc00" })); localStorage.setItem("rb.master.options", JSON.stringify({ history: 3, historyScale: 0.6 }));');
+    await navigate('/overlay/settings?deck=2');
+    await until(() => evaluate('document.getElementById("fontSize").value === "35" && document.documentElement.lang === "de"'), 'Legacy deck settings/language not migrated');
+    assert.equal(await evaluate('JSON.parse(localStorage.getItem("deckstatus.deck.options.2")).timeline'), true);
+    await evaluate('document.getElementById("fontSize").value="29"; document.getElementById("fontSize").dispatchEvent(new Event("change"))');
+    await navigate('/overlay/settings?deck=2');
+    await until(() => evaluate('document.getElementById("fontSize").value === "29"'), 'Legacy settings overwrote new values');
+    await navigate('/master-overlay/settings');
+    await until(() => evaluate('document.getElementById("history").value === "3" && document.getElementById("historyScale").value === "0.6"'), 'Legacy master settings not migrated');
+    await navigate('/');
+    await until(() => evaluate('document.querySelectorAll(".deck").length === 4'), 'DeckStatus dashboard not ready');
+    assert.equal(await evaluate('document.title'), 'DeckStatus');
+    assert.equal(await evaluate('document.querySelector(".brand strong").textContent'), 'DeckStatus');
     assert.equal(exceptions.length, 0, JSON.stringify(exceptions));
     console.log('Browser passed: deck settings/persistence/apply-all, EN/DE/default/fallback, appearance, timeline/current-only/history/seek/preroll/paused/missing, scale limits and uniform geometry, all alignments, scaled transitions, both BPM values in both overlays, settings/persistence, history, fields, rapid changes, XSS, recovery, reduced motion and disconnect.');
     await call('Browser.close');

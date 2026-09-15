@@ -17,20 +17,20 @@ int main() {
     try {
         Memory strings(8192);
         char output[8]{};
-        check(rb::memory::utf8_string(0, output, sizeof(output)) && !output[0], "Null string must be empty");
+        check(deckstatus::memory::utf8_string(0, output, sizeof(output)) && !output[0], "Null string must be empty");
         std::memcpy(strings.bytes, "abc\xf0\x9f\x8e\xb5long", 12);
-        check(rb::memory::utf8_string(strings.address(), output, 6) && std::string(output) == "abc",
+        check(deckstatus::memory::utf8_string(strings.address(), output, 6) && std::string(output) == "abc",
               "Truncation must discard partial UTF-8 codepoint");
-        check(rb::memory::utf8_string(strings.address(), output, 8) && std::string(output) == "abc\xf0\x9f\x8e\xb5",
+        check(deckstatus::memory::utf8_string(strings.address(), output, 8) && std::string(output) == "abc\xf0\x9f\x8e\xb5",
               "Truncation must preserve complete UTF-8 codepoint");
         std::memcpy(strings.bytes, "\xed\xa0\x80", 4);
-        check(!rb::memory::utf8_string(strings.address(), output, sizeof(output)), "Surrogate must fail UTF-8 validation");
+        check(!deckstatus::memory::utf8_string(strings.address(), output, sizeof(output)), "Surrogate must fail UTF-8 validation");
         std::memcpy(strings.bytes + 4093, "xy", 3);
         DWORD old{};
         check(VirtualProtect(strings.bytes + 4096, 4096, PAGE_NOACCESS, &old), "Cannot protect test page");
-        check(rb::memory::utf8_string(strings.address(4093), output, sizeof(output)) && std::string(output) == "xy",
+        check(deckstatus::memory::utf8_string(strings.address(4093), output, sizeof(output)) && std::string(output) == "xy",
               "String at readable page end must succeed");
-        check(!rb::memory::utf8_string(strings.address(4096), output, sizeof(output)), "Unreadable memory must fail");
+        check(!deckstatus::memory::utf8_string(strings.address(4096), output, sizeof(output)), "Unreadable memory must fail");
 
         constexpr DWORD image_size = 0x104000, section_start = 0x1000, section_size = image_size - section_start;
         Memory image(image_size);
@@ -51,7 +51,7 @@ int main() {
         const unsigned char pattern[] = {0xAB, 0xDC, 0x89, 0xCD};
         constexpr auto crossing = section_start + 1024 * 1024 - 2;
         std::memcpy(image.bytes + crossing, pattern, sizeof(pattern));
-        rb::memory::ImageScanner scanner;
+        deckstatus::memory::ImageScanner scanner;
         check(scanner.initialize(reinterpret_cast<HMODULE>(image.bytes)), "Valid image rejected");
         bool ambiguous{};
         check(scanner.unique("AB ?? 89 CD", ambiguous) == image.address(crossing) && !ambiguous,

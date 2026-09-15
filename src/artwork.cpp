@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace rb {
+namespace deckstatus {
 namespace {
 
 using Path = std::filesystem::path;
@@ -451,4 +451,4 @@ std::string ArtworkResolver::diagnostic() const {
     return impl_->status;
 }
 
-} // namespace rb
+} // namespace deckstatus

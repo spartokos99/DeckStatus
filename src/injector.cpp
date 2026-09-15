@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace rb {
+namespace deckstatus {
 namespace {
 struct Handle {
     HANDLE value{};
@@ -114,7 +114,7 @@ struct Injection::Impl {
 Injection::Injection(const Target& target, const std::filesystem::path& dll) : impl_(std::make_unique<Impl>()) {
     auto& p = *impl_;
     p.pid = target.pid;
-    if (!std::filesystem::is_regular_file(dll)) throw std::runtime_error("rb_bridge.dll fehlt neben rb_inj.exe.");
+    if (!std::filesystem::is_regular_file(dll)) throw std::runtime_error("DeckStatusBridge.dll fehlt neben DeckStatus.exe.");
     p.process.value = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION |
                                   PROCESS_VM_WRITE | PROCESS_VM_READ | SYNCHRONIZE, FALSE, target.pid);
     if (!p.process.value) fail("Injection-Zugriff verweigert; Rekordbox und Bridge mit denselben Benutzerrechten starten");
@@ -125,8 +125,8 @@ Injection::Injection(const Target& target, const std::filesystem::path& dll) : i
     if (!IsWow64Process2(p.process.value, &process_machine, &native_machine)) fail("Prozessarchitektur nicht erkennbar");
     if (process_machine != IMAGE_FILE_MACHINE_UNKNOWN || native_machine != IMAGE_FILE_MACHINE_AMD64)
         throw std::runtime_error("Nur Windows x64 mit Rekordbox x64 wird unterstuetzt.");
-    if (module_base(target.pid, dll.filename().wstring()))
-        throw std::runtime_error("rb_bridge.dll ist bereits geladen. Laufende Bridge zuerst beenden.");
+    if (module_base(target.pid, dll.filename().wstring()) || module_base(target.pid, L"rb_bridge.dll"))
+        throw std::runtime_error("DeckStatusBridge.dll ist bereits geladen. Laufende Bridge zuerst beenden.");
 
     p.mapping.value = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(SharedState),
                                         object_name(target.pid, L"State").c_str());
@@ -182,7 +182,7 @@ Injection::Injection(const Target& target, const std::filesystem::path& dll) : i
     p.loaded = module_base(target.pid, dll.filename().wstring()) != 0;
     // A rejected build can publish its diagnostic and unload before enumeration.
     if (!p.loaded && WaitForSingleObject(p.ready.value, 0) != WAIT_OBJECT_0)
-        throw std::runtime_error("Windows hat rb_bridge.dll nicht geladen oder die DLL konnte IPC nicht oeffnen.");
+        throw std::runtime_error("Windows hat DeckStatusBridge.dll nicht geladen oder die DLL konnte IPC nicht oeffnen.");
     const auto ready_deadline = GetTickCount64() + 15000;
     while (WaitForSingleObject(p.ready.value, 100) == WAIT_TIMEOUT) {
         read();

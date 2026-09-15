@@ -17,4 +17,4 @@ if ($LASTEXITCODE) { throw 'Build fehlgeschlagen.' }
 $ctest = Join-Path (Split-Path $cmake) 'ctest.exe'
 & $ctest --test-dir (Join-Path $root 'build') -C $Configuration --output-on-failure
 if ($LASTEXITCODE) { throw 'Tests fehlgeschlagen.' }
-Write-Host "Fertig: $root\build\$Configuration\rb_inj.exe"
+Write-Host "Fertig: $root\build\$Configuration\DeckStatus.exe"

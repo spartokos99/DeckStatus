@@ -29,7 +29,7 @@ Zunächst wurden leere Decks ohne veraltete Metadaten ausgegeben. Nach dem Laden
 | 3 | 175 | 9A | JPEG, HTTP 200 |
 | 4 | 174 | 7A | JPEG, HTTP 200 |
 
-`/api/health` und `/overlay?deck=1` lieferten HTTP 200. Der Wechsel von leeren zu geladenen Decks wurde ohne Neustart der Bridge erkannt. Nach dem Beenden der Bridge war `rb_bridge.dll` nicht mehr in Rekordbox geladen; Rekordbox lief weiter.
+`/api/health` und `/overlay?deck=1` lieferten HTTP 200. Der Wechsel von leeren zu geladenen Decks wurde ohne Neustart der Bridge erkannt. Nach dem Beenden der Bridge war `DeckStatusBridge.dll` nicht mehr in Rekordbox geladen; Rekordbox lief weiter.
 
 Die Bibliothekswerte und Coverantworten wurden direkt über die API geprüft. Nicht gesondert live geprüft: manuelle Pitchbewegungen, Tracks aus Streamingdiensten, Export-Modus, andere Rekordbox-Versionen sowie ein längerer DJ-Betrieb. Der gespeicherte Key und Original-BPM stammen aus der Bibliothek; aktuelle Deck-BPM stammen aus dem geprüften `@BPM`-Objekt.
 
@@ -68,3 +68,11 @@ Der Release-Build und alle fünf nativen Tests wurden erneut ausgeführt. Dabei 
 Zusätzliche Prüfungen decken POST, PUT, PATCH, DELETE und OPTIONS sowie wiederholte POST/GET-Folgen auf derselben Verbindung ab. Nach der Korrektur bestanden alle fünf Tests und 20 aufeinanderfolgende HTTP-Testläufe. Die Änderung ergänzt keine schreibende API und verändert den nativen Rekordbox-Zugriff nicht.
 
 Die öffentliche README-Vorschau wurde mit dem bestehenden Browser-Testserver und synthetischen Tracks erstellt. Bibliotheksdaten, Rekordbox-Binärdateien, lokale IDE-Einstellungen und Build-Ausgaben sind nicht Bestandteil des Git-Repositories. Diese Veröffentlichungsvorbereitung erweitert die Versionskompatibilität nicht.
+
+## Umbenennung in DeckStatus am 15. September 2026
+
+Anwendung, CMake-Targets, Solution/Projektdatei, C++-Namensraum, IPC-Objekte und Windows-Dateiinformationen tragen jetzt den Namen DeckStatus. Die neuen Laufzeitdateien heißen `DeckStatus.exe` und `DeckStatusBridge.dll`; die Produktnamen wurden an beiden kompilierten Dateien geprüft. Das IPC-Layout bleibt Version 3, mit eigener DeckStatus-Kennung und Objektnamen.
+
+Der Build und alle fünf nativen Tests bestanden mit den umbenannten Dateien, einschließlich Laden, doppelter Anbindung und Entladen der neuen DLL im isolierten Testprozess. Die Browserprüfung deckt zusätzlich die Übernahme alter Sprach-, Deck- und Master-Einstellungen in `deckstatus.*` ab und bestätigt, dass neue Werte dabei Vorrang behalten.
+
+Dashboard, Einstellungsseite und drei Overlay-Designs wurden für das README mit synthetischen Trackdaten neu aufgenommen. Der Rekordbox-Speicherzugriff wurde durch die Umbenennung nicht auf andere Builds erweitert; die ausschließlich für 7.2.18.0 dokumentierten Live-Prüfungen bleiben maßgeblich.

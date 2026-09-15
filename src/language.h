@@ -4,7 +4,7 @@
 #include <fstream>
 #include <string>
 
-namespace rb {
+namespace deckstatus {
 // Loaded once before worker threads start; browser UI uses these same dictionaries.
 inline nlohmann::json language_strings = nlohmann::json::object();
 inline void load_language(const std::filesystem::path& folder, const std::string& code) {

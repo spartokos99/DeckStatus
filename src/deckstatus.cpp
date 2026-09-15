@@ -49,17 +49,17 @@ template<std::size_t N> nlohmann::json optional_string(const char (&input)[N], b
     return safe_string(input);
 }
 
-const char* status_name(rb::BridgeStatus status) {
+const char* status_name(deckstatus::BridgeStatus status) {
     switch (status) {
-    case rb::BridgeStatus::starting: return "starting";
-    case rb::BridgeStatus::connected: return "connected";
-    case rb::BridgeStatus::unsupported: return "unsupported";
-    case rb::BridgeStatus::stopped: return "disconnected";
+    case deckstatus::BridgeStatus::starting: return "starting";
+    case deckstatus::BridgeStatus::connected: return "connected";
+    case deckstatus::BridgeStatus::unsupported: return "unsupported";
+    case deckstatus::BridgeStatus::stopped: return "disconnected";
     default: return "error";
     }
 }
 
-nlohmann::json serialize(const rb::SharedState& state, bool alive, bool demo, const std::string& artwork_status) {
+nlohmann::json serialize(const deckstatus::SharedState& state, bool alive, bool demo, const std::string& artwork_status) {
     const auto now = GetTickCount64();
     const bool stale = state.sample_tick && now - state.sample_tick > 3000;
     std::string status = demo ? "demo" : status_name(state.status);
@@ -67,9 +67,9 @@ nlohmann::json serialize(const rb::SharedState& state, bool alive, bool demo, co
     if (!alive) { status = "disconnected"; message = "Rekordbox wurde beendet."; }
     else if (stale && status == "connected") { status = "stale"; message = "Seit mehr als 3 Sekunden keine Deckdaten empfangen."; }
     nlohmann::json result = {
-        {"schemaVersion", 1}, {"status", status}, {"message", rb::tr(message)},
-        {"version", rb::tr(safe_string(state.rekordbox_version))}, {"demo", demo},
-        {"updatedAt", nullptr}, {"sampleAgeMs", nullptr}, {"artworkStatus", rb::tr(artwork_status)},
+        {"schemaVersion", 1}, {"status", status}, {"message", deckstatus::tr(message)},
+        {"version", deckstatus::tr(safe_string(state.rekordbox_version))}, {"demo", demo},
+        {"updatedAt", nullptr}, {"sampleAgeMs", nullptr}, {"artworkStatus", deckstatus::tr(artwork_status)},
         {"decks", nlohmann::json::array()}
     };
     if (state.sample_tick) {
@@ -109,9 +109,9 @@ nlohmann::json serialize(const rb::SharedState& state, bool alive, bool demo, co
     return result;
 }
 
-rb::SharedState demo_state() {
-    rb::SharedState state;
-    state.status = rb::BridgeStatus::connected;
+deckstatus::SharedState demo_state() {
+    deckstatus::SharedState state;
+    state.status = deckstatus::BridgeStatus::connected;
     state.sample_tick = GetTickCount64();
     static const auto started = GetTickCount64();
     state.master_deck = 1 + static_cast<std::uint32_t>((state.sample_tick - started) / 8000 % 2);
@@ -178,7 +178,7 @@ int wmain(int argc, wchar_t** argv) {
         for (int i = 1; i < argc; ++i) if (std::wstring_view(argv[i]) == L"--lang" && i + 1 < argc) {
             language = std::wstring_view(argv[i + 1]) == L"de" ? "de" : "en";
         }
-        rb::load_language(executable_directory() / "web" / "locales", language);
+        deckstatus::load_language(executable_directory() / "web" / "locales", language);
         bool demo = false;
         int port = 18740;
         DWORD pid = 0;
@@ -186,7 +186,7 @@ int wmain(int argc, wchar_t** argv) {
         for (int i = 1; i < argc; ++i) {
             const std::wstring option = argv[i];
             if (option == L"--help" || option == L"-h") {
-                std::cout << rb::tr("cliHelp");
+                std::cout << deckstatus::tr("cliHelp");
                 return 0;
             }
             if (option == L"--lang") {
@@ -206,21 +206,21 @@ int wmain(int argc, wchar_t** argv) {
         if (demo && (pid || !database.empty())) throw std::runtime_error("--demo ist nicht mit --pid/--database kombinierbar.");
         SetConsoleCtrlHandler(on_console, TRUE);
         const auto directory = executable_directory();
-        std::unique_ptr<rb::Injection> injection;
-        std::unique_ptr<rb::ArtworkResolver> artwork;
-        rb::SharedState current = demo ? demo_state() : rb::SharedState{};
+        std::unique_ptr<deckstatus::Injection> injection;
+        std::unique_ptr<deckstatus::ArtworkResolver> artwork;
+        deckstatus::SharedState current = demo ? demo_state() : deckstatus::SharedState{};
         if (!demo) {
-            const auto target = rb::find_target(pid);
+            const auto target = deckstatus::find_target(pid);
             std::wcout << L"Rekordbox " << target.version << L", PID " << target.pid << L"\n";
-            artwork = std::make_unique<rb::ArtworkResolver>(target.executable, database);
-            injection = std::make_unique<rb::Injection>(target, directory / "rb_bridge.dll");
+            artwork = std::make_unique<deckstatus::ArtworkResolver>(target.executable, database);
+            injection = std::make_unique<deckstatus::Injection>(target, directory / "DeckStatusBridge.dll");
             current = injection->read();
-            std::cout << rb::tr(safe_string(current.message)) << "\n";
+            std::cout << deckstatus::tr(safe_string(current.message)) << "\n";
         }
         std::mutex mutex;
         bool alive = true;
-        std::array<rb::DeckData, 4> metadata_cache{};
-        rb::MasterHistory master_history([&](std::uint32_t track_id) -> rb::MasterHistory::Cover {
+        std::array<deckstatus::DeckData, 4> metadata_cache{};
+        deckstatus::MasterHistory master_history([&](std::uint32_t track_id) -> deckstatus::MasterHistory::Cover {
             if (demo) return {"image/bmp", demo_cover()};
             return artwork->get(track_id);
         });
@@ -259,9 +259,9 @@ int wmain(int argc, wchar_t** argv) {
             std::array<ULONGLONG, 4> refreshed{};
             ULONGLONG history_refreshed{};
             while (!token.stop_requested() && !stopping) {
-                rb::SharedState state;
+                deckstatus::SharedState state;
                 { std::lock_guard lock(mutex); state = current; }
-                if (state.status == rb::BridgeStatus::connected &&
+                if (state.status == deckstatus::BridgeStatus::connected &&
                     GetTickCount64() - state.sample_tick <= 3000) {
                     for (unsigned i = 0; i < 4 && !token.stop_requested() && !stopping; ++i) {
                         auto deck = state.decks[i];
@@ -279,8 +279,8 @@ int wmain(int argc, wchar_t** argv) {
                 if (GetTickCount64() - history_refreshed >= 2000) {
                     for (auto id : master_history.pending_metadata()) {
                         if (token.stop_requested() || stopping) break;
-                        rb::SharedState metadata{};
-                        metadata.status = rb::BridgeStatus::connected;
+                        deckstatus::SharedState metadata{};
+                        metadata.status = deckstatus::BridgeStatus::connected;
                         metadata.sample_tick = GetTickCount64();
                         metadata.decks[0].id = 1;
                         metadata.decks[0].track_id = id;
@@ -293,7 +293,7 @@ int wmain(int argc, wchar_t** argv) {
             }
         });
         auto snapshot = [&]() {
-            rb::SharedState copy;
+            deckstatus::SharedState copy;
             bool connected;
             {
                 std::lock_guard lock(mutex);
@@ -321,7 +321,7 @@ int wmain(int argc, wchar_t** argv) {
             std::uint32_t track_id{};
             {
                 std::lock_guard lock(mutex);
-                if (!alive || current.status != rb::BridgeStatus::connected ||
+                if (!alive || current.status != deckstatus::BridgeStatus::connected ||
                     GetTickCount64() - current.sample_tick > 3000) return {};
                 track_id = current.decks[deck - 1].track_id;
             }
@@ -334,13 +334,13 @@ int wmain(int argc, wchar_t** argv) {
                   << "OBS:       http://127.0.0.1:" << port << "/overlay?deck=1\n"
                   << "Decks:     http://127.0.0.1:" << port << "/overlay/settings\n"
                   << "Master:    http://127.0.0.1:" << port << "/master-overlay/settings\n"
-                  << rb::tr("cliStop") << "\n" << std::flush;
-        const int result = rb::run_server("127.0.0.1", port, directory / "web", snapshot, cover, stopping, &master_history);
+                  << deckstatus::tr("cliStop") << "\n" << std::flush;
+        const int result = deckstatus::run_server("127.0.0.1", port, directory / "web", snapshot, cover, stopping, &master_history);
         stopping = true;
         return result;
     } catch (const std::exception& error) {
         stopping = true;
-        std::cerr << rb::tr("cliError") << rb::tr(error.what()) << "\n";
+        std::cerr << deckstatus::tr("cliError") << deckstatus::tr(error.what()) << "\n";
         return 1;
     }
 }

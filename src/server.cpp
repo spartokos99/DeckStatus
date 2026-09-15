@@ -18,7 +18,7 @@
 #include <stdexcept>
 #include <thread>
 
-namespace rb {
+namespace deckstatus {
 namespace {
 
 using Json = nlohmann::json;
@@ -124,7 +124,7 @@ int run_server(const std::string& host, int port,
         {"/master-overlay.js", "master-overlay.js"}, {"/master-options.js", "master-options.js"},
         {"/deck-overlay.js", "deck-overlay.js"}, {"/overlay-shared.js", "overlay-shared.js"},
         {"/overlay.css", "overlay.css"}, {"/settings.css", "settings.css"},
-        {"/settings.js", "settings.js"}, {"/i18n.js", "i18n.js"},
+        {"/settings.js", "settings.js"}, {"/i18n.js", "i18n.js"}, {"/storage.js", "storage.js"},
         {"/locales/en.json", "locales/en.json"}, {"/locales/de.json", "locales/de.json"}
     }) {
         const auto body = read_page(web_root / file);
@@ -327,4 +327,4 @@ int run_server(const std::string& host, int port,
     return listened ? 0 : 1;
 }
 
-} // namespace rb
+} // namespace deckstatus

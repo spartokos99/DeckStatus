@@ -1,3 +1,4 @@
+import { readSetting, writeSetting } from './storage.js';
 import { defaults, presets, normalize, parseOptions, overlayPath, deckOverlayPath } from './master-options.js';
 import { t, getLanguage, locale } from './i18n.js';
 const mode = location.pathname.startsWith('/master-overlay') ? 'master' : 'deck';
@@ -5,10 +6,10 @@ const byId = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);
 const fields = [...document.querySelectorAll('[name="field"]')];
 const controls = [...document.querySelectorAll('[data-option]')];
-const read = key => { try { return JSON.parse(localStorage.getItem(key)); } catch (_) { return null; } };
-const save = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {} };
-let deck = normalize({ deck: query.get('deck') || read('rb.deck.selected') || 1 }).deck;
-const key = (id = deck) => mode === 'master' ? 'rb.master.options' : 'rb.deck.options.' + id;
+const read = key => { try { return JSON.parse(readSetting(key)); } catch (_) { return null; } };
+const save = (key, value) => { try { writeSetting(key, JSON.stringify(value)); } catch (_) {} };
+let deck = normalize({ deck: query.get('deck') || read('deckstatus.deck.selected') || 1 }).deck;
+const key = (id = deck) => mode === 'master' ? 'deckstatus.master.options' : 'deckstatus.deck.options.' + id;
 const stored = id => normalize({ ...(read(key(id)) || defaults), deck: id, lang: getLanguage() });
 let options = stored(deck);
 if ([...query.keys()].some(name => name in defaults && !['lang', 'deck'].includes(name))) options = normalize({ ...parseOptions(location.search), deck, lang: getLanguage() });
@@ -69,7 +70,7 @@ for (const input of [...controls, ...fields]) {
   input.addEventListener('input', changed);
   input.addEventListener('change', event => { changed(event); syncControls(); apply(); });
 }
-byId('deck').addEventListener('change', () => { clearTimeout(pending); deck = Number(byId('deck').value); save('rb.deck.selected', deck); options = stored(deck); syncControls(); apply(); });
+byId('deck').addEventListener('change', () => { clearTimeout(pending); deck = Number(byId('deck').value); save('deckstatus.deck.selected', deck); options = stored(deck); syncControls(); apply(); });
 byId('preset').addEventListener('change', () => { const preset = presets[byId('preset').value]; if (preset) { options = normalize({ ...options, ...preset }); syncControls(); apply(); } });
 byId('reset').addEventListener('click', () => { options = normalize({ ...defaults, deck, lang: getLanguage() }); syncControls(); apply(); });
 byId('all-decks').addEventListener('click', () => { for (const id of [1,2,3,4]) save(key(id), normalize({ ...options, deck: id })); apply(); byId('feedback').textContent = t('appliedAll'); });

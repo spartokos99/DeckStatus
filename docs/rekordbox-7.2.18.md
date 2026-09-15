@@ -1,6 +1,6 @@
 # Speicherprofil für Rekordbox 7.2.18.0 (Windows x64)
 
-Dieses Profil beschreibt die Adressen und Prüfungen in `src/bridge.cpp` für die am 14.09.2026 untersuchte lokale `rekordbox.exe`. Die unten genannten Bytes, PE-Felder und Konstruktorzuweisungen wurden statisch an der installierten Datei geprüft. Die Ergebnisse des separaten Live-Tests stehen in [validation.md](validation.md).
+Dieses Profil beschreibt die Adressen und Prüfungen in `src/deckstatus_bridge.cpp` für die am 14.09.2026 untersuchte lokale `rekordbox.exe`. Die unten genannten Bytes, PE-Felder und Konstruktorzuweisungen wurden statisch an der installierten Datei geprüft. Die Ergebnisse des separaten Live-Tests stehen in [validation.md](validation.md).
 
 ## Identität der untersuchten Datei
 
@@ -70,7 +70,7 @@ Die maximale akzeptierte Dauer und der maximale Positionsbetrag betragen 86.400.
 
 ## Vierzehn exakte Codeprüfungen
 
-Die folgenden Bytes wurden direkt aus `src/bridge.cpp` übernommen, per PE-Section-Tabelle auf Dateioffsets abgebildet und mit der installierten EXE verglichen. Die ersten neun Vergleiche und die fünf zusätzlichen Timeline-Prüfungen waren erfolgreich.
+Die folgenden Bytes wurden direkt aus `src/deckstatus_bridge.cpp` übernommen, per PE-Section-Tabelle auf Dateioffsets abgebildet und mit der installierten EXE verglichen. Die ersten neun Vergleiche und die fünf zusätzlichen Timeline-Prüfungen waren erfolgreich.
 
 | RVA | Erwartete und vorgefundene Bytes | Zweck |
 |---|---|---|

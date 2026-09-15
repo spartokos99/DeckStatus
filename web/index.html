@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>Rekordbox Web Bridge</title>
+  <title>DeckStatus</title>
   <style>
     :root { color-scheme: dark; font-family: Inter, "Segoe UI", sans-serif; background: #0b1015; color: #eef3f6; font-synthesis: none; }
     * { box-sizing: border-box; }
@@ -72,7 +72,7 @@
 <body>
   <div class="shell">
     <header>
-      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><div><strong>Rekordbox Web Bridge</strong><small data-i18n="dashboard">Deck monitor</small></div></div>
+      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span><div><strong>DeckStatus</strong><small data-i18n="dashboard">Deck monitor</small></div></div>
       <nav><a href="/overlay/settings" data-i18n="deckSettings">Deck overlays</a><a href="/master-overlay/settings" data-i18n="masterSettings">Master overlay</a><a href="/api/state" target="_blank" rel="noopener" data-i18n="jsonApi">JSON API ↗</a><select data-language data-i18n-aria="language"><option value="en">English</option><option value="de">Deutsch</option></select></nav>
     </header>
     <main>
@@ -95,6 +95,7 @@
   </template>
   <script type="module">
     import { t, getLanguage, locale, translate, diagnostic } from '/i18n.js';
+    import { readSetting } from '/storage.js';
     import { normalize, deckOverlayPath } from '/master-options.js';
     const cards = [];
     const text = value => typeof value === 'string' && value.trim() ? value : '—';
@@ -152,7 +153,7 @@
       const available = state.status === 'connected' || state.status === 'demo';
       cards.forEach((card, index) => {
         let saved = {};
-        try { saved = JSON.parse(localStorage.getItem('rb.deck.options.' + (index + 1))) || {}; } catch (_) {}
+        try { saved = JSON.parse(readSetting('deckstatus.deck.options.' + (index + 1))) || {}; } catch (_) {}
         card.querySelector('[data-field="overlay"]').href = deckOverlayPath(normalize({ ...saved, deck: index + 1, lang: getLanguage() }));
         drawDeck(card, decks.find(deck => deck && deck.id === index + 1), available);
       });

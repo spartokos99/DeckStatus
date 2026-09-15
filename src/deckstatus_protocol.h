@@ -5,8 +5,8 @@
 #include <string>
 #include <type_traits>
 
-namespace rb {
-inline constexpr std::uint32_t protocol_magic = 0x52424237;
+namespace deckstatus {
+inline constexpr std::uint32_t protocol_magic = 0x44535453;
 inline constexpr std::uint32_t protocol_version = 3;
 enum class BridgeStatus : std::uint32_t { starting, connected, unsupported, error, stopped };
 
@@ -48,7 +48,7 @@ struct SharedState {
 static_assert(std::is_trivially_copyable_v<SharedState>);
 
 inline std::wstring object_name(DWORD pid, const wchar_t* suffix) {
-    return L"Local\\RBBridge." + std::to_wstring(pid) + L"." + suffix;
+    return L"Local\\DeckStatus.Bridge." + std::to_wstring(pid) + L"." + suffix;
 }
 // Objects: State=file mapping, Lock=mutex, Stop=manual-reset event,
 // Ready=first snapshot event, Stopped=worker finished event.

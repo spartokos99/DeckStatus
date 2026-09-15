@@ -1,3 +1,4 @@
+import { readSetting, writeSetting } from './storage.js';
 const dictionaries = {};
 for (const code of ['en', 'de']) {
   const response = await fetch('/locales/' + code + '.json', { cache: 'no-store' });
@@ -5,7 +6,7 @@ for (const code of ['en', 'de']) {
   dictionaries[code] = await response.json();
 }
 let saved;
-try { saved = localStorage.getItem('rb.language'); } catch (_) {}
+try { saved = readSetting('deckstatus.language'); } catch (_) {}
 let language = new URLSearchParams(location.search).get('lang') || saved || 'en';
 if (!Object.hasOwn(dictionaries, language)) language = 'en';
 export const getLanguage = () => language;
@@ -29,7 +30,7 @@ export function translate(root = document) {
 }
 export function setLanguage(code) {
   language = Object.hasOwn(dictionaries, code) ? code : 'en';
-  try { localStorage.setItem('rb.language', language); } catch (_) {}
+  try { writeSetting('deckstatus.language', language); } catch (_) {}
   translate();
   window.dispatchEvent(new Event('languagechange'));
 }

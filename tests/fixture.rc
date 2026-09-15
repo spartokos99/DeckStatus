@@ -9,9 +9,9 @@ BEGIN
     BEGIN
         BLOCK "040904B0"
         BEGIN
-            VALUE "FileDescription", "RB Bridge harmless test fixture\0"
+            VALUE "FileDescription", "DeckStatus harmless test fixture\0"
             VALUE "FileVersion", "7.2.18.0\0"
-            VALUE "ProductName", "RB Bridge test fixture\0"
+            VALUE "ProductName", "DeckStatus test fixture\0"
         END
     END
     BLOCK "VarFileInfo"

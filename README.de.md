@@ -1,4 +1,4 @@
-# Rekordbox 7 Web Bridge
+# 🎛️ DeckStatus
 
 [English](README.md) · Deutsch
 
@@ -6,36 +6,42 @@
 
 Windows-x64-Programm für **Rekordbox 7.2.18.0** mit einer DLL, die im laufenden Rekordbox Deckdaten ausliest, und einem separaten lokalen HTTP-Server. Enthalten sind ein Dashboard, konfigurierbare Deck-Overlays und ein Master-Overlay mit History und optionaler Timeline. Mit vier geladenen Decks einschließlich Metadaten und Cover sowie Master-Wechseln live geprüft.
 
-## Starten
+![DeckStatus – Master-Overlay mit Timeline und History](docs/images/master-overlay.png)
+
+*📸 Die Vorschauen zeigen die echte Oberfläche mit synthetischen Trackdaten.*
+
+## 🚀 Starten
 
 1. Rekordbox 7 starten und in den Performance-Modus wechseln.
-2. `build\Release\rb_inj.exe` starten (im fertigen ZIP direkt `rb_inj.exe`). `rb_bridge.dll` und der Ordner `web` müssen daneben liegen.
+2. `build\Release\DeckStatus.exe` starten (im fertigen ZIP direkt `DeckStatus.exe`). `DeckStatusBridge.dll` und der Ordner `web` müssen daneben liegen.
 3. Im Browser **http://127.0.0.1:18740/** öffnen und einen Track ins Deck laden.
 
 Beenden mit **Strg+C**. Die DLL beendet ihren Worker und entlädt sich. Nach einem Rekordbox-Neustart die Bridge ebenfalls neu starten. Bei mehreren Rekordbox-Prozessen mit `--pid` auswählen. Rekordbox und Bridge unter demselben Windows-Benutzer und mit denselben Benutzerrechten ausführen.
 
 ```powershell
-.\build\Release\rb_inj.exe
-.\build\Release\rb_inj.exe --port 18741
-.\build\Release\rb_inj.exe --pid 1234
-.\build\Release\rb_inj.exe --database 'D:\DJ Library\master.db'
+.\build\Release\DeckStatus.exe
+.\build\Release\DeckStatus.exe --port 18741
+.\build\Release\DeckStatus.exe --pid 1234
+.\build\Release\DeckStatus.exe --database 'D:\DJ Library\master.db'
 ```
 
 Die Browseranzeige lässt sich ohne Rekordbox ausprobieren. Der Demo-Modus kennzeichnet seine synthetischen Daten ausdrücklich:
 
 ```powershell
-.\build\Release\rb_inj.exe --demo
+.\build\Release\DeckStatus.exe --demo
 ```
 
-## Sprache und Deck-Einstellungen
+## 🌍 Sprache und Deck-Einstellungen
 
 **Deck 1–4 konfigurieren:** http://127.0.0.1:18740/overlay/settings
 
 Eine gemeinsame Seite enthält eine Deck-Auswahl. Jedes Deck speichert seine eigene Konfiguration im Browser und bekommt eine eigene OBS-URL. „Auf alle Decks anwenden“ übernimmt das aktuelle Design für alle vier Decks. Die Links darunter öffnen die jeweiligen fertig konfigurierten Overlays. Das Dashboard verwendet ebenfalls diese gespeicherten Deck-Einstellungen für seine Overlay-Links.
 
-**English ist Standard.** Oben im Dashboard und auf beiden Einstellungsseiten zwischen **English** und **Deutsch** wechseln. Die Auswahl bleibt im Browser gespeichert; fertige OBS-URLs enthalten die Sprache explizit als `lang=en` oder `lang=de`. Die Konsole startet auf Englisch und lässt sich mit `rb_inj.exe --lang de` einschließlich Hilfe und Diagnosen auf Deutsch umstellen. Die Sprachdateien liegen in `web/locales/en.json` und `de.json`; Tracktitel und andere Bibliotheksdaten werden unverändert angezeigt.
+**English ist Standard.** Oben im Dashboard und auf beiden Einstellungsseiten zwischen **English** und **Deutsch** wechseln. Die Auswahl bleibt im Browser gespeichert; fertige OBS-URLs enthalten die Sprache explizit als `lang=en` oder `lang=de`. Die Konsole startet auf Englisch und lässt sich mit `DeckStatus.exe --lang de` einschließlich Hilfe und Diagnosen auf Deutsch umstellen. Die Sprachdateien liegen in `web/locales/en.json` und `de.json`; Tracktitel und andere Bibliotheksdaten werden unverändert angezeigt.
 
-## Gestaltung und Timeline
+![DeckStatus – Dashboard mit vier Decks](docs/images/deckstatus-dashboard.png)
+
+## 🎨 Gestaltung und Timeline
 
 Beide Overlay-Typen bieten dieselben Gestaltungsoptionen: Presets **Midnight**, **Light** und **Minimal / transparent**, vier Farben (Hintergrund, Text, sekundärer Text und Akzent), Hintergrundtransparenz, drei Schriftfamilien, Titelgröße, Covergröße, Innenabstand, Trackabstand, Rundungen, Akzentrahmen, Schatten und Deck-/Master-Beschriftungen. Das Cover kann neben oder über dem Text stehen. Die Demo-Kennzeichnung bleibt im Demo-Modus sichtbar.
 
@@ -45,7 +51,11 @@ Im Master-Overlay hat **ausschließlich der aktuelle Master** eine Timeline. His
 
 Alle Optionen stehen in der erzeugten URL. Nach Änderungen die Browserquellen-URL in OBS ersetzen. Ohne `timeline=1` bleibt die Timeline aus; vorhandene URLs funktionieren weiterhin.
 
-## Master-Overlay mit History
+![DeckStatus – Einstellungen und Live-Vorschau](docs/images/deckstatus-settings.png)
+
+![DeckStatus – drei unterschiedliche Overlay-Designs](docs/images/deckstatus-styles.png)
+
+## 👑 Master-Overlay mit History
 
 **Einstellungen und Live-Vorschau:** http://127.0.0.1:18740/master-overlay/settings
 
@@ -66,9 +76,11 @@ Die History wird im Server gesammelt, auch wenn kein Browser geöffnet ist, und 
 
 „Aktuell“ bezeichnet beim Master bzw. ausgewählten Deck das aktuelle Decktempo, in der History das beim Master-Wechsel zuletzt erfasste Tempo. „Original“ ist das analysierte Tempo aus der Bibliothek. Fehlende BPM-Werte erscheinen als „—“.
 
+Beim Umstieg auf DeckStatus werden die bisher gespeicherte Sprache und Overlay-Einstellungen auf demselben Browser-Ursprung automatisch übernommen. Alte Overlay-URLs funktionieren weiter. Vor dem Start von `DeckStatus.exe` die vorherige Instanz beenden.
+
 Die Einstellungen einschließlich Skalierung und Ausrichtung bleiben im verwendeten Browser gespeichert; die OBS-URL enthält die vollständige Konfiguration und funktioniert unabhängig davon. Der Demo-Modus wechselt alle acht Sekunden zwischen zwei deutlich gekennzeichneten Beispieltracks.
 
-## HTTP-API
+## 🌐 HTTP-API
 
 | Adresse | Inhalt |
 |---|---|
@@ -95,7 +107,7 @@ Deckdaten umfassen `id`, `trackId`, `loaded`, `metadataAvailable`, `isMaster`, `
 
 Die DLL liest Deckzustände etwa alle 100 ms. Der Webserver liest Metadaten beim Trackwechsel sowie alle zwei Sekunden aus der lokalen Datenbank. Das Dashboard aktualisiert sich etwa alle 500 ms, beide Overlay-Typen alle 250 ms. Auch Cover stammen aus der lokalen Rekordbox-Datenbank. Bei Streaming-Tracks ohne lokalen Bibliothekseintrag können die Metadaten fehlen; Tracks ohne gespeichertes Cover liefern am Bildendpunkt 404.
 
-## Bauen und prüfen
+## 🧪 Bauen und prüfen
 
 Voraussetzung: Visual Studio 2022/2026 mit **Desktopentwicklung mit C++**, Windows-SDK und CMake. Keine .NET- oder Python-Laufzeit notwendig. Header-Bibliotheken sind im Repository enthalten; der Build lädt keine Pakete nach.
 
@@ -103,7 +115,7 @@ Voraussetzung: Visual Studio 2022/2026 mit **Desktopentwicklung mit C++**, Windo
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-Die Solution `rb_inj.sln` enthält ein Makefile-Projekt für Rider/Visual Studio, das denselben Build aufruft. Alternativ `CMakeLists.txt` öffnen. Ausgabe unter `build\Release`.
+Die Solution `DeckStatus.sln` enthält ein Makefile-Projekt für Rider/Visual Studio, das denselben Build aufruft. Alternativ `CMakeLists.txt` öffnen. Ausgabe unter `build\Release`.
 
 Tests laufen mit dem Build. Der Injection-Test erstellt einen eigenen harmlosen Prozess mit dem Namen `rekordbox.exe`, injiziert die DLL, prüft IPC und die Ablehnung eines unpassenden EXE-Builds und beendet diesen Testprozess anschließend. Er enthält keinen Rekordbox-Code und greift nicht auf ein anderes laufendes Rekordbox zu. HTTP- und Speichergrenztests benötigen ebenfalls keine laufende Rekordbox-Instanz.
 
@@ -111,7 +123,7 @@ Der zusätzliche Datenbanktest benötigt die lokal installierte Rekordbox-EXE al
 
 `master_history` prüft Master-Wechsel, Wiederholungen, Lücken, nachgeladene Metadaten, gespeicherte BPM, Cover und History-Grenzen. Optionaler Browsertest mit Node.js 22+ und installiertem Edge: `node tests/browser_master_test.cjs`. Er startet einen eigenen unsichtbaren Browser mit separatem Profil und synthetischem lokalen Testserver; Screenshots liegen anschließend unter `build/test-artifacts`.
 
-## Kompatibilität und Grenzen
+## ⚠️ Kompatibilität und Grenzen
 
 Die enthaltene DLL ist auf den hier geprüften Windows-x64-Build **7.2.18.0** abgestimmt. Sie prüft Versionsnummer, PE-Buildmerkmale, 14 Codeabschnitte und die Deck-/BPM-/Master-/Zeit-Objekte. Andere Builds melden `unsupported` und benötigen ein eigenes geprüftes Profil. Die genauen Merkmale und die Herkunft der Speicherpositionen stehen in [docs/rekordbox-7.2.18.md](docs/rekordbox-7.2.18.md).
 

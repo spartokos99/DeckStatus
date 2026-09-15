@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace rb {
+namespace deckstatus {
 
 // One server session, independent of browser clients. Repeated tracks have distinct
 // entry IDs; switching decks with the same track does not count as a track change.

@@ -56,7 +56,7 @@ struct Fixture {
         execute = reinterpret_cast<decltype(execute)>(GetProcAddress(library, "sqlite3_exec"));
         check(open && close && execute, "Installed sqlite3.dll is missing test functions");
         const auto candidate = std::filesystem::temp_directory_path() /
-            (L"rb_artwork_test_" + std::to_wstring(GetCurrentProcessId()) + L"_" +
+            (L"deckstatus_artwork_test_" + std::to_wstring(GetCurrentProcessId()) + L"_" +
              std::to_wstring(GetTickCount64()));
         check(std::filesystem::create_directory(candidate), "Cannot create a unique fixture directory");
         root = candidate;
@@ -105,12 +105,12 @@ struct Fixture {
     }
 };
 
-void check_live(const rb::DeckData& deck) {
+void check_live(const deckstatus::DeckData& deck) {
     check(deck.id == 2 && deck.bpm_x100 == 13025 && std::string_view(deck.file_path) == "untouched",
           "Enrichment must preserve live BPM, deck ID and path fields");
 }
 
-void check_empty(const rb::DeckData& deck) {
+void check_empty(const deckstatus::DeckData& deck) {
     check(!deck.metadata_available && !deck.original_bpm_x100 && !deck.title[0] && !deck.artist[0] &&
           !deck.album[0] && !deck.key[0] && !deck.genre[0] && !deck.label[0],
           "Missing content must clear stale metadata");
@@ -130,8 +130,8 @@ int wmain(int argc, wchar_t** argv) {
         const auto db_path = fixture.root / L"collection/master.db";
         const auto before = std::filesystem::last_write_time(db_path);
         {
-            rb::ArtworkResolver resolver(executable, db_path);
-            rb::DeckData deck{};
+            deckstatus::ArtworkResolver resolver(executable, db_path);
+            deckstatus::DeckData deck{};
             deck.id = 2;
             deck.track_id = 123;
             deck.bpm_x100 = 13025;
