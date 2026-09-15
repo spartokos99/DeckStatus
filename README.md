@@ -1,10 +1,27 @@
-# DeckStatus
+<p align="center">
+  <img src="docs/images/deckstatus-icon.png" width="96" height="96" alt="DeckStatus logo">
+</p>
 
-Live DJ metadata, audience ratings and configurable OBS overlays for Windows.
+<h1 align="center">DeckStatus</h1>
 
-**Compatibility:** live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. ProLink support for CDJ-3000 / DJM-A9 is experimental and has not been tested on real hardware.
+<p align="center">Live DJ metadata, audience ratings and configurable OBS overlays for Windows.</p>
 
-## Run
+<p align="center">
+  <a href="https://github.com/spartokos99/DeckStatus/releases/latest"><img src="https://img.shields.io/github/v/release/spartokos99/DeckStatus?style=flat-square&amp;color=6ae9b3" alt="Latest GitHub release"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20x64-0078d4?style=flat-square" alt="Platform: Windows x64">
+  <img src="https://img.shields.io/badge/OBS-Browser%20Source-8b5cf6?style=flat-square" alt="OBS Browser Source">
+  <img src="https://img.shields.io/badge/languages-EN%20%7C%20DE-f2b84b?style=flat-square" alt="Languages: English and German">
+</p>
+
+<p align="center">
+  <a href="https://github.com/spartokos99/DeckStatus/releases/latest">📦 Download</a> ·
+  <a href="docs/WIKI.md">📖 Technical guide</a> ·
+  <a href="CHANGELOG.md">📝 Changelog</a>
+</p>
+
+**🧪 Compatibility:** live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. ProLink support for CDJ-3000 / DJM-A9 is experimental and has not been tested on real hardware.
+
+## ▶️ Run
 
 1. Extract the full Windows ZIP into a writable folder. Keep the EXE, DLL, `web` and `prolink` together.
 2. Start Rekordbox, then run **DeckStatus.exe**. For ProLink, use **Start-ProLink.cmd**.
@@ -16,20 +33,31 @@ Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks wi
 
 Download the complete Windows package from [DeckStatus v2.0.1](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.1). When upgrading from v1.4.0, generate new OBS URLs after signing in: overlays now require a read-only key. See the [upgrade notes](CHANGELOG.md#upgrade).
 
-## Features
+## ✨ Features
 
-- **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
-- **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles. Customise fields, colours, fonts, dimensions, alignment and smooth transitions.
-- **Saved presets:** save, load, update and delete named deck, master and waveform designs. The library persists on the server and is shared with signed-in users.
-- **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder and style independent layers; save to update the same OBS source.
-- **Public Full History:** viewers browse played MASTER tracks at `/history` and rate them from 1–5 stars without an account.
-- **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
-- **Accounts:** administrator/operator roles, user management and required initial password changes.
-- **Optional LAN access**, JSON API, Rekordbox/ProLink modes and English/German application translations.
+- 🎛️ **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
+- 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles. Customise fields, colours, fonts, dimensions, alignment and smooth transitions.
+- 💾 **Saved presets:** save, load, update and delete named deck, master and waveform designs. The library persists on the server and is shared with signed-in users.
+- 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder and style independent layers; save to update the same OBS source.
+- 🎶 **Public Full History:** viewers browse played MASTER tracks at `/history` and rate them from 1–5 stars without an account.
+- ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
+- 🔐 **Accounts:** administrator/operator roles, user management and required initial password changes.
+- 🌐 **Optional LAN access**, JSON API, Rekordbox/ProLink modes and English/German application translations.
 
-![Scene editor with synthetic demo tracks](docs/images/scene-editor-en.png)
+![Scene editor with one master overlay and a waveform spanning the full scene width](docs/images/scene-editor-en.png)
 
-## Sharing and storage
+*One master overlay and one full-width waveform on a 1920 × 1080 canvas. English UI with synthetic demo tracks.*
+
+<details>
+<summary>🎨 Explore a few overlay styles</summary>
+
+![Midnight, Light and Minimal overlay styles with English demo tracks](docs/images/deckstatus-styles-en.png)
+
+Start with a built-in style, customise it and save it as your own preset.
+
+</details>
+
+## 🔗 Sharing and storage
 
 Dashboard and configuration pages require sign-in. Full History is public. Generated OBS URLs contain revocable read-only keys; keep these links private.
 
@@ -39,7 +67,7 @@ Ratings allow one changeable vote per browser and track. This is lightweight aud
 
 The server initially accepts localhost connections only. Enable LAN access under **Connections → Network** and restart. HTTP is not encrypted: use a trusted network and do not expose the server directly to the internet.
 
-## Build and test
+## 🛠️ Build and test
 
 Requires Windows x64, Visual Studio C++ tools, CMake and JDK 21+ for ProLink.
 

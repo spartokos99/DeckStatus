@@ -1,8 +1,10 @@
 // node tools/readme-screenshots.cjs [path/to/msedge.exe]
+// Set DECKSTATUS_SCREENSHOT_ONLY to one image name (for example scene-editor).
 // Real UI, English only, synthetic data. Never connects to Rekordbox/audio devices.
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const { withBrowser } = require('../tests/browser_fixture.cjs');
+const only=process.env.DECKSTATUS_SCREENSHOT_ONLY||'';
 const titles = ['Night Drive','Ocean Lights','Afterglow','Echo Park','Slow Motion','Open Skies','Midnight Radio','First Light'];
 const artists = ['Studio North','Lunar Avenue','The Signals','Harbour Club'];
 const track = (index, id = index % 4 + 1) => ({entryId:index+1, trackId:index+1001, id, loaded:true, metadataAvailable:true,
@@ -18,9 +20,9 @@ const signal=Array.from({length:1024},(_,i)=>Math.sin(2*Math.PI*13*i/1024)*.36+M
 let sequence=0, screenshotMode='rekordbox';
 const demoUser={id:'synthetic-admin',username:'admin',role:'admin',mustChangePassword:false};
 const demoScene={id:'synthetic-scene',key:'synthetic-example-key',revision:1,name:'Late-night studio',width:1920,height:1080,background:'transparent',items:[
- {id:'master',type:'master',x:70,y:70,width:800,height:720,opacity:1,visible:true,options:{width:752,history:2,historyScale:.82,timeline:true,lang:'en'}},
- {id:'deck',type:'deck',x:1130,y:180,width:680,height:300,opacity:1,visible:true,options:{deck:2,width:660,timeline:true,fontSize:24,lang:'en'}},
- {id:'wave',type:'waveform',x:100,y:830,width:1720,height:200,opacity:1,visible:true,options:{mode:'mirror',width:1720,height:200,color:'#a8eccf',color2:'#48bce8',lang:'en'}}]};
+ {id:'master',type:'master',x:280,y:72,width:1360,height:720,opacity:1,visible:true,options:{width:1344,history:2,historyScale:.8,align:'center',timeline:true,fontSize:36,coverSize:116,padding:24,gap:16,radius:18,accent:'#6ae9b3',lang:'en'}},
+ {id:'wave',type:'waveform',x:0,y:830,width:1920,height:250,opacity:1,visible:true,options:{mode:'line',width:1920,height:250,color:'#a8eccf',color2:'#48bce8',lineWidth:4,glow:12,lang:'en'}}]};
+const demoPresets=[...demoScene.items,{id:'deck',type:'deck',options:{deck:2,width:660,timeline:true,fontSize:24,lang:'en'}}].map(item=>({id:'synthetic-preset-'+item.id,revision:1,name:{master:'Studio master',deck:'Clean deck',waveform:'Mint waveform'}[item.type],type:item.type,options:item.options}));
 for(const [i,entry]of entries.entries()){entry.ratingId='synthetic-rating-'+i;entry.rating={count:16+i*3,average:(68+i*15)/(16+i*3),mine:4};}
 const colours=['#56ae99','#597fb4','#b071a0','#bd9b64'];
 function cover(index){const colour=colours[index%4];return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><rect width="300" height="300" fill="#142c32"/><circle cx="180" cy="145" r="130" fill="${colour}"/><circle cx="180" cy="145" r="88" fill="#142c32"/><circle cx="180" cy="145" r="35" fill="${colour}"/><path d="M0 250L300 60V110L0 300Z" fill="#cceadd" opacity=".45"/></svg>`;}
@@ -32,7 +34,7 @@ withBrowser((req,res,url)=>{
   if(url.pathname.includes('/cover')){const index=Number(url.searchParams.get('trackId')||url.pathname.split('/').at(-1))||1001;res.setHeader('Content-Type','image/svg+xml');res.end(cover(index-1001));return true;}
   res.setHeader('Content-Type','application/json');
   if(url.pathname==='/api/scenes'){res.end(JSON.stringify({scenes:[demoScene]}));return true;}
-  if(url.pathname==='/api/presets'){res.end(JSON.stringify({presets:demoScene.items.map(item=>({id:'synthetic-preset-'+item.id,revision:1,name:{master:'Studio master',deck:'Clean deck',waveform:'Mint waveform'}[item.type],type:item.type,options:item.options}))}));return true;}
+  if(url.pathname==='/api/presets'){res.end(JSON.stringify({presets:demoPresets}));return true;}
   if(url.pathname==='/api/scene'){res.end(JSON.stringify(demoScene));return true;}
   if(url.pathname==='/api/broadcast'){res.end(JSON.stringify({deck:'synthetic-deck-key',master:'synthetic-master-key',waveform:'synthetic-wave-key'}));return true;}
   if(url.pathname==='/api/auth/me'){res.end(JSON.stringify({user:null}));return true;}
@@ -49,6 +51,7 @@ withBrowser((req,res,url)=>{
   const images=[];
   const size=(width,height)=>call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
   async function capture(name,width,height){
+    if(only&&only!==name)return;
     // Validate each visible translated label, including preview iframes, before saving.
     const mismatches=await evaluate(`(()=>{const dictionary=${JSON.stringify(english)};const problems=[];function inspect(doc){if(doc.documentElement.lang!=='en')problems.push('language:'+doc.documentElement.lang);for(const el of doc.querySelectorAll('[data-i18n]')){if(el.getClientRects().length&&!el.matches('[data-field], #message, #status-label')&&Object.hasOwn(dictionary,el.dataset.i18n)&&el.textContent!==dictionary[el.dataset.i18n])problems.push(el.dataset.i18n+': '+el.textContent);}for(const frame of doc.querySelectorAll('iframe'))if(frame.contentDocument)inspect(frame.contentDocument);}inspect(document);return problems;})()`);
     assert.deepEqual(mismatches,[],'README screenshot must use English labels: '+name);
@@ -90,7 +93,8 @@ withBrowser((req,res,url)=>{
   await capture('network-settings',1440,1340);
 
   await size(1440,1420);await navigate('/scenes?lang=en');
-  await until(()=>evaluate('document.querySelectorAll(".scene-item iframe").length===3 && [...document.querySelectorAll(".scene-item iframe")].filter(f=>f.src.includes("overlay")).every(f=>f.contentDocument?.querySelector(".track"))'),'Scene preview missing');await delay(900);
+  await until(()=>evaluate('document.querySelectorAll(".scene-item iframe").length===2 && document.querySelector(".scene-item[data-id=master] iframe")?.contentDocument?.querySelectorAll(".track").length===3 && document.querySelector(".scene-item[data-id=wave] iframe")?.contentDocument?.querySelector("canvas")?.dataset.signal==="live"'),'Scene preview missing');await delay(900);
+  assert.equal(await evaluate('(()=>{const stage=document.getElementById("scene-stage"),wave=stage.querySelector("[data-id=wave]");return wave.style.left==="0px"&&wave.style.width===stage.style.width;})()'),true,'Scene waveform must span the full canvas width');
   await evaluate('document.getElementById("scene-component").value="synthetic-preset-master";document.getElementById("scene-component").dispatchEvent(new Event("change"))');
   await capture('scene-editor',1440,1420);
 
@@ -112,7 +116,11 @@ withBrowser((req,res,url)=>{
   await capture('deckstatus-styles',1200,580);
   for(const file of ['README.md']){
     const markdown=fs.readFileSync(path.join(root,file),'utf8');
-    for(const match of markdown.matchAll(/!\[[^\]]*\]\(docs\/images\/([^)]*\.png)\)/g))assert.ok(images.includes(match[1]),'README screenshot was not regenerated in English: '+match[1]);
+    for(const match of markdown.matchAll(/!\[[^\]]*\]\(docs\/images\/([^)]*\.png)\)/g)){
+      assert.ok(fs.existsSync(path.join(destination,match[1])),'README image is missing: '+match[1]);
+      if(!only||match[1]===only+'-en.png')assert.ok(images.includes(match[1]),'README screenshot was not regenerated in English: '+match[1]);
+    }
   }
+  if(only)assert.ok(images.includes(only+'-en.png'),'Unknown screenshot name: '+only);
   console.log('English README screenshots generated and checked: '+images.join(', '));
 }).catch(error=>{console.error(error);process.exitCode=1;});
