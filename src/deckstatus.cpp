@@ -334,6 +334,7 @@ int wmain(int argc, wchar_t** argv) {
                   << "OBS:       http://127.0.0.1:" << port << "/overlay?deck=1\n"
                   << "Decks:     http://127.0.0.1:" << port << "/overlay/settings\n"
                   << "Master:    http://127.0.0.1:" << port << "/master-overlay/settings\n"
+                  << "Waveform:  http://127.0.0.1:" << port << "/waveform/settings\n"
                   << deckstatus::tr("cliStop") << "\n" << std::flush;
         const int result = deckstatus::run_server("127.0.0.1", port, directory / "web", snapshot, cover, stopping, &master_history);
         stopping = true;

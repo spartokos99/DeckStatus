@@ -1,4 +1,5 @@
 #include "server.h"
+#include "audio_capture.h"
 #include "language.h"
 #include <map>
 #include "master_history.h"
@@ -125,15 +126,20 @@ int run_server(const std::string& host, int port,
         {"/deck-overlay.js", "deck-overlay.js"}, {"/overlay-shared.js", "overlay-shared.js"},
         {"/overlay.css", "overlay.css"}, {"/settings.css", "settings.css"},
         {"/settings.js", "settings.js"}, {"/i18n.js", "i18n.js"}, {"/storage.js", "storage.js"},
+        {"/waveform", "waveform.html"}, {"/waveform/settings", "waveform-settings.html"},
+        {"/waveform.js", "waveform.js"}, {"/waveform-options.js", "waveform-options.js"},
+        {"/waveform-renderer.js", "waveform-renderer.js"}, {"/waveform-settings.js", "waveform-settings.js"},
+        {"/icon.svg", "icon.svg"},
         {"/locales/en.json", "locales/en.json"}, {"/locales/de.json", "locales/de.json"}
     }) {
         const auto body = read_page(web_root / file);
         if (body.empty()) { std::cerr << tr("Web assets missing in: ") << web_root << '\n'; return 1; }
         const auto extension = std::filesystem::path(file).extension();
         assets.emplace(url, Asset{body, extension == ".js" ? "text/javascript; charset=utf-8" :
-            extension == ".css" ? "text/css; charset=utf-8" : extension == ".json" ? "application/json; charset=utf-8" : "text/html; charset=utf-8"});
+            extension == ".svg" ? "image/svg+xml" : extension == ".css" ? "text/css; charset=utf-8" : extension == ".json" ? "application/json; charset=utf-8" : "text/html; charset=utf-8"});
     }
 
+    AudioCapture audio;
     httplib::Server server;
     // Windows SO_REUSEADDR permits multiple listeners on the same address.
     // Use exclusive ownership so a second instance fails at startup.
@@ -202,6 +208,22 @@ int run_server(const std::string& host, int port,
         response.set_header("Allow", "GET, HEAD");
         json_response(response, {{"error", "Method is not allowed"}}, 405);
     };
+    server.Get("/api/audio/devices", [&](const auto&, auto& response) { json_response(response, audio.devices()); });
+    server.Get("/api/audio/state", [&](const auto&, auto& response) { json_response(response, audio.state()); });
+    server.Post("/api/audio/source", [&](const auto& request, auto& response) {
+        const auto type = lower_ascii(request.get_header_value("Content-Type"));
+        if (type != "application/json" && type != "application/json; charset=utf-8") {
+            json_response(response, {{"error", "JSON content type required"}}, 415); return;
+        }
+        const auto body = Json::parse(request.body, nullptr, false);
+        if (!body.is_object() || body.size() != 1 || !body.contains("deviceId") || !body["deviceId"].is_string()) {
+            json_response(response, {{"error", "Expected a deviceId string; empty string stops capture"}}, 400); return;
+        }
+        if (!audio.select(body["deviceId"].template get<std::string>())) {
+            json_response(response, {{"error", "audioDeviceLost"}}, 400); return;
+        }
+        json_response(response, audio.state());
+    });
     server.Post(R"(/.*)", reject_method);
     server.Put(R"(/.*)", reject_method);
     server.Patch(R"(/.*)", reject_method);

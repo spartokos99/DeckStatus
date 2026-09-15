@@ -108,6 +108,20 @@ int main(int argc, char** argv) {
         }
         require(ready, "Server did not start");
 
+        const auto audio = client.Get("/api/audio/state");
+        expect_status(audio, 200, "Audio state missing");
+        require(Json::parse(audio->body)["status"] == "stopped", "Audio must not start on server launch");
+        expect_status(client.Get("/api/audio/devices"), 200, "Audio device enumeration missing");
+        expect_status(client.Post("/api/audio/source", R"({"deviceId":""})", "application/json"), 200, "Explicit audio stop failed");
+        expect_status(client.Post("/api/audio/source", R"({"deviceId":"missing-test-device"})", "application/json"), 400, "Unknown source accepted");
+        expect_status(client.Post("/api/audio/source", R"({"deviceId":42})", "application/json"), 400, "Invalid source schema accepted");
+        expect_status(client.Post("/api/audio/source", "{", "application/json"), 400, "Malformed audio JSON accepted");
+        expect_status(client.Post("/api/audio/source", R"({"deviceId":""})", "text/plain"), 415, "Simple cross-origin form type accepted");
+        expect_status(client.Get("/api/audio/source?deviceId=anything"), 404, "GET must not control audio capture");
+        const httplib::Headers other_origin{{"Origin", "http://example.com"}};
+        expect_status(client.Post("/api/audio/source", other_origin, "", "application/json"), 403, "Cross-origin audio control accepted");
+        require(Json::parse(client.Get("/api/audio/state")->body)["status"] == "stopped", "Invalid requests changed capture state");
+
         const auto response = client.Get("/api/state");
         expect_status(response, 200, "State should be available");
         const auto parsed = Json::parse(response->body);
@@ -129,14 +143,14 @@ int main(int argc, char** argv) {
             expect_status(client.Get(path), 404, "Unknown route or absent deck should return 404");
 
         for (const char* path : {"/", "/index.html", "/overlay", "/overlay.html", "/overlay?deck=4",
-                                 "/master-overlay?history=3&fields=title,cover", "/master-overlay/settings", "/overlay/settings"}) {
+                                 "/master-overlay?history=3&fields=title,cover", "/master-overlay/settings", "/overlay/settings", "/waveform", "/waveform/settings"}) {
             const auto page = client.Get(path);
             expect_status(page, 200, "Web page missing");
             require(page->get_header_value("Content-Type").starts_with("text/html"), "HTML MIME missing");
             require(page->body.find("<!doctype html>") != std::string::npos, "HTML document missing");
         }
         for (const char* path : {"/master-overlay.js", "/master-options.js", "/deck-overlay.js",
-                                 "/overlay-shared.js", "/settings.js", "/i18n.js", "/storage.js"}) {
+                                 "/overlay-shared.js", "/settings.js", "/i18n.js", "/storage.js", "/waveform.js", "/waveform-settings.js", "/waveform-options.js", "/waveform-renderer.js"}) {
             const auto script = client.Get(path);
             expect_status(script, 200, "Master script missing");
             require(script->get_header_value("Content-Type").starts_with("text/javascript"), "Module MIME missing");

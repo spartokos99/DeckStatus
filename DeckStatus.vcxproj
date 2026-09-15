@@ -31,6 +31,7 @@
     <ClCompile Include="src\*.cpp" />
     <ClInclude Include="src\*.h" />
     <None Include="src\*.rc" />
+    <None Include="assets\*.ico" /><None Include="web\*.svg" /><None Include="tools\*.cjs" /><None Include="CHANGELOG.md" />
     <None Include="CMakeLists.txt" /><None Include="build.ps1" /><None Include="README.md" />
     <None Include="web\*.html" /><None Include="web\*.js" /><None Include="web\*.css" /><None Include="web\locales\*.json" /><None Include="tests\*" /><None Include="docs\*" />
   </ItemGroup>

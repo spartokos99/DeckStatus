@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DeckStatus waveform settings</title><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/settings.css"><style>.audio-buttons{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.audio-buttons button:disabled{opacity:.4;cursor:default}#audio-status{display:block;min-height:42px;line-height:1.6;margin:8px 0;color:#b8ddcd}.meter{width:100%;height:8px;margin-bottom:12px}details{border-top:1px solid #304345;padding-top:18px;margin-top:18px}summary{cursor:pointer;margin-bottom:22px;font-size:14px;color:#a8eccf}.wave-controls .setting{margin-bottom:18px}.wave-controls output{float:right;font-size:11px;color:#9dbeb0}.wave-preview{min-height:280px}#preview{min-height:0}#device{font-size:12px}</style></head>
+<body><div class="shell"><header><strong>DeckStatus</strong><nav><a href="/" data-i18n="dashboard"></a><a href="/overlay/settings" data-i18n="deckSettings"></a><a href="/master-overlay/settings" data-i18n="masterSettings"></a><a href="/waveform/settings" data-i18n="waveSettings"></a><select data-language data-i18n-aria="language"><option value="en">English</option><option value="de">Deutsch</option></select></nav></header>
+<div class="intro"><span class="eyebrow" data-i18n="stream"></span><h1 data-i18n="waveHeading"></h1><p data-i18n="waveIntro"></p></div>
+<main class="layout"><section class="panel">
+<h2 data-i18n="waveInputHeading"></h2>
+<div class="setting"><label for="device" data-i18n="waveInput"></label><select id="device"></select><small data-i18n="waveInputHelp"></small></div>
+<div class="audio-buttons"><button id="start" data-i18n="waveStart" disabled></button><button id="stop" data-i18n="waveStop" disabled></button><button id="refresh" data-i18n="waveRefresh"></button></div>
+<span id="audio-status" role="status" aria-live="polite"></span><meter id="level" class="meter" min="0" max="1" value="0" data-i18n-aria="waveLevel"></meter><p class="hint" data-i18n="waveShared"></p>
+<h2 data-i18n="waveDesignHeading"></h2><div class="setting"><label for="preset" data-i18n="preset"></label><select id="preset"></select></div>
+<div id="main-controls" class="wave-controls"></div>
+<details open><summary data-i18n="waveSignalControls"></summary><div id="signal-controls" class="wave-controls"></div></details>
+<details><summary data-i18n="waveDetailControls"></summary><div id="detail-controls" class="wave-controls"></div></details>
+<button id="reset" data-i18n="reset"></button>
+</section><section class="preview-column"><div class="preview-heading"><h2 data-i18n="preview"></h2><span class="status" data-i18n="wavePreviewLive"></span></div>
+<div class="canvas wave-preview"><iframe id="preview" data-i18n-title="preview"></iframe></div><p class="hint" data-i18n="wavePreviewHelp"></p>
+<div class="url-panel"><h2 data-i18n="useObs"></h2><p data-i18n="waveObsHelp"></p><div class="url"><input id="url" readonly aria-label="OBS URL"><button id="copy" data-i18n="copyUrl"></button></div>
+<div class="links"><a id="open" target="_blank" rel="noopener" data-i18n="openOverlay"></a><span id="dimensions"></span></div><p id="feedback" role="status"></p></div>
+</section></main></div><script type="module" src="/waveform-settings.js"></script></body></html>

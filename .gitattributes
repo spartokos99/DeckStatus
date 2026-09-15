@@ -17,5 +17,6 @@
 *.sln text eol=crlf
 *.vcxproj text eol=crlf
 *.png binary
+*.ico binary
 *.jpg binary
 *.jpeg binary

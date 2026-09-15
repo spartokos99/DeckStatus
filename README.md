@@ -1,8 +1,12 @@
 <div align="center">
 
+<img src="docs/images/deckstatus-icon.png" width="96" alt="DeckStatus icon">
+
 # 🎛️ DeckStatus
 
-**Live deck data. Custom stream overlays. Your master track and its history.**
+**Version 1.3.1** · [📦 Download for Windows x64](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) · [Change notes](CHANGELOG.md)
+
+**Live deck data. Custom stream overlays. Audio-reactive waveforms.**
 
 🪟 **Windows x64** · ⚡ **C++20** · 🌐 **Local HTTP API** · 🇬🇧 / 🇩🇪 **English & Deutsch**
 
@@ -18,7 +22,7 @@
 
 ![Master overlay with a live timeline and smaller history cards](docs/images/master-overlay.png)
 
-*📸 All previews below are rendered from the real interface with synthetic track data. No music, library database or Rekordbox binaries are included.*
+*📸 All previews below are rendered from the real interface with synthetic track data or labelled test audio signals. No music, library database or Rekordbox binaries are included.*
 
 ## 🎧 What it does
 
@@ -38,7 +42,7 @@ The application consists of two parts: `DeckStatusBridge.dll` samples native dec
 - Connection state, executable version, sample age and metadata diagnostics.
 - Missing values remain unknown; stale or disconnected decks are not presented as live.
 
-Native sampling runs approximately every **100 ms**. Overlays poll every **250 ms**, and the dashboard every **500 ms**. Library metadata is refreshed on track changes and periodically thereafter.
+Native deck sampling runs approximately every **100 ms**. Track overlays poll every **250 ms**, and the dashboard every **500 ms**. Library metadata is refreshed on track changes and periodically thereafter.
 
 ![DeckStatus dashboard with four synthetic decks and connection details](docs/images/deckstatus-dashboard.png)
 
@@ -71,7 +75,29 @@ In the master overlay, **only the current track shows a timeline**. Historical c
 
 The timeline is a visual display: it does not play audio, show a waveform, seek or control Rekordbox.
 
-### 🎨 Make the overlay yours
+### 〰️ Audio waveform overlay · new in 1.3.1
+
+Open [Waveform settings](http://127.0.0.1:18740/waveform/settings). **Audio input is the first setting**: choose a Windows recording device (microphone, line-in, interface) or an output loopback device, then press **Start / switch source**.
+
+- **Six presets:** Mint line, Neon spectrum, Sunset mirror, Minimal white, Orbit and Signal ribbon.
+- **Six visualizations:** waveform line, filled waveform, spectrum bars, mirrored spectrum, radial spectrum and scrolling amplitude history.
+- Colours and gradient, background opacity, dimensions, sensitivity, smoothing and noise gate.
+- Line width, bar count/spacing/rounding, glow, trails, grid, centre line and silence visibility.
+- Stereo mix or left/right channel, spectrum frequency range, history duration and 30/60 FPS limit.
+- Live preview, saved visual settings and a ready-to-copy transparent OBS browser-source URL.
+- A simple mint **D + signal** icon is embedded in the Windows EXE at nine sizes (16–256 px).
+
+![Waveform settings with a labelled synthetic audio input](docs/images/waveform-settings.png)
+
+**One audio source is shared by every waveform overlay.** Capture defaults to off on each app launch. Start/stop is explicit; changing a preset or opening an overlay does not start capture. Closing a settings tab does not stop an active source: use **Stop capture** or exit DeckStatus.
+
+Audio capture uses Windows WASAPI in the host app. No audio is played, recorded to disk or uploaded. Output loopback visualizes the shared Windows mix of that device; it does **not** follow the Rekordbox MASTER deck. ASIO or exclusive-mode output may be unavailable to loopback. Microphones may need Windows privacy permission. Multichannel devices currently use their first stereo pair; mono is duplicated.
+
+The overlay analyses recent audio, not the track's complete precomputed waveform. Signal snapshots contain 1,024 samples per channel, fetched about every 40 ms plus request time. The history visualization shows sampled amplitude, not a continuous audio recording. Stale samples are cleared. The `--demo` option does not generate fake waveform audio.
+
+See [audio setup, API and technical details](docs/audio-waveform.md).
+
+### 🎨 Make the track overlay yours
 
 ![Three DeckStatus styles: Midnight, Light and Minimal with a transparent background](docs/images/deckstatus-styles.png)
 
@@ -91,7 +117,7 @@ Settings are saved in the browser. Generated overlay URLs contain their configur
 
 ### 🌍 English and German
 
-**English is the default.** Switch between English and Deutsch in the dashboard or either settings page. Your browser remembers the choice; overlay URLs carry `lang=en` or `lang=de`.
+**English is the default.** Switch between English and Deutsch in the dashboard or any settings page. Your browser remembers the choice; overlay URLs carry `lang=en` or `lang=de`.
 
 Console help and diagnostics also support both languages through `--lang en|de`. Track metadata is displayed as stored in the library.
 
@@ -102,6 +128,10 @@ Run `DeckStatus.exe --demo` without Rekordbox to try the dashboard, overlays, hi
 <a id="getting-started"></a>
 
 ## 🚀 Getting started
+
+### 📥 Portable download
+
+Download **DeckStatus-1.3.1-win-x64.zip** from the [1.3.1 release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1), extract the entire archive and run `DeckStatus.exe`. Keep its DLL and `web` directory together. No installer is required.
 
 ### 🛠️ Build requirements
 
@@ -129,7 +159,7 @@ A fresh checkout does not contain the author's local CMake cache. The optional d
 1. Start the **tested Rekordbox build** and switch to Performance mode.
 2. Run `build\Release\DeckStatus.exe`.
 3. Open [http://127.0.0.1:18740/](http://127.0.0.1:18740/).
-4. Load tracks and open the [deck settings](http://127.0.0.1:18740/overlay/settings) or [master settings](http://127.0.0.1:18740/master-overlay/settings).
+4. Load tracks and open the [deck settings](http://127.0.0.1:18740/overlay/settings) or [master settings](http://127.0.0.1:18740/master-overlay/settings). For audio, open [waveform settings](http://127.0.0.1:18740/waveform/settings).
 5. Copy the generated URL into an OBS **Browser Source**, using the suggested source dimensions.
 
 Keep `DeckStatusBridge.dll` and the entire `web` folder beside `DeckStatus.exe`. Run Rekordbox and the bridge as the same Windows user with matching privileges.
@@ -151,7 +181,7 @@ In a shell where `cmake` is available:
 
 ```powershell
 cmake --install build --config Release --prefix build/DeckStatus
-Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-win-x64.zip -Force
+Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-1.3.1-win-x64.zip -Force
 ```
 
 Generated binaries and ZIP files are intentionally excluded from Git.
@@ -164,7 +194,7 @@ Stop the previous instance before starting `DeckStatus.exe`. Keep the matching `
 
 ## 🌐 HTTP API
 
-The server listens on **127.0.0.1**. Routes support read-only access; cross-origin browser requests are rejected. The API has no playback-control endpoints.
+The server listens on **127.0.0.1**. Track-data routes support read-only access; cross-origin browser requests are rejected. The explicit `POST /api/audio/source` endpoint starts, switches or stops audio capture. The API has no Rekordbox playback-control endpoints.
 
 | Route | Purpose |
 |---|---|
@@ -180,6 +210,11 @@ The server listens on **127.0.0.1**. Routes support read-only access; cross-orig
 | `/api/master` | Current master, newest-first history and session limit |
 | `/api/master/covers/{trackId}` | Artwork for a track retained in the master session |
 | `/api/health` | 200 when connected or in demo mode; otherwise 503 |
+| `/waveform/settings` | Shared audio-source selection, visual settings and preview |
+| `/waveform` | Transparent audio visualization |
+| `/api/audio/devices` | Active Windows inputs and output-loopback devices |
+| `/api/audio/state` | Capture status, freshness and latest stereo sample window |
+| `POST /api/audio/source` | JSON `{"deviceId":"…"}` selects a source; `{"deviceId":""}` stops |
 
 A deck exposes `id`, `trackId`, `loaded`, `metadataAvailable`, `isMaster`, `title`, `artist`, `album`, `key`, `genre`, `label`, `bpm`, `originalBpm`, `positionMs`, `durationMs` and `coverUrl`.
 
@@ -203,15 +238,16 @@ Invoke-RestMethod http://127.0.0.1:18740/api/master
 
 **Recorded live testing is limited to the author's Rekordbox 7.2.18.0 Windows x64 build.** Passing automated tests does not establish support for another version.
 
-All **five native CTest tests** passed in the recorded local validation:
+All **six native CTest tests** passed in the recorded local validation:
 
 | Test | Coverage |
 |---|---|
 | `master_history` | Master changes, repeats, gaps, late metadata, captured BPM, history limit, artwork retention and stale samples |
 | `artwork_database` | Metadata joins, missing values, UTF-8, artwork paths and bounds; verifies that its temporary database remains unchanged |
-| `http_server` | JSON and Unicode, routes and MIME types, Host/Origin checks, read-only methods, artwork races, health states, port ownership and shutdown |
+| `http_server` | JSON and Unicode, routes and MIME types, Host/Origin checks, read-only metadata methods, explicit audio-source control, artwork races, health states, port ownership and shutdown |
 | `scanner_boundaries` | Invalid memory, page boundaries, UTF-8, PE boundaries and ambiguous signatures |
 | `injection_lifecycle` | DLL loading, IPC, unsupported-build rejection, duplicate attachment and reattachment in an isolated test process |
+| `audio_capture` | PCM/float conversion, clipping, invalid samples, stereo/mono, bounded sample window, silence, device enumeration and default-off lifecycle |
 
 The injection test starts its **own fixture process**, named `rekordbox.exe`. It contains no Rekordbox code and does not attach to a user's running Rekordbox instance.
 
@@ -235,6 +271,7 @@ This test uses the installation's database libraries with a temporary test datab
 
 ```powershell
 node tests/browser_master_test.cjs
+node tests/browser_waveform_test.cjs
 # Or select another locally installed Chromium/Edge executable:
 node tests/browser_master_test.cjs "C:/path/to/msedge.exe"
 ```
@@ -249,13 +286,17 @@ The browser suite launches a headless browser with a private profile and synthet
 - Timeline progress, preroll, bounds, missing data and master-only visibility.
 - Safe text rendering of track metadata and disconnected states.
 
-Screenshots are written to `build/test-artifacts`.
+The waveform suite additionally verifies source selection without automatic capture, explicit start/switch/stop, six actual Canvas renderers, FFT frequency/amplitude, channel mixing, noise gate, bounded options, constant background opacity with trails, persistence, translations, silence, stale data and device loss. It opens no audio hardware.
+
+Screenshots are written to `build/test-artifacts`. `powershell -File tests/resource_test.ps1` checks the compiled EXE icon and version. The optional `build/Release/audio_test.exe --loopback-smoke` opens an output-loopback endpoint to check start/stop/restart; it saves no audio files. This hardware check is not run by CTest.
 
 ### 🔬 What was checked live
 
 Four loaded decks supplied metadata, artwork, tempo and timing. Native device values were compared with API output. Master changes and retained artwork were observed, and the real server was checked in Edge.
 
 Live timeline validation used **stationary positions**. Seek jumps, negative preroll and pause-display behaviour were tested with synthetic browser data. Manual pitch changes, a dedicated OBS run, streaming-service tracks, Export mode, other Rekordbox versions and extended DJ sessions have **not** been separately validated.
+
+For 1.3.1, native Windows endpoint enumeration and opening/stopping/restarting a local WASAPI output-loopback stream passed. Rendering uses synthetic signals in automated tests. Microphone/interface capture, actual Rekordbox-to-loopback signal fidelity and a dedicated OBS waveform session have **not** been separately validated.
 
 See [the validation record](docs/validation.md) and [the exact executable profile](docs/rekordbox-7.2.18.md) for the evidence and its limits. These detailed engineering notes are currently in German.
 
@@ -278,7 +319,9 @@ The hash is a reference fingerprint; the DLL does not calculate SHA-256 at runti
 ## 🗂️ Project layout
 
 ```text
-src/        Native bridge, injector, HTTP server, metadata and history
+src/        Native bridge, injector, HTTP server, audio capture, metadata and history
+assets/     Multi-resolution Windows application icon
+tools/      Optional icon regeneration helper
 web/        Dashboard, settings, overlays and EN/DE translations
 tests/      Native fixtures and browser integration suite
 docs/       Validation, executable profile and metadata-source notes

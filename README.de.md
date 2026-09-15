@@ -1,5 +1,9 @@
 # 🎛️ DeckStatus
 
+<img src="docs/images/deckstatus-icon.png" width="80" alt="DeckStatus-Icon">
+
+**Version 1.3.1** · [📦 Windows-Download](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) · [Änderungen](CHANGELOG.md)
+
 [English](README.md) · Deutsch
 
 > **Nur mit der eigenen Rekordbox-Installation 7.2.18.0 unter Windows x64 getestet.** Andere Versionen, EXE-Builds, Betriebssysteme und der Export-Modus sind nicht validiert. Die Bridge ist auf den dokumentierten Build abgestimmt und lehnt unpassende Builds ab.
@@ -37,7 +41,7 @@ Die Browseranzeige lässt sich ohne Rekordbox ausprobieren. Der Demo-Modus kennz
 
 Eine gemeinsame Seite enthält eine Deck-Auswahl. Jedes Deck speichert seine eigene Konfiguration im Browser und bekommt eine eigene OBS-URL. „Auf alle Decks anwenden“ übernimmt das aktuelle Design für alle vier Decks. Die Links darunter öffnen die jeweiligen fertig konfigurierten Overlays. Das Dashboard verwendet ebenfalls diese gespeicherten Deck-Einstellungen für seine Overlay-Links.
 
-**English ist Standard.** Oben im Dashboard und auf beiden Einstellungsseiten zwischen **English** und **Deutsch** wechseln. Die Auswahl bleibt im Browser gespeichert; fertige OBS-URLs enthalten die Sprache explizit als `lang=en` oder `lang=de`. Die Konsole startet auf Englisch und lässt sich mit `DeckStatus.exe --lang de` einschließlich Hilfe und Diagnosen auf Deutsch umstellen. Die Sprachdateien liegen in `web/locales/en.json` und `de.json`; Tracktitel und andere Bibliotheksdaten werden unverändert angezeigt.
+**English ist Standard.** Oben im Dashboard und auf allen Einstellungsseiten zwischen **English** und **Deutsch** wechseln. Die Auswahl bleibt im Browser gespeichert; fertige OBS-URLs enthalten die Sprache explizit als `lang=en` oder `lang=de`. Die Konsole startet auf Englisch und lässt sich mit `DeckStatus.exe --lang de` einschließlich Hilfe und Diagnosen auf Deutsch umstellen. Die Sprachdateien liegen in `web/locales/en.json` und `de.json`; Tracktitel und andere Bibliotheksdaten werden unverändert angezeigt.
 
 ![DeckStatus – Dashboard mit vier Decks](docs/images/deckstatus-dashboard.png)
 
@@ -80,11 +84,39 @@ Beim Umstieg auf DeckStatus werden die bisher gespeicherte Sprache und Overlay-E
 
 Die Einstellungen einschließlich Skalierung und Ausrichtung bleiben im verwendeten Browser gespeichert; die OBS-URL enthält die vollständige Konfiguration und funktioniert unabhängig davon. Der Demo-Modus wechselt alle acht Sekunden zwischen zwei deutlich gekennzeichneten Beispieltracks.
 
+## 〰️ Audio-Waveform · neu in 1.3.1
+
+Öffne **http://127.0.0.1:18740/waveform/settings**. Die **erste Einstellung ist der Audioeingang**: Windows-Mikrofon, Line-in, Interface oder Ausgabe-Loopback wählen und **Start / Quelle wechseln** drücken.
+
+- Sechs Presets: Mint-Linie, Neon-Spektrum, Sunset-Spiegel, Minimal Weiß, Orbit und Signalband.
+- Linie, gefüllte Waveform, Spektrumbalken, gespiegeltes Spektrum, Kreis oder Amplitudenverlauf.
+- Farben, Farbverlauf, Transparenz, Breite/Höhe, Empfindlichkeit, Glättung und Rauschschwelle.
+- Linienbreite, Balkenanzahl/-abstand/-rundung, Leuchten, Nachleuchten, Raster und Mittellinie.
+- Linker/rechter Kanal oder Stereomix, Frequenzbereich, Verlaufsdauer, 30/60-FPS-Limit und Ausblenden bei Stille.
+- Live-Vorschau, gespeichertes Design und eigene OBS-URL.
+
+![Waveform-Einstellungen mit gekennzeichnetem synthetischem Eingangssignal](docs/images/waveform-settings.png)
+
+**Alle Waveform-Overlays teilen eine Audioquelle.** Die Erfassung ist nach jedem App-Start ausgeschaltet und wird explizit gestartet/gestoppt. Das Schließen der Einstellungsseite beendet eine laufende Erfassung nicht; dafür Stopp drücken oder DeckStatus beenden. Die URL speichert nur das Design.
+
+WASAPI erfasst Audio im separaten Host. Es wird weder wiedergegeben noch in Dateien gespeichert oder hochgeladen. Ausgabe-Loopback zeigt den gemeinsamen Windows-Mix des gewählten Geräts und folgt **nicht** Rekordbox MASTER. ASIO/exklusive Ausgabe ist eventuell nicht verfügbar; dann einen passenden Windows-Eingang verwenden. Mikrofone benötigen gegebenenfalls eine Windows-Datenschutzfreigabe. Mehrkanalgeräte verwenden aktuell das erste Stereopaar, Mono wird dupliziert.
+
+Die Darstellung nutzt die letzten 1.024 Samples je Kanal, keine vorberechnete Waveform des gesamten Tracks. Abruf etwa alle 40 ms plus Anfragezeit; der Verlauf zeigt abgetastete Amplituden, keine lückenlose Audioaufzeichnung. Veraltete Signale verschwinden. Auch im Demo-Modus wird kein Waveform-Audiosignal erfunden.
+
+Das neue mintfarbene **D mit Audiosignal** ist als Windows-Icon in neun Auflösungen von 16 bis 256 px direkt in der EXE eingebettet.
+
+Für die fertige App das vollständige **DeckStatus-1.3.1-win-x64.zip** aus dem [GitHub-Release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.1) entpacken. [Technische Audio-Dokumentation](docs/audio-waveform.md).
+
 ## 🌐 HTTP-API
 
 | Adresse | Inhalt |
 |---|---|
 | `/` | Dashboard mit vier Decks |
+| `/waveform/settings` | Audioquelle, Waveform-Design, Vorschau und OBS-URL |
+| `/waveform` | Transparente Audio-Visualisierung |
+| `/api/audio/devices` | Aktive Windows-Eingänge und Ausgabe-Loopback-Geräte |
+| `/api/audio/state` | Erfassungsstatus, Signalalter und letztes Stereo-Samplefenster |
+| `POST /api/audio/source` | JSON `{"deviceId":"…"}` wählt eine Quelle; `{"deviceId":""}` stoppt |
 | `/api/state` | Gesamtzustand, Version, Diagnose und Deckdaten |
 | `/api/decks` | Array der vier Decks |
 | `/api/decks/1` | Deck 1; Nummern 1–4 |
@@ -97,7 +129,7 @@ Die Einstellungen einschließlich Skalierung und Ausrichtung bleiben im verwende
 | `/api/master` | Aktueller Master-Eintrag und bis zu 50 vorherige Einträge |
 | `/api/master/covers/123` | Cover zu einer Track-ID in der Master-Session; auch nach Deckwechseln |
 
-Alle Endpunkte sind nur lesend. Der Server lauscht ausschließlich auf `127.0.0.1`; keine Firewall-Freigabe erforderlich. Lokale Programme können die API direkt abrufen. Browserzugriffe von anderen Websites sind gesperrt.
+Track-Endpunkte sind nur lesend. `POST /api/audio/source` startet, wechselt oder stoppt explizit die Audioerfassung; es steuert Rekordbox nicht. Der Server lauscht ausschließlich auf `127.0.0.1`; keine Firewall-Freigabe erforderlich. Lokale Programme können die API direkt abrufen. Browserzugriffe von anderen Websites sind gesperrt.
 
 Deckdaten umfassen `id`, `trackId`, `loaded`, `metadataAvailable`, `isMaster`, `title`, `artist`, `album`, `key`, `genre`, `label`, `bpm`, `originalBpm`, `positionMs`, `durationMs` und `coverUrl`. `bpm` ist das aktuelle Decktempo, `originalBpm` das analysierte Tracktempo. `positionMs` ist die aktuelle Position in Millisekunden (bei Vorlauf negativ), `durationMs` die Gesamtlänge in Millisekunden; nicht verfügbare Zeiten sind `null`. `key` ist der gespeicherte Track-Key; eine live transponierte Tonart wird nicht ermittelt. Fehlende Werte erscheinen als `null`. Ein geladener Track bedeutet nicht automatisch, dass dieses Deck gerade hörbar spielt. Faderzustand und Play/Pause werden nicht ermittelt.
 
@@ -105,7 +137,7 @@ Deckdaten umfassen `id`, `trackId`, `loaded`, `metadataAvailable`, `isMaster`, `
 
 `updatedAt` ist ein Unix-Zeitstempel in Millisekunden, `sampleAgeMs` das Alter der letzten Messung. Bei veralteten Messungen oder getrenntem Prozess werden alte Tracks nicht weiter als aktuelle Deckdaten ausgegeben. Cover-URLs enthalten eine Track-ID; beim Trackwechsel werden unpassende Bildanfragen verworfen. Ein vorhandener `coverUrl` bezeichnet den Bildendpunkt, garantiert aber kein verfügbares Cover.
 
-Die DLL liest Deckzustände etwa alle 100 ms. Der Webserver liest Metadaten beim Trackwechsel sowie alle zwei Sekunden aus der lokalen Datenbank. Das Dashboard aktualisiert sich etwa alle 500 ms, beide Overlay-Typen alle 250 ms. Auch Cover stammen aus der lokalen Rekordbox-Datenbank. Bei Streaming-Tracks ohne lokalen Bibliothekseintrag können die Metadaten fehlen; Tracks ohne gespeichertes Cover liefern am Bildendpunkt 404.
+Die DLL liest Deckzustände etwa alle 100 ms. Der Webserver liest Metadaten beim Trackwechsel sowie alle zwei Sekunden aus der lokalen Datenbank. Das Dashboard aktualisiert sich etwa alle 500 ms, Deck- und Master-Overlays alle 250 ms. Auch Cover stammen aus der lokalen Rekordbox-Datenbank. Bei Streaming-Tracks ohne lokalen Bibliothekseintrag können die Metadaten fehlen; Tracks ohne gespeichertes Cover liefern am Bildendpunkt 404.
 
 ## 🧪 Bauen und prüfen
 
@@ -122,6 +154,10 @@ Tests laufen mit dem Build. Der Injection-Test erstellt einen eigenen harmlosen 
 Der zusätzliche Datenbanktest benötigt die lokal installierte Rekordbox-EXE als CMake-Option `REKORDBOX_TEST_EXE`; ohne diese Angabe wird er übersprungen. Er erstellt ausschließlich eine eigene temporäre Testdatenbank. Ein frischer Checkout enthält keine lokale CMake-Konfiguration. Den Installationspfad für diesen optionalen Test selbst mit `-DREKORDBOX_TEST_EXE="C:/Pfad/zu/rekordbox.exe"` angeben.
 
 `master_history` prüft Master-Wechsel, Wiederholungen, Lücken, nachgeladene Metadaten, gespeicherte BPM, Cover und History-Grenzen. Optionaler Browsertest mit Node.js 22+ und installiertem Edge: `node tests/browser_master_test.cjs`. Er startet einen eigenen unsichtbaren Browser mit separatem Profil und synthetischem lokalen Testserver; Screenshots liegen anschließend unter `build/test-artifacts`.
+
+In Version 1.3.1 bestehen **alle sechs nativen Tests** sowie beide Browser-Suiten. `audio_capture` prüft PCM-/Float-Konvertierung, Begrenzung, NaN, Stereo/Mono, Samplefenster, Stille, Geräteauflistung und den ausgeschalteten Anfangszustand. `node tests/browser_waveform_test.cjs` prüft zusätzlich Quellenwechsel/Start/Stopp, sechs Darstellungen, FFT, Kanalwahl, Rauschschwelle, Designgrenzen, Transparenz mit Nachleuchten, Speicherung, EN/DE und Ausfallzustände mit synthetischen Signalen.
+
+`powershell -File tests/resource_test.ps1` prüft EXE-Icon und Version. Der optionale Aufruf `build/Release/audio_test.exe --loopback-smoke` prüft einen echten Ausgabe-Loopback-Stream durch Öffnen, Stoppen und Neustarten, ohne Audiodateien zu speichern; CTest öffnet selbst keine Audioquelle. Dieser lokale WASAPI-Test war erfolgreich. Mikrofon-/Interface-Erfassung, die Signalübertragung von Rekordbox zum Loopback und eine eigene OBS-Waveform-Sitzung wurden nicht separat validiert.
 
 ## ⚠️ Kompatibilität und Grenzen
 

@@ -76,3 +76,16 @@ Anwendung, CMake-Targets, Solution/Projektdatei, C++-Namensraum, IPC-Objekte und
 Der Build und alle fünf nativen Tests bestanden mit den umbenannten Dateien, einschließlich Laden, doppelter Anbindung und Entladen der neuen DLL im isolierten Testprozess. Die Browserprüfung deckt zusätzlich die Übernahme alter Sprach-, Deck- und Master-Einstellungen in `deckstatus.*` ab und bestätigt, dass neue Werte dabei Vorrang behalten.
 
 Dashboard, Einstellungsseite und drei Overlay-Designs wurden für das README mit synthetischen Trackdaten neu aufgenommen. Der Rekordbox-Speicherzugriff wurde durch die Umbenennung nicht auf andere Builds erweitert; die ausschließlich für 7.2.18.0 dokumentierten Live-Prüfungen bleiben maßgeblich.
+
+## Ergänzung: DeckStatus 1.3.1 – 15.09.2026
+
+- Neue WASAPI-Audioquelle im Host, separater Waveform-Renderer und eigene Einstellungsseite; die bestehende Rekordbox-Profilprüfung bleibt unverändert.
+- Release-Build mit MSVC erfolgreich, sechs von sechs nativen CTest-Tests bestanden (einschließlich des konfigurierten Datenbanktests).
+- Bisherige Deck-/Master-Browser-Suite bestanden.
+- Neue Waveform-Browser-Suite bestanden: Audioeingang zuerst, kein automatischer Capture-Start, Start/Quellenwechsel/Stopp, sechs reale Canvas-Darstellungen, FFT-Frequenz/Amplitude, Stereo-/Kanalwahl, Rauschschwelle, Grenzen, Sprache/Speicherung, konstante Hintergrundtransparenz mit Nachleuchten, Stille und Fehler-/Stale-Zustände. Sämtliche Browser-Audiosignale waren synthetisch.
+- Standard-Audiotest liest die Geräteliste und prüft PCM-/Float-Konvertierung, NaN/Clipping, Mono/Stereo, Fensterreihenfolge, Stille und ungültige Pakete. CTest öffnet keine Audioquelle.
+- Separater opt-in Hardwaretest `audio_test.exe --loopback-smoke`: vorhandenen Windows-Ausgabe-Loopback zweimal geöffnet, Mixformat erhalten, gestoppt und erneut geöffnet. Kein Mikrofon geöffnet, keine Audiodateien gespeichert. Der Test prüft den Stream-Lebenszyklus, nicht die Wiedergabetreue eines Rekordbox-Signals.
+- Ressourcenprüfung der kompilierten EXE bestanden: Produktversion 1.3.1 / Dateiversion 1.3.1.0 und neun eingebettete Icon-Bilder (16, 20, 24, 32, 40, 48, 64, 128, 256 px).
+- Vorschau und Icon visuell kontrolliert; öffentliche Screenshots verwenden gekennzeichnete synthetische Daten.
+- Mikrofon-/Interface-Erfassung, Rekordbox-zu-Loopback-Signalübertragung und eine eigene OBS-Waveform-Sitzung bleiben nicht separat validiert.
+- Die produktive Rekordbox-Bridge wurde für diese Arbeiten nicht gestartet. Die einzige weiterhin live validierte Rekordbox-Version ist die eigene Installation **7.2.18.0, Windows x64**.
