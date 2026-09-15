@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.4.0 · 2026-09-15
+
+### 🔌 ProLink
+
+- Add explicit `--mode prolink` / `--prolink` startup and `Start-ProLink.cmd`. The default remains Rekordbox, with its original process/database options and injection profile.
+- Add a CDJ-3000 / DJM-A9 network adapter using Beat Link 8.0.0, with a bundled, checksum-pinned Temurin runtime. No Java installation is needed for the portable package.
+- Add ProLink setup: passive discovery, selected-player connection, mapping up to four players (including numbers 5/6), disconnect, interface/device details and Playing/Sync/On-Air indicators.
+- Feed the existing dashboard, overlays, timing and full session MASTER history from either source. Preserve distinct identities for different media sources and helper restarts. Clear stale/disconnected live data.
+- Keep all navigation functions visible in Monitor, Stream overlays and Connections groups. Show the current mode, disable inactive connection links and reject inactive APIs. Add a Rekordbox diagnostics page.
+- Keep Windows audio waveforms available in both modes. Mixer faders/EQ/FX and analysed track-waveform overlays are not implemented. No device playback, loading, sync or tempo-control commands are exposed.
+
+### 🧪 Validation and compatibility
+
+- Seven native tests, including ProLink IPC/artwork/lifecycle/freshness/restart and HTTP mode gates; Java model tests with synthetic CDJ packets; four browser suites including mobile navigation and EN/DE.
+- Verify the actual bundled helper's UTF-8 pipe output under Windows, including a non-UTF-8 console default, and check the portable application's mode gates, discovery/ports-busy diagnostics and shutdown without connecting to players or recording audio.
+- **ProLink is experimental and has not been tested on real CDJ-3000/DJM-A9 hardware.** Rekordbox-exported USB media is the primary target. Other models, firmware combinations, streaming and Device Library Plus-only media are not validated.
+- **Rekordbox mode remains tested only with the author's 7.2.18.0 Windows x64 installation.** No additional Rekordbox executable is supported by the existing bridge.
+- Full release includes dependency source JARs/POMs and runtime legal notices. Public screenshots use English and labelled synthetic examples.
+
+### 📦 Upgrade
+
+Extract the complete `DeckStatus-1.4.0-win-x64.zip` into a new directory. Keep `web`, `prolink` and `DeckStatusBridge.dll` beside the EXE. Run `DeckStatus.exe` for Rekordbox or `Start-ProLink.cmd` for ProLink. Open ProLink setup and explicitly discover/connect your devices. Previous overlay URLs and designs remain usable.
+
+
 ## 1.3.2 · 2026-09-15
 
 - Add Waveform and Full History links to the dashboard and consistent navigation across settings pages.

@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Full History · DeckStatus</title><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/settings.css"><link rel="stylesheet" href="/history.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Full History · DeckStatus</title><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/settings.css"><link rel="stylesheet" href="/history.css"><link rel="stylesheet" href="/navigation.css"></head>
 <body><div class="shell">
-<header><a class="brand" href="/"><img src="/icon.svg" width="38" height="38" alt=""><strong>DeckStatus</strong></a><nav><a href="/" data-i18n="dashboard"></a><a href="/overlay/settings" data-i18n="deckSettings"></a><a href="/master-overlay/settings" data-i18n="masterSettings"></a><a href="/waveform/settings" data-i18n="waveNav"></a><a href="/history" aria-current="page" data-i18n="fullHistory"></a><select data-language data-i18n-aria="language"><option value="en">English</option><option value="de">Deutsch</option></select></nav></header>
+<header></header>
 <main><div class="intro"><span class="eyebrow" data-i18n="historyEyebrow"></span><h1 data-i18n="historyHeading"></h1><p data-i18n="historyIntro"></p></div>
 <div class="history-toolbar"><div><strong id="count"></strong><span id="status" role="status"></span></div><button id="refresh" data-i18n="historyLatest"></button></div>
 <p id="demo-notice" class="history-notice" hidden data-i18n="demoNotice"></p>
 <div class="table-surface"><table><caption class="sr-only" data-i18n="fullHistory"></caption><thead><tr><th scope="col">#</th><th scope="col" data-i18n="historyObserved"></th><th scope="col" data-i18n="historyTrack"></th><th scope="col" data-i18n="album"></th><th scope="col" data-i18n="historyDeck"></th><th scope="col" data-i18n="key"></th><th scope="col" data-i18n="historyTempo"></th><th scope="col" data-i18n="historyState"></th></tr></thead><tbody id="history-rows"></tbody></table><p id="empty" data-i18n="historyEmpty"></p></div>
 <div class="pagination"><button id="newer" disabled data-i18n="historyNewer"></button><span id="page" role="status"></span><button id="older" disabled data-i18n="historyOlder"></button></div>
 <p class="hint" data-i18n="historySessionHelp"></p>
-</main></div><script type="module" src="/history.js"></script></body></html>
+</main></div><script type="module" src="/history.js"></script><script type="module" src="/navigation.js"></script></body></html>

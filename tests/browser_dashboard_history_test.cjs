@@ -18,8 +18,8 @@ withBrowser((req,res,url)=>{
   }return false;
 },async({evaluate,navigate,until,delay,screenshot})=>{
   await navigate('/?lang=en');await until(()=>evaluate('document.querySelectorAll(".timeline[data-available=true]").length===4'),'Four deck timelines missing');
-  assert.equal(await evaluate(`document.querySelector('nav a[href="/waveform/settings"]').textContent`),'Waveform');
-  assert.equal(await evaluate(`document.querySelector('nav a[href="/history"]').textContent`),'Full History');
+  assert.equal(await evaluate(`document.querySelector('nav a[href="/waveform/settings"] [data-i18n]').textContent`),'Waveform');
+  assert.equal(await evaluate(`document.querySelector('nav a[href="/history"] [data-i18n]').textContent`),'Full History');
   assert.equal(await evaluate('document.querySelector(".brand img").getAttribute("src")'),'/icon.svg');
   await until(()=>evaluate('document.querySelector(".brand img").naturalWidth>0'),'Application logo did not render');
   assert.deepEqual(await evaluate('[...document.querySelectorAll(".time-bar")].map(e=>Number(e.getAttribute("aria-valuenow")))'),[12.5,25,37.5,50]);

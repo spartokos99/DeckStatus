@@ -257,6 +257,44 @@ int main(int argc, char** argv) {
         expect_status(client.Get("/api/state"), 200, "Server should survive a snapshot exception");
 
         std::atomic_bool already_stopped{true};
+        const auto app = client.Get("/api/app");
+        expect_status(app, 200, "App mode route missing");
+        const auto app_data = Json::parse(app->body);
+        require(app_data["mode"] == "rekordbox" && app_data["capabilities"]["prolinkSetup"] == false, "Default mode changed");
+        expect_status(client.Get("/api/prolink/devices"), 409, "ProLink setup should be gated in default mode");
+        expect_status(client.Post("/api/prolink/control", "{\"action\":\"discover\"}", "application/json"), 409, "ProLink action should be gated in default mode");
+        expect_status(client.Get("/api/rekordbox/status"), 200, "Rekordbox diagnostics missing");
+        for (const auto* path : {"/navigation.js", "/navigation.css", "/prolink/settings", "/prolink-settings.js", "/connection.css", "/rekordbox/settings", "/rekordbox-settings.js"})
+            expect_status(client.Get(path), 200, "Mode UI asset missing");
+        {
+            const int link_port = available_port();
+            std::atomic_bool link_stop{};
+            std::atomic_int actions{};
+            deckstatus::ServerFeatures features;
+            features.mode = "prolink";
+            features.prolink_setup = [] { return Json{{"status", "stopped"}, {"devices", Json::array()}}; };
+            features.prolink_control = [&](const Json& command) { ++actions; return command == Json{{"action", "discover"}} ? Json{{"accepted", true}} : Json{{"error", "prolinkInvalidCommand"}}; };
+            std::jthread link_server([&] { deckstatus::run_server("127.0.0.1", link_port, web_root, snapshot, cover, link_stop, nullptr, &features); });
+            struct Stopper { std::atomic_bool& flag; ~Stopper() { flag = true; } } stopper{link_stop};
+            httplib::Client link_client("127.0.0.1", link_port);
+            link_client.set_connection_timeout(0, 100000); link_client.set_read_timeout(2);
+            httplib::Result link_app;
+            for (int attempt = 0; attempt < 100; ++attempt) {
+                link_app = link_client.Get("/api/app"); if (link_app) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            expect_status(link_app, 200, "ProLink mode server failed");
+            const auto info = Json::parse(link_app->body);
+            require(info["mode"] == "prolink" && info["capabilities"]["rekordboxSetup"] == false && info["capabilities"]["audioWaveform"] == true, "ProLink capabilities incorrect");
+            expect_status(link_client.Get("/api/rekordbox/status"), 409, "Rekordbox diagnostics not gated");
+            expect_status(link_client.Get("/api/prolink/devices"), 200, "Device enumeration unavailable");
+            expect_status(link_client.Post("/api/prolink/control", "{}", "text/plain"), 415, "Non-JSON ProLink action accepted");
+            expect_status(link_client.Post("/api/prolink/control", "[]", "application/json"), 400, "Invalid ProLink body accepted");
+            expect_status(link_client.Post("/api/prolink/control", "{\"action\":\"play\"}", "application/json"), 400, "Playback command accepted");
+            expect_status(link_client.Post("/api/prolink/control", {{"Origin", "https://evil.example"}}, "{\"action\":\"discover\"}", "application/json"), 403, "Cross-origin ProLink action accepted");
+            expect_status(link_client.Post("/api/prolink/control", "{\"action\":\"discover\"}", "application/json"), 202, "Valid discovery rejected");
+            require(actions == 2, "Rejected requests reached ProLink backend");
+        }
         require(deckstatus::run_server("127.0.0.1", port, web_root, snapshot, cover, already_stopped) == 0,
                 "Server should accept cancellation before startup");
         std::atomic_bool not_stopped{};

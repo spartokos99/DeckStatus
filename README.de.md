@@ -2,11 +2,27 @@
 
 <img src="docs/images/deckstatus-icon.png" width="80" alt="DeckStatus-Icon">
 
-**Version 1.3.2** · [📦 Windows-Download](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.2) · [Änderungen](CHANGELOG.md)
+**Version 1.4.0** · [📦 Windows-Download](https://github.com/spartokos99/DeckStatus/releases/tag/v1.4.0) · [Änderungen](CHANGELOG.md)
 
 [English](README.md) · Deutsch
 
-> **Nur mit der eigenen Rekordbox-Installation 7.2.18.0 unter Windows x64 getestet.** Andere Versionen, EXE-Builds, Betriebssysteme und der Export-Modus sind nicht validiert. Die Bridge ist auf den dokumentierten Build abgestimmt und lehnt unpassende Builds ab.
+## 🔌 Neu in 1.4.0: ProLink
+
+**`Start-ProLink.cmd`** oder **`DeckStatus.exe --mode prolink`** startet die Netzwerk-Anbindung. Unter **ProLink-Setup** Geräte suchen, bis zu vier CDJ-3000 auswählen und verbinden. Playernummern werden aufsteigend den Decks 1–4 zugeordnet; der DJM-A9 wird automatisch erkannt.
+
+Die gruppierte Navigation zeigt immer beide Verbindungen und den aktuellen Modus. Funktionen des anderen Modus sind deaktiviert und auch per API gesperrt. Dashboard, Overlays, Timelines und Full History sehen in beiden Modi gleich aus. Auf der Setup-Seite kommen Wiedergabe-, Sync- und On-Air-Anzeigen hinzu. Die Audio-Waveform nutzt weiterhin einen Windows-Audioeingang.
+
+**Der normale Start mit `DeckStatus.exe` bleibt unverändert im Rekordbox-Modus.** Die portable ZIP enthält die benötigte Java-Laufzeit. Für den vollständigen Quell-Build werden zusätzlich JDK 21+ und beim ersten Mal Internet benötigt; alle Downloads sind per SHA-256 festgelegt.
+
+![ProLink-Setup mit englischen synthetischen Gerätedaten](docs/images/prolink-settings-en.png)
+
+Primäres Ziel sind mit Rekordbox exportierte USB-Medien. Andere Modelle, Firmwarekombinationen, Streaming und Device Library Plus-only sind nicht validiert. Mixer-Fader, EQ/FX und analysierte Track-Waveforms sind nicht implementiert. Es werden keine Wiedergabe-, Lade- oder Tempo-Steuerbefehle gesendet. [Ausführliche ProLink-Dokumentation](docs/prolink.md).
+
+**Geprüft für 1.4.0:** sieben native Tests, Java-Modelltests und vier Browser-Suiten. Die bestehenden Live-Nachweise für Rekordbox 7.2.18.0 bleiben gesondert gültig; ein Live-Test am CDJ-/DJM-Setup wird nicht behauptet.
+
+> **Rekordbox-Modus: nur mit der eigenen Rekordbox-Installation 7.2.18.0 unter Windows x64 getestet.**
+> **ProLink: experimentelle CDJ-3000-/DJM-A9-Unterstützung. Bisher nur mit synthetischen Tests geprüft, nicht an echter Hardware.**
+> Andere Versionen, EXE-Builds, Betriebssysteme und der Export-Modus sind nicht validiert. Die Bridge ist auf den dokumentierten Build abgestimmt und lehnt unpassende Builds ab.
 
 Windows-x64-Programm für **Rekordbox 7.2.18.0** mit einer DLL, die im laufenden Rekordbox Deckdaten ausliest, und einem separaten lokalen HTTP-Server. Enthalten sind ein Dashboard, konfigurierbare Deck-Overlays und ein Master-Overlay mit History und optionaler Timeline. Mit vier geladenen Decks einschließlich Metadaten und Cover sowie Master-Wechseln live geprüft.
 
@@ -117,7 +133,7 @@ Die Darstellung nutzt die letzten 1.024 Samples je Kanal, keine vorberechnete Wa
 
 Das neue mintfarbene **D mit Audiosignal** ist als Windows-Icon in neun Auflösungen von 16 bis 256 px direkt in der EXE eingebettet.
 
-Für die fertige App das vollständige **DeckStatus-1.3.2-win-x64.zip** aus dem [GitHub-Release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.2) entpacken. [Technische Audio-Dokumentation](docs/audio-waveform.md).
+Für die fertige App das vollständige **DeckStatus-1.4.0-win-x64.zip** aus dem [GitHub-Release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.4.0) entpacken. [Technische Audio-Dokumentation](docs/audio-waveform.md).
 
 ## 🌐 HTTP-API
 
@@ -156,7 +172,7 @@ Die DLL liest Deckzustände etwa alle 100 ms. Der Webserver liest Metadaten beim
 
 ## 🧪 Bauen und prüfen
 
-Voraussetzung: Visual Studio 2022/2026 mit **Desktopentwicklung mit C++**, Windows-SDK und CMake. Keine .NET- oder Python-Laufzeit notwendig. Header-Bibliotheken sind im Repository enthalten; der Build lädt keine Pakete nach.
+Voraussetzung: Visual Studio 2022/2026 mit **Desktopentwicklung mit C++**, Windows-SDK und CMake. Keine .NET- oder Python-Laufzeit notwendig. Header-Bibliotheken sind im Repository enthalten. ProLink benötigt beim ersten Build festgelegte Downloads und JDK 21+.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
@@ -176,9 +192,9 @@ In Version 1.3.1 bestehen **alle sechs nativen Tests** sowie beide Browser-Suite
 
 ## ⚠️ Kompatibilität und Grenzen
 
-**Version 1.3.2** enthält Full History, vier Dashboard-Timelines, das gemeinsame App-Logo, den Waveform-Link sowie die korrigierten englischen Demo-Daten und README-Screenshots. Die Demo-Tracks heißen **Night Drive "Live"** von **Orbit & Friends** und **First Light** von **Studio North**, auch bei deutscher Oberflächensprache.
+**Version 1.4.0** enthält Full History, vier Dashboard-Timelines, das gemeinsame App-Logo, den Waveform-Link sowie die korrigierten englischen Demo-Daten und README-Screenshots. Die Demo-Tracks heißen **Night Drive "Live"** von **Orbit & Friends** und **First Light** von **Studio North**, auch bei deutscher Oberflächensprache.
 
-Der aktuelle Quellstand besteht alle sechs nativen Tests und drei Browser-Suiten. `node tests/browser_dashboard_history_test.cjs` prüft Navigation, Logo, vier Dashboard-Timelines, über 100 History-Einträge, stabile Seitenwechsel, Cover, Metadatensicherheit und Verbindungsfehler. `node tools/readme-screenshots.cjs` erzeugt alle README-Screenshots mit englischen Beispieldaten neu und prüft die englische Sprache von Seiten, Vorschauen und Labels. Normale Browsertests überschreiben diese Bilder nicht.
+Der aktuelle Quellstand besteht alle sieben nativen Tests, die Java-Modelltests und vier Browser-Suiten. `node tests/browser_dashboard_history_test.cjs` prüft Navigation, Logo, vier Dashboard-Timelines, über 100 History-Einträge, stabile Seitenwechsel, Cover, Metadatensicherheit und Verbindungsfehler. `node tests/browser_prolink_test.cjs` prüft zusätzlich Modussperren, Gerätesuche, Playerauswahl, Verbinden/Trennen und die mobile Navigation. `node tools/readme-screenshots.cjs` erzeugt alle README-Screenshots mit englischen Beispieldaten neu und prüft die englische Sprache von Seiten, Vorschauen und Labels. Normale Browsertests überschreiben diese Bilder nicht.
 
 Die enthaltene DLL ist auf den hier geprüften Windows-x64-Build **7.2.18.0** abgestimmt. Sie prüft Versionsnummer, PE-Buildmerkmale, 14 Codeabschnitte und die Deck-/BPM-/Master-/Zeit-Objekte. Andere Builds melden `unsupported` und benötigen ein eigenes geprüftes Profil. Die genauen Merkmale und die Herkunft der Speicherpositionen stehen in [docs/rekordbox-7.2.18.md](docs/rekordbox-7.2.18.md).
 

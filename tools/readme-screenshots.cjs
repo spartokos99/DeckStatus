@@ -15,10 +15,12 @@ const decks=[1,2,3,4].map((id,i)=>({...track(i,id),isMaster:id===2,coverUrl:'/ap
 const current={...track(0,2),isMaster:true,coverUrl:'/api/master/covers/1001'};
 const history=[1,2].map(i=>({...track(i),coverUrl:'/api/master/covers/'+(i+1001)}));
 const signal=Array.from({length:1024},(_,i)=>Math.sin(2*Math.PI*13*i/1024)*.36+Math.sin(2*Math.PI*31*i/1024)*.16);
-let sequence=0;
+let sequence=0, screenshotMode='rekordbox';
 const colours=['#56ae99','#597fb4','#b071a0','#bd9b64'];
 function cover(index){const colour=colours[index%4];return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300"><rect width="300" height="300" fill="#142c32"/><circle cx="180" cy="145" r="130" fill="${colour}"/><circle cx="180" cy="145" r="88" fill="#142c32"/><circle cx="180" cy="145" r="35" fill="${colour}"/><path d="M0 250L300 60V110L0 300Z" fill="#cceadd" opacity=".45"/></svg>`;}
 withBrowser((req,res,url)=>{
+  if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({version:'1.4.0',mode:screenshotMode,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:screenshotMode==='rekordbox',prolinkSetup:screenshotMode==='prolink'}}));return true;}
+  if(url.pathname==='/api/prolink/devices'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'connected',message:'prolinkConnected',runtimeAvailable:true,players:[1,2],networkInterface:'Ethernet · synthetic fixture',localAddress:'192.0.2.100',virtualPlayer:7,devices:[{number:1,name:'CDJ-3000',address:'192.0.2.11',selectable:true,supported:true,selected:true,playing:true,onAir:true,synced:true,master:true,bpm:128.5},{number:2,name:'CDJ-3000',address:'192.0.2.12',selectable:true,supported:true,selected:true,playing:true,onAir:false,synced:true,master:false,bpm:128.5},{number:33,name:'DJM-A9',address:'192.0.2.33',selectable:false,supported:true}]}));return true;}
   if(!url.pathname.startsWith('/api/'))return false;
   if(url.pathname.includes('/cover')){const index=Number(url.searchParams.get('trackId')||url.pathname.split('/').at(-1))||1001;res.setHeader('Content-Type','image/svg+xml');res.end(cover(index-1001));return true;}
   res.setHeader('Content-Type','application/json');
@@ -47,21 +49,25 @@ withBrowser((req,res,url)=>{
   await evaluate('document.body.style.background="#0b1015";document.body.style.padding="24px"');await delay(250);
   await capture('master-overlay',800,await evaluate('Math.ceil(document.getElementById("tracks").getBoundingClientRect().bottom+24)'));
 
-  await size(1440,1240);await navigate('/?lang=en');
+  await size(1440,1340);await navigate('/?lang=en');
   await until(()=>evaluate('document.querySelectorAll(".timeline[data-available=true]").length===4 && [...document.querySelectorAll(".art img")].every(img=>img.complete&&img.naturalWidth>0)'),'Dashboard preview missing');
-  await capture('deckstatus-dashboard',1440,1240);
+  await capture('deckstatus-dashboard',1440,1340);
 
-  await size(1440,1120);await navigate('/overlay/settings?deck=1&timeline=1&lang=en');
+  await size(1440,1240);await navigate('/overlay/settings?deck=1&timeline=1&lang=en');
   await until(()=>evaluate('document.getElementById("preview").contentDocument?.querySelector("[data-time=position]")?.textContent==="1:05"'),'Settings preview missing');
   await evaluate('document.getElementById("preset").value="light";document.getElementById("preset").dispatchEvent(new Event("change"))');await delay(500);
-  await capture('deckstatus-settings',1440,1080);
+  await capture('deckstatus-settings',1440,1200);
 
   await navigate('/waveform/settings?lang=en');
   await until(()=>evaluate('document.getElementById("preview").contentDocument?.querySelector("canvas")?.dataset.signal==="live" && document.getElementById("device").options.length===2'),'Waveform preview missing');await delay(150);
-  await capture('waveform-settings',1440,1120);
+  await capture('waveform-settings',1440,1240);
 
   await navigate('/history?lang=en');await until(()=>evaluate('document.querySelectorAll("tbody tr").length===8 && [...document.querySelectorAll("tbody img")].every(image=>!image.hidden&&image.naturalWidth>0)'),'Full History preview missing');await delay(200);
-  await capture('full-history',1440,1120);
+  await capture('full-history',1440,1240);
+
+  screenshotMode='prolink';await size(1440,1340);await navigate('/prolink/settings?lang=en');
+  await until(()=>evaluate('document.querySelectorAll(".device-card").length===3 && document.getElementById("app-mode").textContent.includes("ProLink")'),'ProLink setup preview missing');
+  await capture('prolink-settings',1440,1340);screenshotMode='rekordbox';
 
   await size(1200,600);await navigate('/?lang=en');await until(()=>evaluate('document.querySelectorAll(".deck").length===4'),'Style gallery setup missing');
   await evaluate(`(async()=>{

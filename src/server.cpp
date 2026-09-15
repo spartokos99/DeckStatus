@@ -107,7 +107,7 @@ int run_server(const std::string& host, int port,
                const std::filesystem::path& web_root,
                std::function<Json()> snapshot,
                std::function<std::pair<std::string, std::string>(int)> cover,
-               std::atomic_bool& stop, MasterHistory* master) {
+               std::atomic_bool& stop, MasterHistory* master, ServerFeatures* features) {
     if (host.empty() || port < 1 || port > 65535 || !snapshot || !cover) {
         std::cerr << tr("Invalid web server configuration.") << '\n';
         return 1;
@@ -131,6 +131,9 @@ int run_server(const std::string& host, int port,
         {"/waveform-renderer.js", "waveform-renderer.js"}, {"/waveform-settings.js", "waveform-settings.js"},
         {"/icon.svg", "icon.svg"},
         {"/history", "history.html"}, {"/history.js", "history.js"}, {"/history.css", "history.css"},
+        {"/navigation.js", "navigation.js"}, {"/navigation.css", "navigation.css"},
+        {"/prolink/settings", "prolink-settings.html"}, {"/prolink-settings.js", "prolink-settings.js"},
+        {"/connection.css", "connection.css"}, {"/rekordbox/settings", "rekordbox-settings.html"}, {"/rekordbox-settings.js", "rekordbox-settings.js"},
         {"/locales/en.json", "locales/en.json"}, {"/locales/de.json", "locales/de.json"}
     }) {
         const auto body = read_page(web_root / file);
@@ -224,6 +227,32 @@ int run_server(const std::string& host, int port,
             json_response(response, {{"error", "audioDeviceLost"}}, 400); return;
         }
         json_response(response, audio.state());
+    });
+    const bool prolink = features && features->mode == "prolink";
+    server.Get("/api/app", [prolink](const auto&, auto& response) {
+        json_response(response, {{"version", "1.4.0"}, {"mode", prolink ? "prolink" : "rekordbox"},
+            {"capabilities", {{"dashboard", true}, {"history", true}, {"deckOverlays", true}, {"masterOverlay", true},
+                {"audioWaveform", true}, {"rekordboxSetup", !prolink}, {"prolinkSetup", prolink},
+                {"playbackStatus", prolink}, {"onAir", prolink}, {"mixerControls", false}, {"trackWaveform", false}}}});
+    });
+    server.Get("/api/prolink/devices", [features, prolink](const auto&, auto& response) {
+        if (!prolink || !features->prolink_setup) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
+        json_response(response, features->prolink_setup());
+    });
+    server.Get("/api/rekordbox/status", [prolink, &snapshot](const auto&, auto& response) {
+        if (prolink) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
+        json_response(response, snapshot());
+    });
+    server.Post("/api/prolink/control", [features, prolink](const auto& request, auto& response) {
+        if (!prolink || !features->prolink_control) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
+        const auto type = lower_ascii(request.get_header_value("Content-Type"));
+        if (type != "application/json" && type != "application/json; charset=utf-8") {
+            json_response(response, {{"error", "JSON content type required"}}, 415); return;
+        }
+        const auto body = Json::parse(request.body, nullptr, false);
+        if (!body.is_object()) { json_response(response, {{"error", "prolinkInvalidCommand"}}, 400); return; }
+        const auto result = features->prolink_control(body);
+        json_response(response, result, result.contains("error") ? 400 : 202);
     });
     server.Post(R"(/.*)", reject_method);
     server.Put(R"(/.*)", reject_method);

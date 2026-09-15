@@ -1,4 +1,4 @@
-param([ValidateSet('Debug','Release')][string]$Configuration = 'Release')
+param([ValidateSet('Debug','Release')][string]$Configuration = 'Release', [switch]$SkipProLink)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $cmakeCommand = Get-Command cmake -ErrorAction SilentlyContinue
@@ -17,4 +17,5 @@ if ($LASTEXITCODE) { throw 'Build fehlgeschlagen.' }
 $ctest = Join-Path (Split-Path $cmake) 'ctest.exe'
 & $ctest --test-dir (Join-Path $root 'build') -C $Configuration --output-on-failure
 if ($LASTEXITCODE) { throw 'Tests fehlgeschlagen.' }
+if (-not $SkipProLink) { & (Join-Path $root 'prolink/build.ps1') -Configuration $Configuration }
 Write-Host "Fertig: $root\build\$Configuration\DeckStatus.exe"

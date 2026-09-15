@@ -4,9 +4,9 @@
 
 # 🎛️ DeckStatus
 
-**Version 1.3.2** · [📦 Download for Windows x64](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.2) · [Change notes](CHANGELOG.md)
+**Version 1.4.0** · [📦 Download for Windows x64](https://github.com/spartokos99/DeckStatus/releases/tag/v1.4.0) · [Change notes](CHANGELOG.md)
 
-**Live deck data. Custom stream overlays. Audio-reactive waveforms.**
+**Rekordbox & PRO DJ LINK. Live deck data. Custom stream overlays.**
 
 🪟 **Windows x64** · ⚡ **C++20** · 🌐 **Local HTTP API** · 🇬🇧 / 🇩🇪 **English & Deutsch**
 
@@ -15,7 +15,8 @@
 </div>
 
 > [!IMPORTANT]
-> **Tested only with the author's Rekordbox 7.2.18.0 installation on Windows x64.**
+> **Rekordbox mode: tested only with the author's Rekordbox 7.2.18.0 installation on Windows x64.**
+> **New ProLink mode: experimental CDJ-3000 / DJM-A9 support, tested with synthetic fixtures only. No hardware/firmware combination has been validated yet.**
 > This is a build-specific integration, not general Rekordbox 7 support. No other Rekordbox version, executable build, operating system or Export-mode workflow has been validated.
 >
 > The bridge checks the executable version, PE build markers, 14 instruction sequences and the objects it reads. A build that does not match is rejected as `unsupported`. Matching version digits alone do not establish compatibility.
@@ -26,13 +27,28 @@
 
 ## 🎧 What it does
 
-DeckStatus reads the decks in an already-running Rekordbox process and makes their data available through a local web server. Use its dashboard to monitor four decks, add transparent browser-source overlays to your stream, or consume the JSON API in your own tools.
+DeckStatus reads the decks in an already-running Rekordbox process, or connects to CDJ-3000 players over PRO DJ LINK, and makes their data available through a local web server. Use its dashboard to monitor four decks, add transparent browser-source overlays to your stream, or consume the JSON API in your own tools.
 
-The application consists of two parts: `DeckStatusBridge.dll` samples native deck state inside Rekordbox, while `DeckStatus.exe` handles the HTTP server, history, library metadata and artwork. The injected DLL reads state without calling undocumented Rekordbox functions. Library queries run in the separate host process using a read-only database connection.
+In Rekordbox mode, the application consists of two parts: `DeckStatusBridge.dll` samples native deck state inside Rekordbox, while `DeckStatus.exe` handles the HTTP server, history, library metadata and artwork. The injected DLL reads state without calling undocumented Rekordbox functions. Library queries run in the separate host process using a read-only database connection.
 
 <a id="features"></a>
 
 ## ✨ Features
+
+### 🔌 PRO DJ LINK · new in 1.4.0
+
+Start **`Start-ProLink.cmd`** or **`DeckStatus.exe --mode prolink`** to use your CDJ-3000 / DJM-A9 network. Open **ProLink setup**, find devices, select up to four players and connect. The same dashboard, overlays, timeline and Full History are used in both modes.
+
+- Grouped navigation always shows every feature, with a visible **Rekordbox / ProLink** mode badge and disabled links for the inactive connection.
+- Discovery, explicit connection/disconnection, player-to-deck mapping and network diagnostics.
+- Track metadata, cover, current/original BPM and playback timing when supplied by the track source.
+- Additional **Playing, Sync and On-Air** device indicators.
+- Bundled Java runtime: no separate Java installation required for the portable download.
+- The normal **`DeckStatus.exe`** launch remains the original Rekordbox mode. Audio waveforms retain their independent Windows audio input in both modes.
+
+![ProLink setup in English with explicitly synthetic network data](docs/images/prolink-settings-en.png)
+
+**Experimental:** no live CDJ/DJM hardware test has been performed for this release. Rekordbox-exported USB media is the primary target. Mixer faders, EQ/FX and analysed track-waveform overlays are not exposed. No playback or tempo-control commands are sent. [Setup, networking, supported data and limitations](docs/prolink.md).
 
 ### 🎚️ Four decks and a live dashboard
 
@@ -57,7 +73,7 @@ Choose whether to show **title, artist, album, key, BPM and cover**, enable the 
 
 ### 👑 Master overlay and track history
 
-Follow Rekordbox's MASTER-marked deck automatically and keep **0–50 previous tracks** below it.
+Follow the current source's MASTER-marked deck automatically and keep **0–50 previous tracks** below it.
 
 - Scale previous cards from **0.20× to 1.00×** while the current master remains full size.
 - Align the overlay and its history to the **left, centre or right**.
@@ -66,7 +82,7 @@ Follow Rekordbox's MASTER-marked deck automatically and keep **0–50 previous t
 - Reduced-motion preferences disable animation.
 - History is collected by the server even without an open browser, and survives browser refreshes.
 
-History records **master-track changes**, not proven audible playback. Moving the same track to another master deck does not duplicate it; playing it again later in the sequence can create a new entry. History keeps the last captured deck BPM and can receive missing metadata later. **Restarting the bridge clears the session history.**
+History records **master-track changes**, not proven audible playback. Moving the same track to another master deck does not duplicate it; playing it again later in the sequence can create a new entry. History keeps the last captured deck BPM and can receive missing metadata later. **Restarting DeckStatus clears the session history.**
 
 ### 📜 Full History
 
@@ -80,11 +96,11 @@ Collection begins when DeckStatus observes tracks. Browser refreshes retain it; 
 
 ### ⏱️ Optional track timeline
 
-Show elapsed time, total duration and a progress bar. The display uses sampled Rekordbox positions, handles negative preroll and bounds the bar to 0–100%. It does not advance time on its own when no movement is sampled.
+Show elapsed time, total duration and a progress bar. The display uses positions from the selected source, handles negative preroll and bounds the bar to 0–100%. It does not advance time on its own when no movement is sampled.
 
 The dashboard always shows timing on all four deck cards. In the master overlay, **only the current track shows a timeline**. Historical cards never show it. Missing or stale timing data produces an unavailable state. Overlay timeline visibility remains configurable.
 
-The timeline is a visual display: it does not play audio, show a waveform, seek or control Rekordbox.
+The timeline is a visual display: it does not play audio, show a waveform, seek or control the source.
 
 ### 〰️ Audio waveform overlay · new in 1.3.1
 
@@ -142,18 +158,19 @@ Run `DeckStatus.exe --demo` without Rekordbox to try the dashboard, overlays, hi
 
 ### 📥 Portable download
 
-Version **1.3.2** includes Full History, four dashboard timelines, the shared app logo, Waveform navigation and the corrected English demo data and README screenshots.
+Version **1.4.0** adds opt-in ProLink, grouped navigation and connection pages to the existing overlays, waveform and Full History.
 
-Download **DeckStatus-1.3.2-win-x64.zip** from the [1.3.2 release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.3.2), extract the entire archive and run `DeckStatus.exe`. Keep its DLL and `web` directory together. No installer is required.
+Download **DeckStatus-1.4.0-win-x64.zip** from the [1.4.0 release](https://github.com/spartokos99/DeckStatus/releases/tag/v1.4.0), extract the entire archive and run `DeckStatus.exe`. Keep its DLL and `web` directory together. No installer is required.
 
 ### 🛠️ Build requirements
 
 - Windows x64.
 - Visual Studio 2022/2026 C++ build tools, a Windows SDK and CMake **3.25+**.
 - The **Desktop development with C++** workload.
+- JDK **21+** (`javac` and `jar`) and internet for the first ProLink dependency build. Dependencies are pinned by SHA-256.
 - Optional: Node.js **22+** and Microsoft Edge/Chromium for browser tests.
 
-The recorded build and live validation used **Visual Studio 2026 / MSVC 19.51**. The native application uses the static MSVC runtime; no .NET, Python or Node.js runtime is required to run it. Its C++ header dependencies are included.
+The recorded build and live validation used **Visual Studio 2026 / MSVC 19.51**. The native application uses the static MSVC runtime; no .NET, Python or Node.js runtime is required to run it. ProLink uses the Java runtime included in the portable ZIP. Its C++ header dependencies are included.
 
 ### 📦 Build from source
 
@@ -163,7 +180,7 @@ Run from the repository directory:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-The script configures an x64 Release build and runs CTest. The output is in `build\Release`. Alternatively, open `DeckStatus.sln` in Rider/Visual Studio or use `CMakeLists.txt`.
+The script configures an x64 Release build, runs CTest, builds the ProLink helper and runs its Java model tests. `-SkipProLink` builds only the native portion. The output is in `build\Release`. Alternatively, open `DeckStatus.sln` in Rider/Visual Studio or use `CMakeLists.txt`.
 
 A fresh checkout does not contain the author's local CMake cache. The optional database test is skipped unless an installed Rekordbox executable is configured; see [Tests](#tests-and-validation).
 
@@ -194,7 +211,7 @@ In a shell where `cmake` is available:
 
 ```powershell
 cmake --install build --config Release --prefix build/DeckStatus
-Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-1.3.2-win-x64.zip -Force
+Compress-Archive -Path build/DeckStatus/* -DestinationPath build/DeckStatus-1.4.0-win-x64.zip -Force
 ```
 
 Generated binaries and ZIP files are intentionally excluded from Git.
@@ -207,10 +224,16 @@ Stop the previous instance before starting `DeckStatus.exe`. Keep the matching `
 
 ## 🌐 HTTP API
 
-The server listens on **127.0.0.1**. Track-data routes support read-only access; cross-origin browser requests are rejected. The explicit `POST /api/audio/source` endpoint starts, switches or stops audio capture. The API has no Rekordbox playback-control endpoints.
+The server listens on **127.0.0.1**. Track-data routes support read-only access; cross-origin browser requests are rejected. The explicit `POST /api/audio/source` endpoint starts, switches or stops audio capture. ProLink additionally exposes explicit network-session controls at `POST /api/prolink/control`. The API has no Rekordbox playback-control endpoints.
 
 | Route | Purpose |
 |---|---|
+| `/api/app` | Current mode, app version and capability flags |
+| `/prolink/settings` | ProLink discovery, player selection and connection page |
+| `/api/prolink/devices` | ProLink setup/device state; HTTP 409 in Rekordbox mode |
+| `POST /api/prolink/control` | Explicit `discover`, `connect` with `players`, or `disconnect`; HTTP 409 in Rekordbox mode |
+| `/rekordbox/settings` | Existing Rekordbox connection diagnostics |
+| `/api/rekordbox/status` | Rekordbox state; HTTP 409 in ProLink mode |
 | `/` | Four-deck dashboard |
 | `/overlay/settings` | Settings, preview and URLs for decks 1–4 |
 | `/master-overlay/settings` | Master overlay settings, preview and URL |
@@ -256,10 +279,11 @@ Invoke-RestMethod http://127.0.0.1:18740/api/master
 
 **Recorded live testing is limited to the author's Rekordbox 7.2.18.0 Windows x64 build.** Passing automated tests does not establish support for another version.
 
-All **six native CTest tests** passed in the recorded local validation:
+All **seven native CTest tests** passed in the recorded local validation:
 
 | Test | Coverage |
 |---|---|
+| `prolink_backend` | Command validation, helper lifecycle, IPC/artwork, stale data, exit/restart identity separation and process cleanup |
 | `master_history` | Master changes, repeats, gaps, late metadata, captured BPM, history limit, artwork retention and stale samples |
 | `artwork_database` | Metadata joins, missing values, UTF-8, artwork paths and bounds; verifies that its temporary database remains unchanged |
 | `http_server` | JSON and Unicode, routes and MIME types, Host/Origin checks, read-only metadata methods, explicit audio-source control, artwork races, health states, port ownership and shutdown |
@@ -291,9 +315,12 @@ This test uses the installation's database libraries with a temporary test datab
 node tests/browser_master_test.cjs
 node tests/browser_waveform_test.cjs
 node tests/browser_dashboard_history_test.cjs
+node tests/browser_prolink_test.cjs
 # Or select another locally installed Chromium/Edge executable:
 node tests/browser_master_test.cjs "C:/path/to/msedge.exe"
 ```
+
+The ProLink build also runs Java model and real-process UTF-8 pipe checks. `node tests/portable_smoke.cjs C:/path/to/extracted-release` checks the complete portable application in EN/DE demo and ProLink modes. It starts passive discovery and accepts the explicit ports-busy diagnostic when another Link client owns the ports; it never connects to players or starts audio capture.
 
 The browser suite launches a headless browser with a private profile and synthetic local HTTP fixtures. It covers:
 
@@ -325,7 +352,7 @@ See [the validation record](docs/validation.md) and [the exact executable profil
 
 ## ⚠️ Compatibility and limitations
 
-The tested executable is **7.2.18.0**, Windows AMD64, with the documented SHA-256:
+For the Rekordbox source, the tested executable is **7.2.18.0**, Windows AMD64, with the documented SHA-256:
 
 ```text
 a99896cf26d5998e6ad4177796a467b83df14bf8ae7207df21ed01251e402493
@@ -334,7 +361,7 @@ a99896cf26d5998e6ad4177796a467b83df14bf8ae7207df21ed01251e402493
 The hash is a reference fingerprint; the DLL does not calculate SHA-256 at runtime. Its runtime guards are documented in the executable profile.
 
 - MASTER follows Rekordbox's UI designation, including when that deck is paused.
-- Play/pause state, fader position, audible output and live-transposed key are not detected.
+- Rekordbox mode does not detect play/pause, faders, audible output or live-transposed key. ProLink additionally exposes player playback/Sync/On-Air status, with the limits documented above.
 - Streaming tracks without local library metadata or artwork may have missing fields.
 - The application reads the library and artwork; it does not modify the collection or audio files.
 - Executable updates require a separately investigated and validated memory profile.
@@ -343,6 +370,7 @@ The hash is a reference fingerprint; the DLL does not calculate SHA-256 at runti
 
 ```text
 src/        Native bridge, injector, HTTP server, audio capture, metadata and history
+prolink/    Network helper source, tests, dependency lock and build script
 assets/     Multi-resolution Windows application icon
 tools/      Optional icon regeneration helper
 web/        Dashboard, settings, overlays and EN/DE translations
@@ -354,6 +382,8 @@ build.ps1   Windows build and CTest entry point
 
 ## 🤝 Credits
 
-Bundled dependencies are **cpp-httplib 0.20.0** and **nlohmann/json 3.12.0**, under their respective MIT licences. Interoperability references and the notice for the pyrekordbox-derived constants are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [metadata source notes](docs/artwork-sources.md).
+The native header dependencies are **cpp-httplib 0.20.0** and **nlohmann/json 3.12.0**, under their respective MIT licences. Interoperability references and the notice for the pyrekordbox-derived constants are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [metadata source notes](docs/artwork-sources.md).
+
+The ProLink package also includes Beat Link, its runtime dependencies and Temurin; versions, source links and notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 Rekordbox binaries, music, library databases and the local research checkout are not distributed. This is an independent project and is not affiliated with or endorsed by AlphaTheta / Pioneer DJ.

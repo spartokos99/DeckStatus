@@ -1,7 +1,7 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/icon.svg"><title>DeckStatus overlay settings</title><link rel="stylesheet" href="/settings.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/icon.svg"><title>DeckStatus overlay settings</title><link rel="stylesheet" href="/settings.css"><link rel="stylesheet" href="/navigation.css"></head>
 <body><div class="shell">
-<header><a class="brand" href="/"><img src="/icon.svg" width="38" height="38" alt=""><strong>DeckStatus</strong></a><nav><a href="/" data-i18n="dashboard"></a><a href="/overlay/settings" data-i18n="deckSettings"></a><a href="/master-overlay/settings" data-i18n="masterSettings"></a><a href="/waveform/settings" data-i18n="waveNav"></a><a href="/history" data-i18n="fullHistory"></a><select id="language" data-language data-i18n-aria="language"><option value="en">English</option><option value="de">Deutsch</option></select></nav></header>
+<header></header>
 <div class="intro"><span class="eyebrow" data-i18n="stream"></span><h1 id="heading"></h1><p id="intro"></p></div>
 <main class="layout"><section class="panel"><h2 data-i18n="yourOverlay"></h2>
 <div class="setting" data-mode="deck"><label for="deck" data-i18n="chooseDeck"></label><select id="deck"><option value="1">Deck 1</option><option value="2">Deck 2</option><option value="3">Deck 3</option><option value="4">Deck 4</option></select></div>
@@ -30,4 +30,4 @@
 <div class="url"><input id="url" readonly aria-label="OBS URL"><button id="copy" type="button" data-i18n="copyUrl"></button></div>
 <div class="links"><a id="open" target="_blank" rel="noopener" data-i18n="openOverlay"></a><span id="dimensions"></span></div>
 <div id="deck-links" class="deck-links" data-mode="deck"></div><p id="feedback" role="status"></p>
-</div></section></main></div><script type="module" src="/settings.js"></script></body></html>
+</div></section></main></div><script type="module" src="/settings.js"></script><script type="module" src="/navigation.js"></script></body></html>

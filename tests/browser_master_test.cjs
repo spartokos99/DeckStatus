@@ -25,10 +25,11 @@ const routes = new Map([
   ['/master-overlay', 'master-overlay.html'], ['/master-overlay/settings', 'master-settings.html'],
   ['/master-overlay.js', 'master-overlay.js'], ['/master-options.js', 'master-options.js'], ['/overlay', 'overlay.html']
 ]);
-for (const asset of ['icon.svg', 'deck-overlay.js', 'overlay-shared.js', 'overlay.css', 'settings.css', 'settings.js', 'i18n.js', 'storage.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
+for (const asset of ['navigation.js', 'navigation.css', 'icon.svg', 'deck-overlay.js', 'overlay-shared.js', 'overlay.css', 'settings.css', 'settings.js', 'i18n.js', 'storage.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
 routes.set('/overlay/settings', 'master-settings.html');
 routes.set('/', 'index.html');
 const fixture = http.createServer((request, response) => {
+  if(request.url==='/api/app'){response.setHeader('Content-Type','application/json');response.end(JSON.stringify({version:'1.4.0',mode:'rekordbox',capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false}}));return;}
   const url = new URL(request.url, 'http://localhost');
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");

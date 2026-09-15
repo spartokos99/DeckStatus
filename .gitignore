@@ -28,6 +28,11 @@
 *.lastbuildstate
 *.res
 
+# Compiled ProLink helper and downloaded Java dependencies
+*.class
+*.jar
+/prolink/target/
+
 # Local IDE, editor and assistant state
 /.idea/
 /.vs/

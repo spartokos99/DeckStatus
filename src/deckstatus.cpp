@@ -3,6 +3,7 @@
 #include "artwork.h"
 #include "server.h"
 #include "master_history.h"
+#include "prolink.h"
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include <array>
@@ -67,7 +68,7 @@ nlohmann::json serialize(const deckstatus::SharedState& state, bool alive, bool 
     if (!alive) { status = "disconnected"; message = "Rekordbox wurde beendet."; }
     else if (stale && status == "connected") { status = "stale"; message = "Seit mehr als 3 Sekunden keine Deckdaten empfangen."; }
     nlohmann::json result = {
-        {"schemaVersion", 1}, {"status", status}, {"message", deckstatus::tr(message)},
+        {"schemaVersion", 1}, {"mode", "rekordbox"}, {"status", status}, {"message", deckstatus::tr(message)},
         {"version", deckstatus::tr(safe_string(state.rekordbox_version))}, {"demo", demo},
         {"updatedAt", nullptr}, {"sampleAgeMs", nullptr}, {"artworkStatus", deckstatus::tr(artwork_status)},
         {"decks", nlohmann::json::array()}
@@ -180,6 +181,7 @@ int wmain(int argc, wchar_t** argv) {
         }
         deckstatus::load_language(executable_directory() / "web" / "locales", language);
         bool demo = false;
+        bool prolink_mode = false;
         int port = 18740;
         DWORD pid = 0;
         std::filesystem::path database;
@@ -195,6 +197,13 @@ int wmain(int argc, wchar_t** argv) {
                     throw std::runtime_error("Language must be en or de.");
                 continue;
             }
+            if (option == L"--prolink") { prolink_mode = true; continue; }
+            if (option == L"--mode") {
+                if (++i >= argc || (std::wstring_view(argv[i]) != L"rekordbox" && std::wstring_view(argv[i]) != L"prolink"))
+                    throw std::runtime_error("Mode must be rekordbox or prolink.");
+                prolink_mode = std::wstring_view(argv[i]) == L"prolink";
+                continue;
+            }
             if (option == L"--demo") { demo = true; continue; }
             if (option != L"--port" && option != L"--pid" && option != L"--database")
                 throw std::runtime_error("Unbekannte Option; siehe --help.");
@@ -206,6 +215,31 @@ int wmain(int argc, wchar_t** argv) {
         if (demo && (pid || !database.empty())) throw std::runtime_error("--demo ist nicht mit --pid/--database kombinierbar.");
         SetConsoleCtrlHandler(on_console, TRUE);
         const auto directory = executable_directory();
+        if (prolink_mode) {
+            if (demo || pid || !database.empty()) throw std::runtime_error("ProLink mode cannot be combined with --demo, --pid or --database.");
+            deckstatus::ProLink link(directory);
+            deckstatus::MasterHistory history([&](std::uint32_t id) { return link.cover(id); });
+            deckstatus::ServerFeatures features;
+            features.mode = "prolink";
+            features.prolink_setup = [&] { return link.setup(); };
+            features.prolink_control = [&](const nlohmann::json& command) { return link.control(command); };
+            std::jthread sampler([&](std::stop_token token) {
+                while (!token.stop_requested() && !stopping) {
+                    const auto state = link.snapshot();
+                    history.update(state);
+                    for (const auto& deck : state["decks"]) history.enrich(deck);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+            });
+            std::cout << deckstatus::tr("prolinkStartup") << '\n';
+            return deckstatus::run_server("127.0.0.1", port, directory / "web", [&] { return link.snapshot(); },
+                [&](int id) -> std::pair<std::string, std::string> {
+                    const auto state = link.snapshot();
+                    for (const auto& deck : state["decks"]) if (deck["id"] == id && deck.value("loaded", false))
+                        return link.cover(deck["trackId"].get<std::uint32_t>());
+                    return {};
+                }, stopping, &history, &features);
+        }
         std::unique_ptr<deckstatus::Injection> injection;
         std::unique_ptr<deckstatus::ArtworkResolver> artwork;
         deckstatus::SharedState current = demo ? demo_state() : deckstatus::SharedState{};

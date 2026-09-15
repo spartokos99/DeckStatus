@@ -1,0 +1,176 @@
+{
+  "artifacts": [
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/beat-link/8.0.0/beat-link-8.0.0.jar",
+      "name": "beat-link-8.0.0.jar",
+      "sha256": "b3c11c49429aa973fa6072689cd92f8396b0ebe3cb9a35d76a073d0cd97ed245"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/beat-link/8.0.0/beat-link-8.0.0-sources.jar",
+      "name": "beat-link-8.0.0-sources.jar",
+      "sha256": "77a3ffe35b008f082589c63ba54bd61af3b90756b5867e4beef6e600287e0ad3"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/beat-link/8.0.0/beat-link-8.0.0.pom",
+      "name": "beat-link-8.0.0.pom",
+      "sha256": "fbface77f43b44f9c35bb7074adefcbd41d99d499efcf264a9a2ff58bae9d526"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/crate-digger/0.2.1/crate-digger-0.2.1.jar",
+      "name": "crate-digger-0.2.1.jar",
+      "sha256": "68403a26d79c34787b8fd2eb04740cd9310accc4bf0cb7dca366a9d40d8c85ef"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/crate-digger/0.2.1/crate-digger-0.2.1-sources.jar",
+      "name": "crate-digger-0.2.1-sources.jar",
+      "sha256": "56fbbd2e3c556059cc925947c5e5534ccd3e9edce46e9309592fcf39fd0f3b73"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/crate-digger/0.2.1/crate-digger-0.2.1.pom",
+      "name": "crate-digger-0.2.1.pom",
+      "sha256": "b3570c84efd4da52e71285b3bd3693bdad45f5634f3876effffac45d2f738663"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/electro/0.1.4/electro-0.1.4.jar",
+      "name": "electro-0.1.4.jar",
+      "sha256": "da695512dca66f1aa8a096affac3dc17b51cdbf1fe5b8eae16fda84e50757bad"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/electro/0.1.4/electro-0.1.4-sources.jar",
+      "name": "electro-0.1.4-sources.jar",
+      "sha256": "b20a9edf63cb7518d5ebe2c03cff781635c35e66ce983803019718c7e5d8a38f"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/deepsymmetry/electro/0.1.4/electro-0.1.4.pom",
+      "name": "electro-0.1.4.pom",
+      "sha256": "ff9bf89435fdc44eee8644df990ceca4e1699a94aaeb5fe03b6bc3802958df32"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/github/willena/sqlite-jdbc/3.49.0.0/sqlite-jdbc-3.49.0.0.jar",
+      "name": "sqlite-jdbc-3.49.0.0.jar",
+      "sha256": "8240639e54a1270fbc11cd56b5f5f0d0ea4aab839a9b80c791978aef4522e01e"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/github/willena/sqlite-jdbc/3.49.0.0/sqlite-jdbc-3.49.0.0-sources.jar",
+      "name": "sqlite-jdbc-3.49.0.0-sources.jar",
+      "sha256": "7ac83c2d431f0c48875b9cfe319da29c682dfc8e985147558f2ef550318cded7"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/github/willena/sqlite-jdbc/3.49.0.0/sqlite-jdbc-3.49.0.0.pom",
+      "name": "sqlite-jdbc-3.49.0.0.pom",
+      "sha256": "1cbc8cb4bd8b84e10a13169be94d679618be7649326b4dde0a1eecec069efe83"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/kaitai/kaitai-struct-runtime/0.10/kaitai-struct-runtime-0.10.jar",
+      "name": "kaitai-struct-runtime-0.10.jar",
+      "sha256": "6d63f82b3b2166d39767598bc458bad7b546fd76a1bf27aecd33f12cae3e1196"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/kaitai/kaitai-struct-runtime/0.10/kaitai-struct-runtime-0.10-sources.jar",
+      "name": "kaitai-struct-runtime-0.10-sources.jar",
+      "sha256": "65a9c873a12698fc1d9def34c5039a02e076c22700c1bb87ac7c924893537ded"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/io/kaitai/kaitai-struct-runtime/0.10/kaitai-struct-runtime-0.10.pom",
+      "name": "kaitai-struct-runtime-0.10.pom",
+      "sha256": "cf7fb0b4f9da3d09927a3fb5ca59d7009f99ae17fe849a4b5d180310b8e45932"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36.jar",
+      "name": "slf4j-api-1.7.36.jar",
+      "sha256": "d3ef575e3e4979678dc01bf1dcce51021493b4d11fb7f1be8ad982877c16a1c0"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36-sources.jar",
+      "name": "slf4j-api-1.7.36-sources.jar",
+      "sha256": "15bc04357a3725b7a5153f132db71379f95e83b7b8590a86cc6d4ad77bfc150a"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36.pom",
+      "name": "slf4j-api-1.7.36.pom",
+      "sha256": "fb046a9c229437928bb11c2d27c8b5d773eb8a25e60cbd253d985210dedc2684"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-simple/1.7.36/slf4j-simple-1.7.36.jar",
+      "name": "slf4j-simple-1.7.36.jar",
+      "sha256": "2f39bed943d624dfa8f4102d0571283a10870b6aa36f197a8a506f147010c10f"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-simple/1.7.36/slf4j-simple-1.7.36-sources.jar",
+      "name": "slf4j-simple-1.7.36-sources.jar",
+      "sha256": "c11b4197b7100eb4c4986c93493d4230f1efccfc53f39fbdbb84573493722379"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/slf4j/slf4j-simple/1.7.36/slf4j-simple-1.7.36.pom",
+      "name": "slf4j-simple-1.7.36.pom",
+      "sha256": "c56b80a0a6bea2a0463e70d0892ae338a9e507e486767a520453409812058d1b"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar",
+      "name": "apiguardian-api-1.1.2.jar",
+      "sha256": "b509448ac506d607319f182537f0b35d71007582ec741832a1f111e5b5b70b38"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2-sources.jar",
+      "name": "apiguardian-api-1.1.2-sources.jar",
+      "sha256": "277a7a4315412817beb6655b324dc7276621e95ebff00b8bf65e17a27b685e2d"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.pom",
+      "name": "apiguardian-api-1.1.2.pom",
+      "sha256": "32355081d109095c3d5d374d5a43b4f4c1b75d549e983ef50723e2772e5302a0"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/acplt/remotetea/remotetea-oncrpc/1.1.4/remotetea-oncrpc-1.1.4.jar",
+      "name": "remotetea-oncrpc-1.1.4.jar",
+      "sha256": "e419a656c1bbfab6b96c5c5a8f854c504a038cb5b2d51a084a77791c80f453ac"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/acplt/remotetea/remotetea-oncrpc/1.1.4/remotetea-oncrpc-1.1.4-sources.jar",
+      "name": "remotetea-oncrpc-1.1.4-sources.jar",
+      "sha256": "53748c6b624796435a75d8990adf19eb052ddd2593d91606965ba5f71025b8dd"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/acplt/remotetea/remotetea-oncrpc/1.1.4/remotetea-oncrpc-1.1.4.pom",
+      "name": "remotetea-oncrpc-1.1.4.pom",
+      "sha256": "f8c99c689f6852ed1d3eee8ee468f50d8e6928162dd024086dfbb69923d4ebe1"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar",
+      "name": "commons-math3-3.6.1.jar",
+      "sha256": "1e56d7b058d28b65abd256b8458e3885b674c1d588fa43cd7d1cbb9c7ef2b308"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1-sources.jar",
+      "name": "commons-math3-3.6.1-sources.jar",
+      "sha256": "e2ff85a3c360d56c51a7021614a194f3fbaf224054642ac535016f118322934d"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.pom",
+      "name": "commons-math3-3.6.1.pom",
+      "sha256": "fad72336ea7d7dd06da103144e3740db508fa4b17d9c54d7847737edc24a7e60"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/json/json/20250517/json-20250517.jar",
+      "name": "json-20250517.jar",
+      "sha256": "3ea61b2a06e31edf1c91134fe9106b0ebb16628be169f3db75bc7a2b06b45796"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/json/json/20250517/json-20250517-sources.jar",
+      "name": "json-20250517-sources.jar",
+      "sha256": "e946f18024a64653f6514d8706201b479c908bb2ace04eeab0fe3145721514a4"
+    },
+    {
+      "url": "https://repo.maven.apache.org/maven2/org/json/json/20250517/json-20250517.pom",
+      "name": "json-20250517.pom",
+      "sha256": "71a1fb86a2b05537a3cfc1c87db42d036efdbbfc7e9c349b635d21ac1fa876a7"
+    }
+  ],
+  "runtime": {
+    "source": "https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.12.1%2B1",
+    "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jre_x64_windows_hotspot_21.0.12.1_1.zip",
+    "name": "temurin-jre21.zip",
+    "sha256": "d35f31e712f0fcf6ac5a093edc90204fbff22f720ba3950bd09d331d5e621636",
+    "version": "Temurin 21.0.12.1+1"
+  }
+}

@@ -72,13 +72,10 @@
     @media (max-width: 580px) { .shell { padding: 20px 16px; } header { gap: 12px; } nav { gap: 12px; } .local { display: none; } .intro { align-items: flex-start; flex-direction: column; } .telemetry { grid-template-columns: 1fr; gap: 16px; } .decks { grid-template-columns: 1fr; } .art { aspect-ratio: 1.3; } footer { flex-direction: column; } #artwork-status { text-align: left; } }
   select { background:#17242c; color:#eef3f6; border:1px solid #34414d; border-radius:7px; padding:8px; font:inherit; }
   </style>
-</head>
+<link rel="stylesheet" href="/navigation.css"></head>
 <body>
   <div class="shell">
-    <header>
-      <a class="brand" href="/"><img src="/icon.svg" width="42" height="42" alt=""><div><strong>DeckStatus</strong><small data-i18n="dashboard">Deck monitor</small></div></a>
-      <nav><a href="/overlay/settings" data-i18n="deckSettings">Deck overlays</a><a href="/master-overlay/settings" data-i18n="masterSettings">Master overlay</a><a href="/waveform/settings" data-i18n="waveNav">Waveform</a><a href="/history" data-i18n="fullHistory">Full History</a><a href="/api/state" target="_blank" rel="noopener" data-i18n="jsonApi">JSON API ↗</a><select data-language data-i18n-aria="language"><option value="en">English</option><option value="de">Deutsch</option></select></nav>
-    </header>
+    <header></header>
     <main>
       <div class="intro"><div><span class="eyebrow" data-i18n="session">Your session at a glance</span><h1 data-i18n="liveTitle">Live from your decks.</h1><p data-i18n="liveIntro">Track metadata, tempo and key in one place.</p></div><div class="status" id="connection" role="status"><span class="dot" aria-hidden="true"></span><span id="status-label" data-i18n="starting">Connecting…</span></div></div>
       <div class="notice" id="demo-notice" hidden data-i18n="demoNotice">Demo mode: these are sample tracks. There is no connection to Rekordbox.</div>
@@ -170,6 +167,8 @@
       document.getElementById('demo-notice').hidden = state.demo !== true && state.status !== 'demo';
       document.getElementById('message').textContent = diagnostic(state.message);
       document.getElementById('version').textContent = diagnostic(state.version);
+      const versionLabel = document.querySelector('dt[data-i18n="version"],dt[data-i18n="prolinkNetwork"]');
+      if (versionLabel) { versionLabel.dataset.i18n = state.mode === 'prolink' ? 'prolinkNetwork' : 'version'; versionLabel.textContent = t(versionLabel.dataset.i18n); }
       const date = typeof state.updatedAt === 'number' && Number.isFinite(state.updatedAt) ? new Date(state.updatedAt) : null;
       const age = typeof state.sampleAgeMs === 'number' && Number.isFinite(state.sampleAgeMs) && state.sampleAgeMs >= 0 ? ' · ' + t('age', { age: Math.round(state.sampleAgeMs) }) : '';
       document.getElementById('updated').textContent = date && Number.isFinite(date.getTime()) ? date.toLocaleTimeString(locale()) + age : '—';
@@ -197,5 +196,5 @@
     }
     poll();
   </script>
-</body>
+<script type="module" src="/navigation.js"></script></body>
 </html>

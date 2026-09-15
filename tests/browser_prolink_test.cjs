@@ -1,0 +1,47 @@
+const assert=require('node:assert/strict');
+const {withBrowser}=require('./browser_fixture.cjs');
+let mode='rekordbox',phase='stopped',devices=[],players=[],posts=[],failed=false;
+const source=[{number:1,name:'CDJ-3000',address:'192.0.2.11',kind:'player',supported:true,selectable:true},{number:2,name:'CDJ-3000',address:'192.0.2.12',kind:'player',supported:true,selectable:true},{number:33,name:'DJM-A9',address:'192.0.2.33',kind:'mixer',supported:true,selectable:false},{number:9,name:'<img src=x onerror=alert(1)>',address:'192.0.2.99',kind:'player',supported:false,selectable:false}];
+withBrowser((req,res,url)=>{
+ if(!url.pathname.startsWith('/api/'))return false;res.setHeader('Content-Type','application/json');
+ if(url.pathname==='/api/app')res.end(JSON.stringify({version:'1.4.0',mode,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink'}}));
+ else if(url.pathname==='/api/prolink/devices'){
+  if(failed){res.statusCode=503;res.end('{}');return true;}
+  res.end(JSON.stringify({status:phase,message:phase==='connected'?'prolinkConnected':'prolinkStopped',runtimeAvailable:true,devices:devices.map(d=>({...d,selected:players.includes(d.number),playing:phase==='connected'&&d.number===1,synced:phase==='connected',onAir:phase==='connected'&&d.number===1,master:d.number===1,firmware:'test fixture',bpm:128})),players,localAddress:phase==='connected'?'192.0.2.100':'',networkInterface:'Ethernet · synthetic fixture',virtualPlayer:phase==='connected'?7:null}));
+ }else if(url.pathname==='/api/prolink/control'){
+  let body='';req.on('data',chunk=>body+=chunk);req.on('end',()=>{const command=JSON.parse(body);posts.push(command);if(command.action==='discover'){phase='discovering';devices=source;}if(command.action==='connect'){phase='connected';players=command.players;}if(command.action==='disconnect'){phase='stopped';players=[];devices=[];}res.statusCode=202;res.end('{"accepted":true}');});
+ }else if(url.pathname==='/api/state'||url.pathname==='/api/rekordbox/status')res.end(JSON.stringify({mode,status:'disconnected',decks:[],message:'prolinkStopped'}));
+ else {res.statusCode=404;res.end('{}');}return true;
+},async({evaluate,navigate,until,delay,screenshot,call})=>{
+ await navigate('/prolink/settings?lang=en');await until(()=>evaluate('document.querySelector("#app-mode")?.textContent.includes("Rekordbox")'),'Default mode missing');
+ assert.equal(await evaluate('document.querySelector("#prolink-content").hidden'),true);
+ assert.equal(await evaluate('document.querySelector("[data-capability=prolinkSetup]").getAttribute("aria-disabled")'),'true');
+ assert.equal(await evaluate('document.querySelector("[data-capability=prolinkSetup]").hasAttribute("href")'),false);
+ assert.equal(await evaluate('document.querySelectorAll(".nav-group").length'),3);
+ assert.equal(await evaluate('document.querySelectorAll(".nav-link").length'),8);
+ assert.equal(posts.length,0,'Opening setup started networking');
+ mode='prolink';await navigate('/prolink/settings?lang=en');await until(()=>evaluate('!document.querySelector("#prolink-content").hidden'),'ProLink settings missing');
+ assert.equal(await evaluate('document.querySelector("[data-capability=rekordboxSetup]").hasAttribute("href")'),false);
+ assert.equal(await evaluate('document.querySelector("[data-capability=audioWaveform]").getAttribute("aria-disabled")'),'false','Windows audio should stay available');
+ await evaluate('document.getElementById("discover").click()');await until(()=>evaluate('document.querySelectorAll(".device-card").length===4'),'Discovery list missing');
+ assert.equal(await evaluate('document.querySelectorAll(".device-card img").length'),0,'Device name was interpreted as HTML');
+ assert.equal(posts.length,1,'Discovery connected automatically');
+ for(const player of [1,2])await evaluate(`document.querySelector('[data-player="${player}"]').click()`);
+ await evaluate('document.getElementById("connect").click()');await until(()=>evaluate('document.getElementById("prolink-status").textContent.includes("Connected")'),'Players did not connect');
+ assert.deepEqual(posts.at(-1),{action:'connect',players:[1,2]});
+ assert.equal(await evaluate('document.getElementById("connect").disabled'),true);
+ assert.ok(await evaluate('document.querySelector("#devices").textContent.includes("On-Air")'));
+ await screenshot('prolink-connected-en');
+ await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
+ assert.equal(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),true,'Mobile navigation overflows');
+ await evaluate('document.querySelector("[data-language]").value="de";document.querySelector("[data-language]").dispatchEvent(new Event("change"))');
+ assert.equal(await evaluate('document.getElementById("discover").textContent'),'Geräte suchen');
+ assert.ok(await evaluate('document.getElementById("app-mode").textContent.startsWith("Modus")'));
+ failed=true;await until(()=>evaluate('!document.getElementById("connection-error").hidden'),'Connection failure not shown');
+ assert.equal(await evaluate('document.getElementById("connect").disabled'),true);failed=false;
+ await evaluate('document.getElementById("disconnect").click()');await until(()=>evaluate('document.getElementById("disconnect").disabled'),'Disconnect not applied');
+ assert.equal(posts.at(-1).action,'disconnect');
+ await navigate('/rekordbox/settings?lang=en');await until(()=>evaluate('!document.getElementById("mode-unavailable").hidden'),'Direct inactive page not gated');
+ assert.equal(await evaluate('document.getElementById("rekordbox-content").hidden'),true);
+ console.log('ProLink UI passed: both mode gates, grouped navigation, no automatic network start, discovery/selection/connect/disconnect, safe device names, status, mobile layout and EN/DE.');
+}).catch(error=>{console.error(error);process.exitCode=1;});
