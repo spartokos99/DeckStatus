@@ -21,6 +21,7 @@
 
 <details>
   <summary>🧪 Compatibility</summary>
+  
 ### 🍦 Rekordbox (Software)
 
 |                    | Windows | macOS |
