@@ -19,6 +19,17 @@
   <a href="CHANGELOG.md">📝 Changelog</a>
 </p>
 
+## ✨ Features
+
+- 🎛️ **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
+- 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles. Customise fields, colours, fonts, dimensions, alignment and smooth transitions.
+- 💾 **Saved presets:** save, load, update and delete overlays. The library persists on the server and is shared with signed-in users.
+- 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder and style independent layers; save to update the same OBS source.
+- 🎶 **Public Full History:** viewers browse played tracks at `/history` and rate them from 1–5 stars without an account.
+- ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
+- 🔐 **Accounts:** administrator/operator roles, user management and required initial password changes.
+- 🌐 **Optional LAN access**, JSON API, Rekordbox/ProLink modes and English/German application translations.
+
 ## 🧪 Compatibility
   
 ### 🍦 Rekordbox (Software)
@@ -45,17 +56,6 @@ live-tested only with **Rekordbox 7.2.18.0 Windows x64 installation**.
 |    XDJ-AZ   	|      ✅      	|      ❌    	|
 
 No real ProLink hardware has been tested; see the [device and metadata limitations](docs/prolink.md).
-
-## ✨ Features
-
-- 🎛️ **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
-- 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles. Customise fields, colours, fonts, dimensions, alignment and smooth transitions.
-- 💾 **Saved presets:** save, load, update and delete overlays. The library persists on the server and is shared with signed-in users.
-- 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder and style independent layers; save to update the same OBS source.
-- 🎶 **Public Full History:** viewers browse played tracks at `/history` and rate them from 1–5 stars without an account.
-- ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
-- 🔐 **Accounts:** administrator/operator roles, user management and required initial password changes.
-- 🌐 **Optional LAN access**, JSON API, Rekordbox/ProLink modes and English/German application translations.
 
 ## ▶️ Run
 
