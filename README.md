@@ -71,17 +71,6 @@ Download the complete Windows package from [DeckStatus v2.0.2](https://github.co
 - 🔐 **Accounts:** administrator/operator roles, user management and required initial password changes.
 - 🌐 **Optional LAN access**, JSON API, Rekordbox/ProLink modes and English/German application translations.
 
-![Scene editor with one master overlay and a waveform spanning the full scene width](docs/images/scene-editor-en.png)
-
-<details>
-<summary>🎨 Explore a few overlay styles</summary>
-
-![Midnight, Light and Minimal overlay styles with English demo tracks](docs/images/deckstatus-styles-en.png)
-
-Start with a built-in style, customise it and save it as your own preset.
-
-</details>
-
 ## 🛠️ Build and test
 
 Requires Windows x64, Visual Studio C++ tools, CMake and JDK 21+ for ProLink.
