@@ -20,9 +20,7 @@
 </p>
 
 <details>
-  <summar>🧪 Compatibility</summar>
-## 🧪 Compatibility
-
+  <summary>🧪 Compatibility</summary>
 ### 🍦 Rekordbox (Software)
 
 |                    | Windows | macOS |
