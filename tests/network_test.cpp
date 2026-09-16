@@ -21,6 +21,19 @@ int free_port() {
     std::jthread thread([&]{reservation.listen_after_bind();});reservation.wait_until_ready();reservation.stop();return port;
 }
 struct StopOnExit { std::atomic_bool& stop; ~StopOnExit(){stop=true;} };
+void exercise_bind_failure(const std::filesystem::path& web) {
+    const auto port=free_port();
+    httplib::Server occupied;
+    require(occupied.bind_to_port("127.0.0.1",port),"Could not occupy the loopback test port");
+    std::jthread occupied_thread([&]{occupied.listen_after_bind();});occupied.wait_until_ready();
+    struct StopServer { httplib::Server& server; ~StopServer(){server.stop();} } guard{occupied};
+    std::atomic_bool stop{};
+    require(run_server("127.0.0.2",port,web,[]{return Json::object();},[](int){return std::pair<std::string,std::string>{};},stop)==1,
+        "Secondary listener failure did not abort startup");
+    httplib::Server probe;
+    require(probe.bind_to_port("127.0.0.2",port),"Failed startup leaked the primary socket");
+    std::jthread probe_thread([&]{probe.listen_after_bind();});probe.wait_until_ready();probe.stop();
+}
 void exercise_server(NetworkConfig& config, const std::filesystem::path& web, bool allow_remote) {
     const auto port=config.active().port;
     ServerFeatures features;features.mode="prolink";features.network=&config;
@@ -30,10 +43,17 @@ void exercise_server(NetworkConfig& config, const std::filesystem::path& web, bo
     std::atomic_bool stop{},done{};std::atomic_int exit{-1};
     std::jthread thread([&]{exit=run_server(config.active().bind,port,web,[]{return Json{{"status","demo"},{"decks",Json::array()}};},[](int){return std::pair<std::string,std::string>{};},stop,nullptr,&features);done=true;});
     StopOnExit guard{stop};
-    httplib::Client client("127.0.0.2",port);client.set_connection_timeout(0,100000);client.set_read_timeout(2);
+    const auto address=config.active().bind=="0.0.0.0"?std::string("127.0.0.2"):config.active().bind;
+    httplib::Client client(address,port);client.set_connection_timeout(0,100000);client.set_read_timeout(2);
     bool ready=false;for(int i=0;i<150&&!done;++i){if(auto result=client.Get("/api/app");result&&result->status==200){ready=true;break;}std::this_thread::sleep_for(std::chrono::milliseconds(10));}
     require(ready,"Wildcard listener rejected its real destination address");
-    const auto host="127.0.0.2:"+std::to_string(port);
+    const auto host=address+":"+std::to_string(port);
+    httplib::Client local("127.0.0.1",port);local.set_connection_timeout(1);local.set_read_timeout(2);
+    for(const auto* route:{"/overlay?deck=1","/master-overlay","/waveform","/api/state"}){
+        status(local.Get(route),200);
+        status(local.Get(route,{{"Host","localhost:"+std::to_string(port)}}),200);
+    }
+    require(Json::parse(local.Get("/api/app")->body)["obsBaseUrl"]=="http://127.0.0.1:"+std::to_string(port),"OBS base is not localhost");
     status(client.Get("/api/network"),200);
     require(Json::parse(client.Get("/api/network")->body)["canConfigure"]==true,"Local setup disabled");
     for(const auto* route:{"/network/settings","/network-settings.js","/network-settings.css","/overlay?deck=1","/master-overlay","/waveform","/api/state"})status(client.Get(route),200);
@@ -42,12 +62,39 @@ void exercise_server(NetworkConfig& config, const std::filesystem::path& web, bo
     status(client.Get("/api/state",{{"Host",host},{"Host",host}}),403);
     status(client.Get("/api/state",{{"Origin","http://"+host}}),200);
     status(client.Get("/api/state",{{"Origin","http://evil.example"}}),403);
+    const auto domain=config.active().public_domain;
+    if (domain.empty()) {
+        status(client.Get("/api/state",{{"Host","ds.example.net"},{"X-Forwarded-Host","ds.example.net"},{"X-Forwarded-Proto","https"}}),403);
+    } else {
+        const httplib::Headers proxy{{"Host",domain},{"Origin","https://"+domain},{"X-Forwarded-For","127.0.0.1"}};
+        status(client.Get("/api/state",proxy),200);
+        status(client.Get("/api/state",{{"Host",domain+":443"},{"Origin","https://"+domain}}),200);
+        status(client.Get("/api/state",{{"Host",domain},{"Origin","https://"+domain+":443"}}),200);
+        status(client.Get("/api/state",{{"Host","DS.EXAMPLE.NET"},{"Origin","https://DS.EXAMPLE.NET"}}),200);
+        for(const auto& rejected:{domain+":80",domain+":18740",domain+".","sub."+domain,domain+".evil.example"})
+            status(client.Get("/api/state",{{"Host",rejected}}),403);
+        for(const auto& rejected:std::initializer_list<std::string>{"http://"+domain,"https://"+domain+":444","https://evil.example","http://"+host,"null"})
+            status(client.Post("/api/audio/source",{{"Host",domain},{"Origin",rejected}},R"({"deviceId":""})","application/json"),403);
+        status(client.Get("/api/state",{{"Host",domain},{"Origin","https://"+domain},{"Origin","https://"+domain}}),403);
+        status(client.Get("/api/state",{{"Host",domain},{"Host",domain}}),403);
+        status(client.Get("/api/state",{{"Host",host},{"Origin","https://"+domain},{"X-Forwarded-Proto","https"},{"X-Forwarded-Host",domain}}),403);
+        require(Json::parse(client.Get("/api/app",proxy)->body)["canControl"]==allow_remote,"Proxy inherited local controls");
+        const auto description=Json::parse(client.Get("/api/network",proxy)->body);
+        require(description["canConfigure"]==false,"Proxy inherited local network management");
+        require(description["urls"][0]=="http://127.0.0.1:"+std::to_string(port)&&description["urls"][1]=="https://"+domain,"Local/public URLs missing");
+        status(client.Post("/api/network",proxy,"{}","application/json"),403);
+        status(client.Post("/api/audio/source",proxy,R"({"deviceId":""})","application/json"),allow_remote?200:403);
+        status(client.Post("/api/prolink/control",proxy,R"({"action":"disconnect"})","application/json"),allow_remote?202:403);
+        actions=0;
+    }
     status(client.Post("/api/network","{}","text/plain"),415);
     status(client.Post("/api/network","{}","application/json"),400);
     status(client.Post("/api/network","{","application/json"),400);
     status(client.Post("/api/network",{{"Origin","http://evil.example"}},"{}","application/json"),403);
     status(client.Put("/api/network","{}","application/json"),405);
-    const auto saved=Json{{"bind","0.0.0.0"},{"port",port},{"allowRemoteControl",!allow_remote}};
+    const auto saved=Json{{"bind","0.0.0.0"},{"port",port},{"allowRemoteControl",!allow_remote},{"publicDomain",domain}};
+    auto invalid_domain=saved;invalid_domain["publicDomain"]="https://evil.example";
+    status(client.Post("/api/network",invalid_domain.dump(),"application/json"),400);
     status(client.Post("/api/network",saved.dump(),"application/json"),200);
     const auto after=Json::parse(client.Get("/api/network")->body);
     require(after["active"]["allowRemoteControl"]==allow_remote && after["restartRequired"]==true,"Settings applied without restart");
@@ -83,6 +130,7 @@ void exercise_server(NetworkConfig& config, const std::filesystem::path& web, bo
 int main(int argc,char** argv) {
     try {
         require(argc==2,"Expected web directory");
+        exercise_bind_failure(argv[1]);
         for(const char* ip:{"127.0.0.1","0.0.0.0","192.168.1.20","10.0.0.5","169.254.1.1"})require(valid_bind_address(ip),"Valid IPv4 rejected");
         for(const char* ip:{"","*","localhost","::","::1","127.1","127.0.0.01","1.2.3.256","1.2.3.4:80","1.2.3.4\n","0.1.2.3","224.0.0.1","255.255.255.255"})require(!valid_bind_address(ip),"Invalid bind address accepted");
         require(loopback_peer("127.0.0.2")&&loopback_peer("::ffff:127.0.0.1")&&!loopback_peer("192.168.1.20"),"Peer classification failed");
@@ -94,6 +142,13 @@ int main(int argc,char** argv) {
         auto value=Json{{"bind","0.0.0.0"},{"port",free_port()},{"allowRemoteControl",false}};
         initial.save(value);require(initial.active().bind=="127.0.0.1","Saving opened LAN immediately");
         NetworkConfig loaded(file);require(loaded.active().bind=="0.0.0.0","Saved binding not restored");
+        require(loaded.active().public_domain.empty(),"Legacy settings enabled a domain");
+        for (const auto& bad : {Json(nullptr),Json(42),Json(true),Json("localhost"),Json("https://ds.example.net"),
+             Json("ds.example.net:443"),Json("*.example.net"),Json("192.168.0.221"),Json("ds.example.net/"),Json("ds.example.net."),
+             Json("ds..example.net"),Json("-ds.example.net"),Json("ds-.example.net"),Json("ds_example.net"),Json("ds.example.net\r\nHost: evil.example"),
+             Json(std::string(64,'a')+".net"),Json(std::string(254,'a')),Json("user@ds.example.net")}) {
+            auto invalid=value;invalid["publicDomain"]=bad;rejects([&]{loaded.save(invalid);});
+        }
         NetworkConfig overridden(file,std::string("127.0.0.1"),18741,false);
         require(overridden.active().bind=="127.0.0.1"&&overridden.describe(true)["saved"]["bind"]=="0.0.0.0","CLI override changed persisted values");
         for(const auto& bad:{Json(),Json::array(),Json{{"bind","0.0.0.0"},{"port",0},{"allowRemoteControl",false}},
@@ -105,7 +160,12 @@ int main(int argc,char** argv) {
         value["port"]=18749;rejects([&]{loaded.save(value);});CloseHandle(held);
         require(NetworkConfig(file).active().port==loaded.active().port,"Failed save damaged previous settings");
         exercise_server(loaded,argv[1],false);
+        value["port"]=free_port();value["publicDomain"]="DS.EXAMPLE.NET";loaded.save(value);
+        NetworkConfig domain_enabled(file);require(domain_enabled.active().public_domain=="ds.example.net","Domain not normalized/persisted");
+        exercise_server(domain_enabled,argv[1],false);
         NetworkConfig remote_enabled(file,{},free_port());exercise_server(remote_enabled,argv[1],true);
+        NetworkConfig specific(file,std::string("127.0.0.2"),free_port(),false);exercise_server(specific,argv[1],false);
+        value["publicDomain"]="";remote_enabled.save(value);require(NetworkConfig(file).active().public_domain.empty(),"Domain not disabled");
         const auto corrupt=folder/"corrupt.json";{std::ofstream stream(corrupt);stream<<"{";}
         rejects([&]{NetworkConfig invalid(corrupt);});
         std::filesystem::remove(file);std::filesystem::remove(corrupt);std::filesystem::remove(folder);

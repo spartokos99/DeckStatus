@@ -3,4 +3,5 @@
 .network-url{display:flex;gap:8px;margin:12px 0}.network-url input{min-width:0;flex:1;font-family:ui-monospace,monospace;font-size:12px;padding:12px;border:1px solid #395349;border-radius:7px;background:#0b191c;color:#d9ede5}.network-url button{width:auto;flex-shrink:0;font-size:12px}
 .network-address-title{margin-top:28px!important}.network-connect-help{margin-top:22px}.network-grid .setting{margin-bottom:20px}.network-grid .connection-details{margin-bottom:20px}
 #network-feedback{color:#a8eccf;min-height:1.5em}#network-fields:disabled{opacity:.65}
+#network-domain{width:100%;background:#0b161a;color:#eef4f1;border:1px solid #354a4b;border-radius:7px;padding:9px 12px}
 @media(max-width:800px){.network-grid{grid-template-columns:1fr}}

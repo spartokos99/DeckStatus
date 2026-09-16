@@ -14,7 +14,33 @@ namespace deckstatus {
 namespace {
 using Json = nlohmann::json;
 Json encode(const NetworkOptions& options) {
-    return {{"bind", options.bind}, {"port", options.port}, {"allowRemoteControl", options.allow_remote_control}};
+    return {{"bind", options.bind}, {"port", options.port}, {"allowRemoteControl", options.allow_remote_control},
+        {"publicDomain", options.public_domain}};
+}
+std::string public_domain(const Json& value) {
+    if (!value.is_string()) throw std::runtime_error("networkInvalidDomain");
+    auto domain = value.get<std::string>();
+    if (domain.empty()) return domain;
+    if (domain.size() > 253 || domain.find('.') == std::string::npos) throw std::runtime_error("networkInvalidDomain");
+    std::size_t label = 0;
+    bool letter = false;
+    char previous = '.';
+    for (auto& c : domain) {
+        if (c >= 'A' && c <= 'Z') c = static_cast<char>(c + ('a' - 'A'));
+        if (c == '.') {
+            if (!label || previous == '-') throw std::runtime_error("networkInvalidDomain");
+            label = 0; letter = false;
+        } else {
+            const bool alpha = c >= 'a' && c <= 'z';
+            if ((!alpha && !(c >= '0' && c <= '9') && c != '-') || (!label && c == '-') || ++label > 63)
+                throw std::runtime_error("networkInvalidDomain");
+            letter = letter || alpha;
+        }
+        previous = c;
+    }
+    // DNS names only: no IP literals, URL schemes, ports, paths or wildcard hosts.
+    if (!label || previous == '-' || !letter) throw std::runtime_error("networkInvalidDomain");
+    return domain;
 }
 std::optional<std::array<unsigned, 4>> ipv4(const std::string& address) {
     std::array<unsigned, 4> parts{};
@@ -55,11 +81,13 @@ bool local_network_peer(const std::string& peer, const std::string& destination)
     return loopback_peer(peer) || (!peer.empty() && peer == destination);
 }
 NetworkOptions parse_network_options(const Json& value) {
-    if (!value.is_object() || value.size() != 3 || !value.contains("bind") || !value["bind"].is_string() ||
+    if (!value.is_object() || value.size() < 3 || value.size() > 4 ||
+        (value.size() == 4 && !value.contains("publicDomain")) || !value.contains("bind") || !value["bind"].is_string() ||
         !value.contains("port") || !value["port"].is_number_integer() || value["port"] < 1 || value["port"] > 65535 ||
         !value.contains("allowRemoteControl") || !value["allowRemoteControl"].is_boolean()) throw std::runtime_error("networkInvalidSettings");
     NetworkOptions result{value["bind"].get<std::string>(), value["port"].get<int>(), value["allowRemoteControl"].get<bool>()};
     if (!valid_bind_address(result.bind)) throw std::runtime_error("networkInvalidSettings");
+    if (value.contains("publicDomain")) result.public_domain = public_domain(value["publicDomain"]);
     return result;
 }
 std::string network_url(const std::string& address, int port) {
@@ -109,11 +137,11 @@ NetworkConfig::NetworkConfig(std::filesystem::path file, std::optional<std::stri
 Json NetworkConfig::describe(bool can_configure) const {
     std::lock_guard lock(mutex_);
     auto interfaces = network_interfaces();
-    Json urls = Json::array();
+    Json urls = Json::array({network_url("127.0.0.1", active_.port)});
+    if (!active_.public_domain.empty()) urls.push_back("https://" + active_.public_domain);
     if (active_.bind == "0.0.0.0") {
-        urls.push_back(network_url("127.0.0.1", active_.port));
         for (const auto& adapter : interfaces) urls.push_back(network_url(adapter["address"], active_.port));
-    } else urls.push_back(network_url(active_.bind, active_.port));
+    } else if (active_.bind != "127.0.0.1") urls.push_back(network_url(active_.bind, active_.port));
     return {{"active", encode(active_)}, {"saved", encode(saved_)}, {"restartRequired", active_ != saved_},
         {"commandLineOverrides", overridden_}, {"canConfigure", can_configure}, {"interfaces", std::move(interfaces)}, {"urls", std::move(urls)}};
 }

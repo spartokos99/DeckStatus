@@ -10,6 +10,7 @@ struct NetworkOptions {
     std::string bind = "127.0.0.1";
     int port = 18740;
     bool allow_remote_control = false;
+    std::string public_domain;
     bool operator==(const NetworkOptions&) const = default;
 };
 

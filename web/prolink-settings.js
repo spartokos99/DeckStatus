@@ -30,6 +30,7 @@ function render(state) {
       text.textContent=order>=0?t('prolinkMappedDeck',{deck:order+1}):t('prolinkUsePlayer');
       input.addEventListener('change',()=>{if(input.checked)selected.add(device.number);else selected.delete(device.number);render(last);});label.append(input,text);card.append(label);
     } else {const text=document.createElement('p');text.textContent=t(device.supported?'prolinkMixerAutomatic':'prolinkUnsupportedDevice');card.append(text);}
+    if(['prolinkAzHelp','prolink3000xHelp','prolinkMixerHelp'].includes(device.guidance)) {const help=document.createElement('p');help.className='hint';help.textContent=t(device.guidance);card.append(help);}
     const badges=document.createElement('div');badges.className='device-badges';
     for(const [key,value] of [['prolinkPlaying',device.playing],['prolinkOnAir',device.onAir],['prolinkSync',device.synced],['prolinkMaster',device.master]]){
       if(typeof value!=='boolean')continue;const badge=document.createElement('span');badge.className='device-badge';badge.dataset.active=String(value);badge.textContent=t(key)+' · '+t(value?'prolinkYes':'prolinkNo');badges.append(badge);

@@ -40,6 +40,20 @@ async function run(args,port,test){
    if(address){const state=await request('/api/state',null,address);assert.equal(state.status,200);assert.equal(state.data.mode,'prolink');console.log('Actual host LAN address accepted by wildcard listener.');}
   });
   const overridden=await freePort();
+  const address=Object.values(os.networkInterfaces()).flat().find(item=>item.family==='IPv4'&&!item.internal)?.address;
+  if(address){
+   const interfacePort=await freePort();
+   fs.writeFileSync(config,JSON.stringify({bind:address,port:interfacePort,allowRemoteControl:false,publicDomain:'deckstatus.example'}));
+   await run(['--demo'],interfacePort,async request=>{
+    for(const host of ['127.0.0.1','localhost',address]){
+     assert.equal((await request('/api/state',null,host)).status,200,'Selected interface lost local/LAN access');
+     const app=(await request('/api/app',null,host)).data;assert.equal(app.obsBaseUrl,'http://127.0.0.1:'+interfacePort);
+    }
+    const settings=(await request('/api/network')).data;assert.equal(settings.active.publicDomain,'deckstatus.example');
+   });
+   fs.writeFileSync(config,JSON.stringify({bind:'0.0.0.0',port:next,allowRemoteControl:false}));
+   console.log('Selected LAN interface, localhost and 127.0.0.1 work together with a configured domain.');
+  }
   await run(['--demo','--bind','127.0.0.1','--port',String(overridden),'--allow-remote-control'],overridden,async request=>{
    const settings=(await request('/api/network')).data;assert.equal(settings.active.bind,'127.0.0.1');assert.equal(settings.active.allowRemoteControl,true);assert.equal(settings.saved.bind,'0.0.0.0');assert.equal(settings.saved.port,next);assert.equal(settings.commandLineOverrides,true);
   });

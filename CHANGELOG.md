@@ -1,5 +1,30 @@
 # Changelog
 
+## 2.0.2 · 2026-09-16
+
+- Add experimental CDJ-3000X, DJM-900NXS2 and XDJ-AZ (PRO DJ LINK mode) device profiles, setup guidance and synthetic packet/browser coverage. No live hardware validation is claimed.
+- Request ProLink metadata directly through DBServer; remove the legacy DeviceSQL fallback to prevent incorrect OneLibrary/Device Library Plus metadata. Preserve distinct unknown media-slot identities.
+- Translate all documentation under `docs/` into English while retaining English/German application translations.
+- Add an optional public HTTPS domain in Network settings, persisted across restarts with backward compatibility for existing configurations.
+- Support Caddy HTTP upstreams with original Host/Origin headers and Secure session/rating cookies. Apply remote permissions to domain requests even when the proxy runs locally.
+- Keep localhost available alongside a selected network interface. Copied deck/master/waveform/scene URLs use `127.0.0.1` with the active port; embedded previews stay on the current origin.
+- Add validation and HTTPS browser tests for login, password changes, ratings, presets, scenes, OBS rendering and persistence. Document Caddy setup in the network guide and wiki.
+
+### Compatibility and upgrade
+
+- Live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. No ProLink model or firmware combination has been tested on real hardware.
+- XDJ-AZ requires **PRO DJ LINK → Connect to CDJ/XDJ/DJM**. Only announced player endpoints are supported; standalone four-deck mode and its USB 2 metadata are not supported.
+- ProLink metadata now requires a successful direct DBServer query. The old DeviceSQL export.pdb fallback is disabled for all ProLink devices to prevent incorrect OneLibrary/Device Library Plus matches. If the query is unavailable, metadata, artwork and possibly timelines remain unknown. See the [ProLink guide](docs/prolink.md).
+- Stop DeckStatus and preserve **DeckStatus.data** and **DeckStatus.network.json** before replacing the application files with the complete 2.0.2 ZIP. Existing accounts, ratings, presets, scenes and keys remain valid. Rekordbox remains the default startup mode.
+- To use a reverse proxy, save its hostname under **Connections → Network → Public domain**, then restart DeckStatus. Keep the original Host/Origin headers. Local access through localhost/127.0.0.1 and generated local OBS links remain available.
+
+### Validation
+
+- Release build, all nine native CTest cases and the Java ProLink model/UTF-8 pipe tests passed.
+- All six browser suites passed, including real-EXE authentication, presets, scenes, ratings, persistence and HTTPS reverse-proxy checks with Secure cookies and local OBS links.
+- Network smoke checks passed for the saved interface/domain configuration, simultaneous LAN/localhost access, both source modes and CLI overrides. EXE/DLL versions are 2.0.2 / 2.0.2.0; all nine EXE icon sizes remain embedded.
+- Production Rekordbox injection, ProLink device discovery/connections and audio capture remained off during release validation.
+
 ## 2.0.1 · 2026-09-15
 
 ### Scenes, accounts and audience feedback

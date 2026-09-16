@@ -32,17 +32,28 @@ public final class Main {
 
     private Main(int idBase) {
         this.idBase = idBase;
+        configureMetadata();
         metadata.addMountListener(new MountListener() {
             public void mediaMounted(SlotReference slot) { mediaEpochs.putIfAbsent(slot, 0L); }
             public void mediaUnmounted(SlotReference slot) { mediaEpochs.merge(slot, 1L, Long::sum); }
         });
     }
+    static void configureMetadata() {
+        // Beat Link 8 can initialize CrateDigger indirectly through OpusProvider.
+        // Initialize it before any networking, then detach its auto-start hook using
+        // the public lifecycle API. Merely omitting start() is not sufficient.
+        CrateDigger.getInstance().stop();
+        MetadataFinder finder = MetadataFinder.getInstance();
+        for (LifecycleListener listener : finder.getLifecycleListeners()) {
+            if (listener.getClass().getEnclosingClass() == CrateDigger.class) finder.removeLifecycleListener(listener);
+        }
+    }
     static Object text(String value) { return value == null || value.isBlank() ? JSONObject.NULL : value; }
     static Object text(SearchableItem value) { return value == null ? JSONObject.NULL : text(value.label); }
-    static boolean supportedPlayer(DeviceAnnouncement device) { return device.getDeviceName().equals("CDJ-3000") && device.getDeviceNumber() >= 1 && device.getDeviceNumber() <= 6; }
+    static boolean supportedPlayer(DeviceAnnouncement device) { return DeviceSupport.player(device); }
     static boolean fresh(DeviceUpdate update, long now) { return update != null && now - update.getTimestamp() >= 0 && now - update.getTimestamp() <= 3_000_000_000L; }
     static boolean matches(TrackMetadata track, CdjStatus status) {
-        return track != null && track.trackReference.player == status.getTrackSourcePlayer() &&
+        return track != null && status.getTrackSourceSlot() != CdjStatus.TrackSourceSlot.UNKNOWN && track.trackReference.player == status.getTrackSourcePlayer() &&
             track.trackReference.slot == status.getTrackSourceSlot() && track.trackReference.rekordboxId == status.getRekordboxId() && track.trackType == status.getTrackType();
     }
     static JSONObject emptyDeck(int id) {
@@ -63,7 +74,12 @@ public final class Main {
         return identityKey(status, source == null ? "unknown" : source.getAddress().getHostAddress(), mediaEpochs.getOrDefault(slot, 0L));
     }
     static String identityKey(CdjStatus status, String address, long epoch) {
-        return address + ":" + status.getTrackSourcePlayer() + ":" + status.getTrackSourceSlot() + ":" + epoch + ":" + status.getTrackType() + ":" + status.getRekordboxId();
+        // Preserve new/unknown slot numbers: distinct USB sources must never share an identity.
+        return address + ":" + status.getTrackSourcePlayer() + ":" + sourceSlot(status) + ":" + epoch + ":" + status.getTrackType() + ":" + status.getRekordboxId();
+    }
+    static String sourceSlot(CdjStatus status) {
+        return status.getTrackSourceSlot() == CdjStatus.TrackSourceSlot.UNKNOWN ?
+            "UNKNOWN_" + Byte.toUnsignedInt(status.getPacketBytes()[0x29]) : status.getTrackSourceSlot().name();
     }
     private synchronized int trackId(String identity) {
         if (trackIds.size() >= 999_999 && !trackIds.containsKey(identity)) throw new IllegalStateException("Session track limit reached");
@@ -95,7 +111,7 @@ public final class Main {
         if (!identity.equals(lastTracks.put(player, identity))) loadedAt.put(player, now);
         int trackId = trackId(identity);
         deck.put("loaded", true).put("trackId", trackId).put("isMaster", status.isTempoMaster())
-            .put("sourceTrackId", status.getRekordboxId()).put("sourcePlayer", status.getTrackSourcePlayer()).put("sourceSlot", status.getTrackSourceSlot().name())
+            .put("sourceTrackId", status.getRekordboxId()).put("sourcePlayer", status.getTrackSourcePlayer()).put("sourceSlot", sourceSlot(status))
             .put("beatNumber", status.getBeatNumber() > 0 ? status.getBeatNumber() : JSONObject.NULL)
             .put("bpm", status.getBpm() > 0 && status.getBpm() != 65535 ? status.getEffectiveTempo() : JSONObject.NULL)
             .put("coverUrl", "/api/decks/" + id + "/cover?trackId=" + trackId);
@@ -121,12 +137,13 @@ public final class Main {
         try {
             long now = System.nanoTime();
             boolean active = connected && cdj.isRunning();
-            boolean mixerOnline = active && devices().stream().anyMatch(d -> d.getDeviceName().equals("DJM-A9") && fresh(cdj.getLatestStatusFor(d), now));
+            boolean mixerOnline = active && devices().stream().anyMatch(d -> DeviceSupport.mixer(d) && fresh(cdj.getLatestStatusFor(d), now));
             JSONArray list = new JSONArray(), decks = new JSONArray();
             for (DeviceAnnouncement device : devices().stream().sorted(Comparator.comparingInt(DeviceAnnouncement::getDeviceNumber)).toList()) {
                 DeviceUpdate update = active ? cdj.getLatestStatusFor(device) : null;
                 JSONObject item = new JSONObject().put("number", device.getDeviceNumber()).put("name", device.getDeviceName()).put("address", device.getAddress().getHostAddress())
-                    .put("kind", device.getDeviceName().startsWith("DJM") ? "mixer" : "player").put("supported", supportedPlayer(device) || device.getDeviceName().equals("DJM-A9"))
+                    .put("kind", DeviceSupport.mixer(device) ? "mixer" : "player").put("supported", DeviceSupport.supported(device))
+                    .put("guidance", DeviceSupport.guidance(device))
                     .put("selectable", supportedPlayer(device)).put("selected", players.contains(device.getDeviceNumber()))
                     .put("online", true).put("fresh", fresh(update, now)).put("ageMs", Math.max(0, System.currentTimeMillis() - device.getTimestamp()));
                 if (update instanceof CdjStatus status && fresh(status, now)) item.put("firmware", text(status.getFirmwareVersion()))
@@ -167,7 +184,7 @@ public final class Main {
     }
     private void disconnect() {
         connected = false;
-        TimeFinder.getInstance().stop(); ArtFinder.getInstance().stop(); CrateDigger.getInstance().stop();
+        TimeFinder.getInstance().stop(); ArtFinder.getInstance().stop();
         BeatGridFinder.getInstance().stop(); metadata.stop(); BeatFinder.getInstance().stop(); cdj.stop(); finder.stop();
         lastTracks.clear(); loadedAt.clear(); mediaEpochs.replaceAll((key, value) -> value + 1);
         players = List.of(); selectedAddresses.clear(); localAddress = networkInterface = "";
@@ -192,12 +209,16 @@ public final class Main {
             if (devices().stream().filter(d -> d.getDeviceNumber() == player).count() != 1) throw new IllegalArgumentException("Duplicate player number");
             selected.add(player); selectedAddresses.put(player, device.getAddress().getHostAddress());
         }
-        if (devices().stream().anyMatch(d -> !supportedPlayer(d) && !d.getDeviceName().equals("DJM-A9"))) {
+        if (devices().stream().anyMatch(d -> !DeviceSupport.supported(d))) {
             message = "prolinkUnsupportedNetwork"; phase = "error"; return;
         }
         selected.sort(Integer::compareTo);
         players = List.copyOf(selected); phase = "connecting"; message = "prolinkConnecting";
-        cdj.setDeviceName("DeckStatus"); cdj.setUseStandardPlayerNumber(false);
+        cdj.setDeviceName("DeckStatus");
+        // Beat Link 8 does not classify the 3000X as metadata-flexible. Prefer a free
+        // standard channel for its DBServer requests; allocation still avoids occupied numbers.
+        cdj.setDeviceNumber((byte) 0);
+        cdj.setUseStandardPlayerNumber(devices().stream().anyMatch(d -> d.getDeviceName().equals("CDJ-3000X")));
         if (!cdj.start()) throw new IOException("Unable to join network");
         if (cdj.getMatchingInterfaces().size() != 1 || !cdj.findUnreachablePlayers().isEmpty()) {
             cdj.stop(); phase = "error"; message = "prolinkAmbiguousNetwork"; return;
@@ -205,7 +226,9 @@ public final class Main {
         localAddress = cdj.getLocalAddress().getHostAddress();
         networkInterface = cdj.getMatchingInterfaces().get(0).getDisplayName();
         // Never enable VirtualCdj status sending, sync, tempo control, loading or fader-start commands.
-        metadata.setPassive(false); metadata.start(); CrateDigger.getInstance().start(); ArtFinder.getInstance().start(); TimeFinder.getInstance().start();
+        // Query DBServer directly. The disabled DeviceSQL fallback can return an
+        // unrelated track for OneLibrary IDs, including in mixed networks.
+        metadata.setPassive(false); metadata.start(); ArtFinder.getInstance().start(); TimeFinder.getInstance().start();
         connected = true; phase = "connected"; message = "prolinkConnected";
     }
     public static void main(String[] args) throws Exception {

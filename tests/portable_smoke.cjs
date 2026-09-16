@@ -18,7 +18,7 @@ async function run(args,test){
 }
 (async()=>{
  for(const language of ['en','de'])await run(['--demo','--lang',language],async(request)=>{
-  const app=(await request('/api/app')).data;assert.equal(app.mode,'rekordbox');assert.equal(app.version,'2.0.1');
+  const app=(await request('/api/app')).data;assert.equal(app.mode,'rekordbox');assert.equal(app.version,'2.0.2');
   const state=(await request('/api/state')).data;assert.equal(state.decks[0].title,'Night Drive "Live"');assert.equal(state.decks[1].artist,'Studio North');
   assert.equal(state.decks[0].bpm,128);assert.equal(state.decks[0].originalBpm,126);assert.equal(state.decks[0].durationMs,240000);
   assert.equal((await request('/api/prolink/devices')).status,409);assert.equal((await request('/api/prolink/control',{action:'discover'})).status,409);

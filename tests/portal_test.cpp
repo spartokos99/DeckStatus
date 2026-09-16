@@ -103,6 +103,10 @@ int main(int argc,char** argv){
             const auto op_saved=Json::parse(op_preset->body);
             status(client.Post("/api/presets",Json{{"action","delete"},{"id",op_saved["id"]},{"revision",op_saved["revision"]}}.dump(),"application/json"),200);
             client.set_default_headers({});status(client.Get("/scene?scene="+scene_id+"&key="+scene_key),200);status(client.Get("/api/scene?scene="+scene_id+"&key="+scene_key),200);status(client.Get("/api/admin/users?scene="+scene_id+"&key="+scene_key),401);
+            status(client.Get("/scene?scene="+scene_id+"&key="+scene_key,external_link),200);
+            status(client.Get("/scene?scene="+scene_id+"&key=invalid",external_link),403);
+            status(client.Get("/api/scene?scene="+scene_id+"&key="+scene_key,external_link),403);
+            status(client.Get("/api/admin/users?scene="+scene_id+"&key="+scene_key,external_link),403);
             status(client.Get("/api/presets?scene="+scene_id+"&key="+scene_key),401);
             status(client.Post("/api/presets?scene="+scene_id+"&key="+scene_key,"{}","application/json"),401);
             const auto rotated=portal.edit_scene({{"action","rotate"},{"id",scene_id},{"revision",1}});status(client.Get("/api/scene?scene="+scene_id+"&key="+scene_key),401);scene_key=rotated["key"];

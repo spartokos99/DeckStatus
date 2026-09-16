@@ -30,7 +30,7 @@ routes.set('/overlay/settings', 'master-settings.html');
 routes.set('/', 'index.html');
 for(const asset of ['auth.js','broadcast.js','component-presets.js','component-presets.css'])routes.set('/'+asset,asset);
 const fixture = http.createServer((request, response) => {
-  if(request.url==='/api/app'){response.setHeader('Content-Type','application/json');response.end(JSON.stringify({version:'2.0.1',mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));return;}
+  if(request.url==='/api/app'){response.setHeader('Content-Type','application/json');response.end(JSON.stringify({version:'2.0.2',mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));return;}
   const url = new URL(request.url, 'http://localhost');
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
@@ -89,8 +89,9 @@ async function until(fn, message, timeout = 6000) {
     await call('Page.enable'); await call('Runtime.enable');
     await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1120, deviceScaleFactor: 1, mobile: false });
     const navigate = async route => {
-      await call('Page.navigate', { url: base + route });
-      await until(() => evaluate('document.readyState === "complete" && location.pathname === ' + JSON.stringify(route.split('?')[0])), 'Page did not load');
+      const url = new URL(route, base);
+      await call('Page.navigate', { url: url.href });
+      await until(() => evaluate('document.readyState === "complete" && location.pathname === ' + JSON.stringify(url.pathname)), 'Page did not load');
     };
     const rows = () => evaluate('[...document.querySelectorAll(".track:not([aria-hidden])")].map(c => ({entry: Number(c.dataset.entryId), current: c.dataset.current, text:c.textContent}))');
     const screenshot = async name => {

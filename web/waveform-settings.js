@@ -1,9 +1,10 @@
 import {t,translate,getLanguage,locale} from './i18n.js';
 import {readSetting,writeSetting} from './storage.js';
 import {appReady} from './navigation.js';
-import {broadcastUrl,loadBroadcastKeys} from './broadcast.js';
+import {broadcastUrl,loadBroadcastKeys,obsUrl} from './broadcast.js';
 import {setupPresets} from './component-presets.js';
 const broadcastKeys=await loadBroadcastKeys();
+const app=await appReady;
 import {controls,defaults,presets,normalize,overlayUrl} from './waveform-options.js';
 const $=id=>document.getElementById(id), key='deckstatus.waveform.options';
 let saved={};try{saved=JSON.parse(readSetting(key)||'{}');}catch{}
@@ -28,10 +29,10 @@ function sync(fill=true){
     $(name+'-value').textContent=type==='range'?Number(options[name]).toLocaleString(locale()):'';}
   $('maxHz').value=options.maxHz;
   writeSetting(key,JSON.stringify(options));
-  const url=new URL(broadcastUrl(overlayUrl(options,getLanguage()),broadcastKeys.waveform),location.origin).href;$('url').value=url;$('open').href=url;
+  const path=broadcastUrl(overlayUrl(options,getLanguage()),broadcastKeys.waveform);$('url').value=obsUrl(path,app);$('open').href=$('url').value;
   $('dimensions').textContent=options.width+' × '+options.height+' px';
   $('preview').width=options.width;$('preview').height=options.height;
-  clearTimeout(previewTimer);previewTimer=setTimeout(()=>{$('preview').src=url;},120);
+  clearTimeout(previewTimer);previewTimer=setTimeout(()=>{$('preview').src=path;},120);
 }
 $('preset').addEventListener('change',()=>{if(Object.hasOwn(presets,$('preset').value)){options=normalize(presets[$('preset').value]);sync();}});
 $('reset').addEventListener('click',()=>{options={...defaults};$('preset').value='mint';sync();});

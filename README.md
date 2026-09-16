@@ -19,7 +19,7 @@
   <a href="CHANGELOG.md">📝 Changelog</a>
 </p>
 
-**🧪 Compatibility:** live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. ProLink support for CDJ-3000 / DJM-A9 is experimental and has not been tested on real hardware.
+**🧪 Compatibility:** live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. ProLink supports CDJ-3000, CDJ-3000X, XDJ-AZ (PRO DJ LINK mode), DJM-A9 and DJM-900NXS2 experimentally. No real ProLink hardware has been tested; see the [device and metadata limitations](docs/prolink.md).
 
 ## ▶️ Run
 
@@ -31,7 +31,7 @@
 
 Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks without Rekordbox or DJ hardware.
 
-Download the complete Windows package from [DeckStatus v2.0.1](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.1). When upgrading from v1.4.0, generate new OBS URLs after signing in: overlays now require a read-only key. See the [upgrade notes](CHANGELOG.md#upgrade).
+Download the complete Windows package from [DeckStatus v2.0.2](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.2). When upgrading from v1.4.0, generate new OBS URLs after signing in: overlays now require a read-only key. See the [upgrade notes](CHANGELOG.md#upgrade).
 
 ## ✨ Features
 
@@ -65,7 +65,7 @@ Users, ratings, presets and scenes persist in **`DeckStatus.data`** beside the E
 
 Ratings allow one changeable vote per browser and track. This is lightweight audience feedback, not verified-person voting.
 
-The server initially accepts localhost connections only. Enable LAN access under **Connections → Network** and restart. HTTP is not encrypted: use a trusted network and do not expose the server directly to the internet.
+The server initially accepts localhost connections only. Enable LAN access under **Connections → Network** and restart. For HTTPS through Caddy, configure your **Public domain** there; see the [domain and reverse-proxy setup](docs/network.md#https-and-caddy). Localhost stays available, and copied OBS links keep using `127.0.0.1`. For OBS on another PC, replace the link's origin with the reachable LAN/HTTPS address. Direct HTTP and the proxy-to-DeckStatus connection require a trusted network.
 
 ## 🛠️ Build and test
 
@@ -83,5 +83,7 @@ node tests/network_smoke.cjs
 ~~~
 
 Browser tests require Node.js 22+ and Microsoft Edge. Native tests cover injection fixtures, metadata, HTTP, audio, ProLink, network settings, authentication, ratings, presets, scenes and storage migration. The portal browser test runs the real EXE with isolated data, including preset reuse, anonymous OBS rendering and restart persistence. Automated tests do not establish additional Rekordbox or real ProLink compatibility.
+
+Set `$env:DECKSTATUS_TEST_PROXY='1'` before the portal browser test to run it through an isolated HTTPS proxy, including Secure cookies, local OBS links and same-origin previews. Unset it afterwards with `Remove-Item Env:DECKSTATUS_TEST_PROXY`.
 
 See the [technical wiki](docs/WIKI.md) for setup, permissions, APIs, storage and troubleshooting, and [third-party notices](THIRD_PARTY_NOTICES.md) for dependencies.

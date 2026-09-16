@@ -1,9 +1,11 @@
 import { readSetting, writeSetting } from './storage.js';
 import { defaults, presets, normalize, parseOptions, overlayPath, deckOverlayPath } from './master-options.js';
 import { t, getLanguage, locale } from './i18n.js';
-import {broadcastUrl,loadBroadcastKeys} from './broadcast.js';
+import {broadcastUrl,loadBroadcastKeys,obsUrl} from './broadcast.js';
+import {appReady} from './navigation.js';
 import {setupPresets} from './component-presets.js';
 const broadcastKeys=await loadBroadcastKeys();
+const app=await appReady;
 const mode = location.pathname.startsWith('/master-overlay') ? 'master' : 'deck';
 const byId = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);
@@ -41,8 +43,8 @@ function apply() {
   clearTimeout(pending);
   options.lang = getLanguage();
   const path = broadcastUrl((mode === 'master' ? overlayPath : deckOverlayPath)(options),broadcastKeys[mode]);
-  byId('url').value = new URL(path, location.origin).href;
-  byId('open').href = path;
+  byId('url').value = obsUrl(path, app);
+  byId('open').href = byId('url').value;
   // Reserve space for a full history, larger fonts and a stacked cover.
   const textHeight = options.fontSize * 6 + (options.timeline ? 92 : 0);
   const rowHeight = Math.ceil(2 * options.padding + (options.layout === 'stacked' ? options.coverSize + textHeight + 20 : Math.max(options.coverSize, textHeight)));
@@ -55,7 +57,7 @@ function apply() {
   if (mode === 'deck') {
     byId('deck-links').replaceChildren(...[1,2,3,4].map(id => {
       const link = document.createElement('a'); link.textContent = t('deck', { id }) + ' ↗';
-      link.href = broadcastUrl(deckOverlayPath(stored(id)),broadcastKeys.deck); link.target = '_blank'; link.rel = 'noopener'; return link;
+      link.href = obsUrl(broadcastUrl(deckOverlayPath(stored(id)),broadcastKeys.deck),app); link.target = '_blank'; link.rel = 'noopener'; return link;
     }));
   }
   labels();

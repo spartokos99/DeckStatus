@@ -2,7 +2,7 @@
 
 **GitHub Wiki import:** create a page named **Home** in your repository's Wiki, select Markdown and paste this entire file. The wiki Git repository was unavailable when this guide was prepared.
 
-This guide describes **DeckStatus v2.0.1**. Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
+This guide describes **DeckStatus v2.0.2**. Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
 
 ## Running DeckStatus
 
@@ -21,9 +21,9 @@ Open `http://127.0.0.1:18740/`. On the first start, sign in as `admin` using the
 
 **Only the author's Rekordbox 7.2.18.0 Windows x64 executable has been live-tested.** The bridge uses a version-specific profile and refuses unsupported executables. New versions need independent validation.
 
-ProLink targets CDJ-3000 players and DJM-A9 mixers, with **no live hardware validation**. Rekordbox-exported USB media is the primary target. Other models, firmware combinations, streaming and Device Library Plus-only media are unverified.
+ProLink targets CDJ-3000, CDJ-3000X and XDJ-AZ player endpoints, plus DJM-A9 and DJM-900NXS2 mixers, with **no live hardware validation**. XDJ-AZ requires PRO DJ LINK → Connect to CDJ/XDJ/DJM; standalone four-deck mode is not supported. Metadata is requested directly through DBServer; the DeviceSQL export.pdb fallback is disabled because OneLibrary/Device Library Plus IDs can refer to different tracks. Missing metadata stays unknown. Firmware combinations, streaming and cloud sources are unverified. See [ProLink](prolink.md) for device-specific limits.
 
-The native C++ EXE serves HTTP, accounts, persistence and Windows audio. In Rekordbox mode its companion DLL reads supported deck state and collection metadata enriches tracks/artwork. In ProLink mode an owned Java helper uses Beat Link 8.0.0 / Crate Digger and communicates over bounded JSON pipes.
+The native C++ EXE serves HTTP, accounts, persistence and Windows audio. In Rekordbox mode its companion DLL reads supported deck state and collection metadata enriches tracks/artwork. In ProLink mode an owned Java helper uses Beat Link 8.0.0 with direct DBServer queries and communicates over bounded JSON pipes. The legacy Crate Digger metadata fallback is disabled.
 
 The web interface uses local HTML/CSS/JavaScript without a CDN. A shared master-history model serves both modes. A separate persistent store holds users, ratings, presets and scenes. The audio waveform is a visualization of an explicitly selected Windows source, not a track's analysed Rekordbox waveform.
 
@@ -51,7 +51,7 @@ Passwords contain 12–256 UTF-8 bytes. Windows CNG PBKDF2-HMAC-SHA-256 uses 600
 
 Session cookies are random, HttpOnly and SameSite=Strict. They expire after 12 hours or on logout, password change, user edit or EXE restart. Sessions are held in memory. Login/password requests have bounded per-minute limits.
 
-The built-in listener is HTTP, **not HTTPS**. Cookies cannot use Secure on this listener, and a network observer can see passwords/links. Use a trusted network; authentication does not make direct internet exposure suitable. TLS, public DNS names, proxy trust and public hosting are outside this implementation.
+The built-in listener is HTTP. Use a trusted network for direct access and the proxy-to-DeckStatus connection. For public HTTPS, configure a domain under Connections → Network and terminate TLS in a reverse proxy such as Caddy. Session and voter cookies use `Secure` for that domain; direct IP/localhost access retains HTTP cookies. Only the configured domain and matching HTTPS Origin are accepted. DeckStatus does not manage DNS or certificates. See the [Caddy setup](network.md#https-and-caddy).
 
 ## Public Full History and ratings
 
@@ -113,17 +113,19 @@ Allow DeckStatus.exe on the selected private-network TCP port in Windows Firewal
 
 The remote-controls switch only concerns Windows audio / ProLink discovery and connections. It does not remove account permissions to edit presets/scenes or administer users. Without it, remote source controls return 403. Only a local administrator can change network settings.
 
-Numeric IPv4 and loopback names are supported. IPv6 listeners, arbitrary DNS names and forwarding headers are not supported. Host, Origin and cross-site checks remain active.
+Numeric IPv4, loopback names and one optional HTTPS domain on port 443 are supported. Store the domain alone as `publicDomain` in `DeckStatus.network.json`, or use the Network page, then restart. Older files without this property keep domain access disabled. Host, Origin and cross-site checks remain active; other domains, ports and subdomains are rejected. IPv6 listeners and path-prefix hosting are not supported.
 
-On another PC, use the DeckStatus PC's LAN address; `127.0.0.1` would refer to that other PC itself. Open settings through the LAN address before copying URLs. Browser preferences use separate origins for localhost and LAN addresses. HTTP clipboard fallback is selecting the URL and pressing Ctrl+C.
+A specific interface also starts a loopback listener on the same port. Both listeners share accounts, audio and scene state; startup fails if either required socket cannot bind. Domain requests use remote permissions even if the proxy connects locally. Network configuration requires a local administrator accessing the listener by IP/localhost. Forwarding headers are not trusted for local privileges or Host/Origin validation; proxies must preserve Host and Origin. IP-based rate limits use the proxy's TCP address and are shared by clients behind it.
+
+Copied deck/master/waveform/scene URLs always use `http://127.0.0.1:<port>` for OBS on the DeckStatus PC, including when settings are opened through the domain. `/api/app` exposes this origin as `obsBaseUrl`. Embedded previews and renderer API requests stay on their current origin. For OBS on another PC, replace the copied URL's origin with the reachable LAN/HTTPS address, keeping its path and query intact. Browser preferences use separate origins for localhost, LAN and the domain. HTTP clipboard fallback is selecting the URL and pressing Ctrl+C.
 
 ## ProLink setup
 
-Connect the PC, CDJ-3000 players and DJM-A9 on the same Ethernet network with unique player numbers. Start ProLink mode, sign in, open Connections → ProLink setup, find devices and connect selected players.
+Connect the PC and supported players/mixers on the same Ethernet network with unique player numbers. Multiple announced XDJ-AZ player endpoints may share an IP address. Start ProLink mode, sign in, open Connections → ProLink setup, find devices and connect selected players.
 
 One to four selected players map to dashboard decks in ascending number order; players 5/6 are selectable. The mixer is detected automatically. Disconnect before changing selection. Merely opening setup performs no discovery.
 
-Allow the bundled `prolink/runtime/bin/java.exe` on the private DJ network. PRO DJ LINK uses UDP 50000–50002 and additional metadata/NFS traffic. Other Link clients may already occupy those ports.
+Allow the bundled `prolink/runtime/bin/java.exe` on the private DJ network. PRO DJ LINK uses UDP 50000–50002 and TCP DBServer traffic (port discovery on 12523, then the player's reported port). Other Link clients may already occupy those ports. The legacy NFS/export.pdb metadata fallback is disabled to avoid mismatched OneLibrary IDs.
 
 The helper uses a monitoring identity and normal metadata handshakes, not passive sniffing. No playback/load/sync/tempo or mixer fader/EQ/FX controls are exposed. Playing, Sync and On-Air flags can be reported; On-Air does not prove audible output. Stale reports stop appearing live. ProLink track IDs remain session-scoped and distinguish player/media sources.
 

@@ -6,7 +6,7 @@ function message(key=''){feedback=key;$('network-feedback').textContent=key?t(ke
 function accessChanged(){
   const local=$('network-access').value==='local';
   $('network-interface-row').hidden=$('network-access').value!=='interface';
-  $('network-control').disabled=local;
+  $('network-control').disabled=local&&!$('network-domain').value.trim();
 }
 function adapters(preferred=$('network-interface').value){
   const select=$('network-interface');select.replaceChildren();
@@ -18,7 +18,9 @@ function fill(){
   const saved=state.saved;
   $('network-access').value=saved.bind.startsWith('127.')?'local':saved.bind==='0.0.0.0'?'lan':'interface';
   adapters($('network-access').value==='interface'?saved.bind:'');
-  $('network-port').value=saved.port;$('network-control').checked=saved.allowRemoteControl;accessChanged();
+  $('network-port').value=saved.port;$('network-control').checked=saved.allowRemoteControl;
+  $('network-domain').value=saved.publicDomain||'';
+  accessChanged();
 }
 function render(){
   $('network-fields').disabled=busy||failed||!state?.canConfigure;
@@ -28,7 +30,7 @@ function render(){
   const active=state.active,local=active.bind.startsWith('127.');
   $('network-active').textContent=t(local?'networkLocal':active.bind==='0.0.0.0'?'networkLan':'networkInterface');
   const details=$('network-details');details.replaceChildren();
-  for(const [key,value] of [['networkBind',active.bind],['networkPort',active.port],['networkRemoteControl',t(active.allowRemoteControl?'networkAllowed':'networkDisabled')]]){
+  for(const [key,value] of [['networkBind',active.bind],['networkPort',active.port],['networkDomain',active.publicDomain||t('networkDisabled')],['networkRemoteControl',t(active.allowRemoteControl?'networkAllowed':'networkDisabled')]]){
     const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=t(key);dd.textContent=String(value);details.append(dt,dd);
   }
   const container=$('network-urls');container.replaceChildren();
@@ -39,7 +41,7 @@ function render(){
     copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(url);message('networkCopied');}catch{input.select();message('waveCopyManual');}});
     row.append(input,copy);container.append(row);
   }
-  $('network-no-lan').hidden=!local&&(state.urls||[]).some(url=>!new URL(url).hostname.startsWith('127.'));
+  $('network-no-lan').hidden=Boolean(active.publicDomain)||(!local&&(state.urls||[]).some(url=>!new URL(url).hostname.startsWith('127.')));
   $('network-feedback').textContent=feedback?t(feedback):'';
 }
 async function load(){
@@ -51,15 +53,16 @@ async function load(){
   }catch(error){failed=true;$('network-error').textContent=diagnostic(error.message);$('network-error').hidden=false;render();}
 }
 $('network-access').addEventListener('change',accessChanged);
+$('network-domain').addEventListener('input',accessChanged);
 $('network-save').addEventListener('click',async()=>{
   if(busy||failed||!state?.canConfigure||!$('network-port').reportValidity())return;
   const access=$('network-access').value;
-  const body={bind:access==='local'?'127.0.0.1':access==='lan'?'0.0.0.0':$('network-interface').value,port:Number($('network-port').value),allowRemoteControl:$('network-control').checked};
+  const body={bind:access==='local'?'127.0.0.1':access==='lan'?'0.0.0.0':$('network-interface').value,port:Number($('network-port').value),allowRemoteControl:$('network-control').checked,publicDomain:$('network-domain').value.trim().toLowerCase()};
   busy=true;message('');render();
   try{
     const response=await fetch('/api/network',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(5000)});
     const result=await response.json();if(!response.ok)throw Error(result.error||'networkSaveFailed');
-    state=result;$('network-error').hidden=true;message(result.restartRequired?'networkSavedRestart':'networkSaved');
+    state=result;$('network-domain').value=result.saved.publicDomain||'';$('network-error').hidden=true;message(result.restartRequired?'networkSavedRestart':'networkSaved');
   }catch(error){$('network-error').textContent=diagnostic(error.message);$('network-error').hidden=false;}
   finally{busy=false;render();}
 });

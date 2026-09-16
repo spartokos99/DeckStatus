@@ -9,6 +9,7 @@
 <div class="setting"><label for="network-access" data-i18n="networkAccess"></label><select id="network-access"><option value="local" data-i18n="networkLocal"></option><option value="lan" data-i18n="networkLan"></option><option value="interface" data-i18n="networkInterface"></option></select></div>
 <div class="setting" id="network-interface-row" hidden><label for="network-interface" data-i18n="networkAdapter"></label><select id="network-interface"></select></div>
 <div class="setting"><label for="network-port" data-i18n="networkPort"></label><input id="network-port" type="number" min="1" max="65535" step="1" required></div>
+<div class="setting"><label for="network-domain" data-i18n="networkDomain"></label><input id="network-domain" type="text" maxlength="253" placeholder="ds.spartokos.net" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="network-domain-help"><p id="network-domain-help" class="hint" data-i18n="networkDomainHelp"></p></div>
 <label class="network-check"><input id="network-control" type="checkbox"><span data-i18n="networkRemoteControl"></span></label><p class="hint" data-i18n="networkRemoteControlHelp"></p>
 <button id="network-save" type="button" data-i18n="networkSave"></button>
 </fieldset><p id="network-feedback" role="status"></p><p class="hint" data-i18n="networkSaveHelp"></p>

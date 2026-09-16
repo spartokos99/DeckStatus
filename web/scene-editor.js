@@ -1,10 +1,12 @@
 import {api} from './auth.js';
-import './navigation.js';
+import {appReady} from './navigation.js';
+import {obsUrl} from './broadcast.js';
 import {t,translate,getLanguage} from './i18n.js';
 import {defaults as trackDefaults,presets as trackPresets,normalize as trackOptions} from './master-options.js';
 import {defaults as waveDefaults,presets as wavePresets,controls as waveControls,normalize as waveOptions} from './waveform-options.js';
 import {renderScene} from './scene-shared.js';
 import {listPresets,componentLabel} from './component-presets.js';
+const app=await appReady;
 const $=id=>document.getElementById(id),stage=$('scene-stage');let scenes=[],scene=null,selected='',dirty=false,zoom=1,busy=false,drag;
 let componentPresets=[];
 const item=()=>scene?.items.find(row=>row.id===selected);
@@ -17,7 +19,7 @@ function fit(){if(!scene)return;zoom=$('scene-viewport').clientWidth/scene.width
 function draw(){if(!scene)return;
   // Unsaved/new layers preview with authenticated cookies; OBS uses the saved scene key.
   renderScene(stage,scene,undefined,true);fit();for(const node of stage.children)node.dataset.selected=String(node.dataset.id===selected);
-  $('scene-url').value=scene.id?new URL('/scene?scene='+scene.id+'&key='+scene.key,location.origin).href:'';$('scene-open').href=$('scene-url').value||'#';$('scene-copy').disabled=!scene.id;$('scene-rotate').disabled=!scene.id;
+  $('scene-url').value=scene.id?obsUrl('/scene?scene='+scene.id+'&key='+scene.key,app):'';$('scene-open').href=$('scene-url').value||'#';$('scene-copy').disabled=!scene.id;$('scene-rotate').disabled=!scene.id;
   $('scene-dimensions').textContent=scene.width+' × '+scene.height+' px · '+t('sceneObsSize');
 }
 function list(){const select=$('scene-list');select.replaceChildren(new Option(t('sceneDraft'),''));for(const entry of scenes)select.add(new Option(entry.name,entry.id));select.value=scene?.id||'';}

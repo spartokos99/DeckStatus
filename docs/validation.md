@@ -1,133 +1,133 @@
-# Validierung am 14. September 2026
+# Validation log
 
-## Build und automatisierte Tests
+This is a historical record. Test counts, behavior and protocol versions describe the revision tested in each entry; later entries may supersede them. Live Rekordbox validation remains limited to the author's **7.2.18.0 Windows x64 installation**. ProLink hardware has not been live-tested.
 
-Windows x64, MSVC 19.51 / Visual Studio 2026, C++20, Release-Build mit statischer C++-Laufzeit. Alle fünf CTest-Tests bestanden:
+## Build and automated tests — September 14, 2026
 
-- `artwork_database`: Metadaten-Joins, fehlende Einträge und Verknüpfungen, SQL-NULL, UTF-8-Grenzen, Coverpfade, Pfadgrenzen und unveränderte Testdatenbank. Verwendet die installierte sqlite3.dll und eine eigens erzeugte temporäre Datenbank.
-- `http_server`: JSON, Unicode, Seiten, Methoden, Host/Origin, Coverzuordnung bei Trackwechseln, fehlerhafte/mehrfache Track-IDs, fehlende Cover, Health-Zustände, belegter Port und sauberes Beenden.
-- `scanner_boundaries`: ungültige Speicherbereiche, Seitengrenzen, UTF-8, PE-Grenzen und Signaturmehrdeutigkeit.
-- `injection_lifecycle`: Laden der DLL in einen eigenen Testprozess, IPC, Ablehnung eines unpassenden EXE-Fingerabdrucks, doppelte Anbindung und erneute Anbindung.
-- `master_history`: Master-Wechsel, derselbe Track auf einem anderen Deck, unbekannte/unterbrochene Master-Zustände, erneut auftauchende Tracks, verspätete Metadaten, eingefrorene BPM, History-Grenze 50, Coverzugriff und Verdrängung während eines Coverabrufs, veralteter Sampler.
+Windows x64, MSVC 19.51 / Visual Studio 2026, C++20, Release build with the static C++ runtime. All five CTest cases passed:
 
-Dashboard und bisheriges Deck-Overlay zusätzlich mit JavaScript-Syntaxprüfung und einem DOM-Test geprüft: sichere Textausgabe, fehlende Werte, Deckwahl, Demo-Kennzeichnung, Verbindungsverlust und Wiederholung fehlgeschlagener Coverabrufe.
+- `artwork_database`: metadata joins, missing rows and relationships, SQL NULL, UTF-8 boundaries, artwork paths, path confinement and an unchanged test database. Uses the installed sqlite3.dll and a dedicated temporary database.
+- `http_server`: JSON, Unicode, pages, methods, Host/Origin checks, artwork association during track changes, malformed/duplicate track IDs, missing artwork, health states, occupied ports and clean shutdown.
+- `scanner_boundaries`: invalid memory ranges, page boundaries, UTF-8, PE boundaries and ambiguous signatures.
+- `injection_lifecycle`: DLL loading into an owned test process, IPC, rejection of an incompatible EXE fingerprint, duplicate attachment and reattachment.
+- `master_history`: master changes, the same track on another deck, unknown/interrupted master states, returning tracks, late metadata, frozen BPM, the 50-entry history limit, artwork access and eviction during a request, and stale sampling.
 
-Das neue Master-Overlay wurde mit `tests/browser_master_test.cjs` in einem echten Edge-Browser im Headless-Modus gerendert, mit eigenem Profil und synthetischem HTTP-Testserver. Geprüft: Vorschau, gespeicherte Einstellungen, erzeugte OBS-URL, History-Anzahl, Album-Schalter und ein Overlay nur mit Titel (alle fünf übrigen Felder verborgen), tatsächliche Web-Animations-Übergänge, Wiederverwendung der Karten beim Wechsel, schnelle Wechsel vor Animationsende, BPM-Updates ohne Animationsneustart, sichere Textausgabe, fehlende Cover, Verbindungsunterbrechung und reduzierte Bewegung. Screenshots `build/test-artifacts/master-settings.png` und `master-overlay.png` wurden visuell geprüft. Kein eigener OBS-Test wird behauptet.
+The dashboard and existing deck overlay also passed JavaScript syntax and DOM checks covering safe text output, missing values, deck selection, demo labeling, connection loss and retries for failed artwork requests.
 
-## Live mit Rekordbox 7.2.18.0
+The new master overlay was rendered by `tests/browser_master_test.cjs` in a real headless Edge browser with an isolated profile and synthetic HTTP fixture. Checks covered previews, saved settings, generated OBS URLs, history count, album visibility, title-only rendering with the other five fields hidden, actual Web Animations transitions, card reuse, rapid changes before animations finish, BPM updates without restarting animations, safe text, missing artwork, disconnection and reduced motion. `build/test-artifacts/master-settings.png` and `master-overlay.png` were visually inspected. No separate OBS test is claimed.
 
-Erweiterte Browserprüfung für History-Skalierung, Ausrichtung und BPM-Anzeige: tatsächliche Karten- und Coverabmessungen bei 0,65× sowie Grenzwerte 0,20×/1,00× geprüft, ebenso die Abstände in der Liste. Links-, Mittel- und Rechtsausrichtung wurden sowohl gegenüber dem Master als auch gegenüber dem Browserfenster gemessen. Ein laufender Übergang wurde zwischen voller Master-Größe und 0,40× History-Größe kontrolliert; schnelle Trackwechsel zusätzlich bei 0,20× und rechter Ausrichtung. Neue Einstellungen und URL-Parameter überstehen das Neuladen. Aktuelle und Original-BPM wurden in beiden Overlays mit unterschiedlichen Werten, laufender Tempoänderung und fehlendem Originaltempo geprüft. Screenshots `master-settings-scaled.png`, `master-overlay-scaled-right.png` und `deck-overlay-bpm-mobile.png` wurden visuell geprüft. Für diese Anpassungen war keine Änderung am nativen Datenzugriff erforderlich.
+## Live Rekordbox 7.2.18.0
 
-Die DLL wurde in die bereits laufende Installation unter `D:\Programs\rekordbox 7.2.18` geladen. Die HTTP-API meldete `connected`, `demo: false`, Version `7.2.18.0` und frische Messungen (unter 200 ms im beobachteten Abruf). Die Bibliothek ließ sich nur lesend öffnen.
+Additional browser checks covered history scaling, alignment and BPM display: actual card/artwork dimensions at 0.65×, limits of 0.20× and 1.00×, and list spacing. Left, center and right alignment were measured against both the master card and the browser window. An active transition from full master size to 0.40× history size was checked; rapid changes were also tested at 0.20× with right alignment. Settings and URL parameters survived reload. Both overlays displayed distinct current/original BPM, live tempo changes and missing original BPM correctly. `master-settings-scaled.png`, `master-overlay-scaled-right.png` and `deck-overlay-bpm-mobile.png` were visually inspected. These changes required no native data-access modifications.
 
-Zunächst wurden leere Decks ohne veraltete Metadaten ausgegeben. Nach dem Laden von vier Tracks lieferten alle vier Decks gültige Track-IDs, Titel, Artist, Album, Key und BPM; `metadataAvailable` war jeweils `true`.
+The DLL was loaded into the running installation at `D:\Programs\rekordbox 7.2.18`. The HTTP API reported `connected`, `demo: false`, version `7.2.18.0` and fresh measurements (under 200 ms in the observed request). The library was opened read-only.
 
-| Deck | BPM beim Abruf | Key | Cover |
+Initially, empty decks had no stale metadata. After loading four tracks, every deck returned valid track IDs, title, artist, album, key and BPM, with `metadataAvailable: true`.
+
+| Deck | BPM at request time | Key | Artwork |
 |---|---:|---|---|
 | 1 | 174 | 9A | JPEG, HTTP 200 |
 | 2 | 174 | 7B | JPEG, HTTP 200 |
 | 3 | 175 | 9A | JPEG, HTTP 200 |
 | 4 | 174 | 7A | JPEG, HTTP 200 |
 
-`/api/health` und `/overlay?deck=1` lieferten HTTP 200. Der Wechsel von leeren zu geladenen Decks wurde ohne Neustart der Bridge erkannt. Nach dem Beenden der Bridge war `DeckStatusBridge.dll` nicht mehr in Rekordbox geladen; Rekordbox lief weiter.
+`/api/health` and `/overlay?deck=1` returned HTTP 200. Empty-to-loaded deck changes were detected without restarting the bridge. After the bridge stopped, `DeckStatusBridge.dll` was no longer loaded in Rekordbox; Rekordbox continued running.
 
-Die Bibliothekswerte und Coverantworten wurden direkt über die API geprüft. Nicht gesondert live geprüft: manuelle Pitchbewegungen, Tracks aus Streamingdiensten, Export-Modus, andere Rekordbox-Versionen sowie ein längerer DJ-Betrieb. Der gespeicherte Key und Original-BPM stammen aus der Bibliothek; aktuelle Deck-BPM stammen aus dem geprüften `@BPM`-Objekt.
+Library values and artwork responses were checked directly through the API. Manual pitch movement, streaming-service tracks, export mode, other Rekordbox versions and extended DJ operation were not separately live-tested. Stored key and original BPM come from the library; current deck BPM comes from the verified `@BPM` object.
 
-## Master-Overlay live
+## Live master overlay
 
-Die erweiterte Bridge mit IPC-Version 2 erkannte in derselben laufenden Rekordbox-Instanz die Master-Abfolge **Deck 1 → Deck 4 → Deck 1 → Deck 4**. `/api/master` enthielt danach den aktuellen Track „PRVLG (Original Mix)“ von Blend (174 BPM, 7A, Album „Chrome“) sowie drei korrekt geordnete History-Einträge einschließlich „1873“ von Data 3. Die später erneut auftauchenden Tracks hatten neue `entryId`-Werte. Beide verwendeten Cover lieferten auch über die History-URLs HTTP 200 mit MIME `image/jpeg` (152249 beziehungsweise 145012 Bytes).
+The extended bridge using IPC version 2 detected **Deck 1 → Deck 4 → Deck 1 → Deck 4** in the same running Rekordbox instance. `/api/master` then contained the current track “PRVLG (Original Mix)” by Blend (174 BPM, 7A, album “Chrome”) and three correctly ordered history entries, including “1873” by Data 3. Returning tracks received new `entryId` values. Both artwork images returned HTTP 200 through history URLs with MIME type `image/jpeg` (152249 and 145012 bytes).
 
-Ein zusätzlicher lesender Speicherabruf bestätigte für die vier Master-Devices vtable-RVA `0x03B85620`, Namen `Master` und Cachewerte **1, 1, 1, 0**, passend zum API-Master Deck 4. Die neuen drei Codeprüfungen wurden außerdem direkt an der EXE verifiziert. Ein vorheriger Rider-Debugger-Versuch konnte den Quell-Haltepunkt mangels Release-Debug-Symbolen nicht zuordnen; er lieferte keine belastbaren Feldwerte. Der Debugger wurde getrennt, der eigene Haltepunkt entfernt, Rekordbox lief weiter. Die Master-Funktion wurde anhand der direkten Lese- und HTTP-Ergebnisse bestätigt.
-## Deck-Einstellungen, Timeline und Sprachen
+An additional read-only memory query confirmed master-device vtable RVA `0x03B85620`, the name `Master`, and cache values **1, 1, 1, 0**, matching API master Deck 4. The three new code checks were also verified directly against the EXE. An earlier Rider debugger attempt could not bind the source breakpoint without Release debug symbols and produced no reliable field values. The debugger was detached, the owned breakpoint removed, and Rekordbox continued running. Direct reads and HTTP responses confirmed the master behavior.
 
-Die Browserprüfung umfasst zusätzlich getrennt gespeicherte Einstellungen für vier Decks, Übernahme auf alle Decks, generierte OBS-URLs, English als Standard, Deutsch/English-Wechsel im Dashboard und auf Einstellungsseiten sowie persistierte Sprachwahl. Die Darstellung wurde mit einem hellen Preset, 32-px-Schrift, transparentem Hintergrund, gestapeltem Cover und deaktivierten Beschriftungen geprüft. Screenshots `deck-settings.png` und `master-timeline.png` wurden visuell geprüft.
+## Deck settings, timeline and languages
 
-Timeline-Fälle im synthetischen Browser-Test: aktuelle Position und Gesamtlänge, 50-%-Fortschritt, negativer Vorlauf, Begrenzung auf 0–100 %, fehlende Daten ohne erfundenen Nullwert, Wiederherstellung, unveränderte Position ohne neue Bewegung und Trackwechsel. Nur die aktuelle Master-Karte hat eine sichtbare Timeline; History-Karten haben keine. Die bisherigen Prüfungen für Skalierung, Ausrichtung, beide BPM-Werte und Animationen bestehen weiterhin. Die HTTP-Tests prüfen auch sämtliche neuen Module, CSS- und Sprachdateien samt MIME-Typ und fester Routenliste.
+Browser coverage additionally included independent settings for four decks, applying settings to every deck, generated OBS URLs, English by default, German/English switching on the dashboard and settings pages, and persisted language choice. Rendering was checked with a light preset, 32 px type, transparent background, stacked artwork and hidden labels. `deck-settings.png` and `master-timeline.png` were visually inspected.
 
-Die Konsole wurde mit englischer Standardhilfe, deutscher Hilfe (`--lang de --help`) und Ablehnung einer ungültigen Sprache geprüft. Beide Oberflächen und die Konsole verwenden dieselben Übersetzungsdateien.
+Synthetic timeline checks covered current position and total duration, 50% progress, negative lead-in, clamping to 0–100%, missing data without an invented zero, recovery, stationary positions and track changes. Only the current master card has a visible timeline; history cards do not. Scaling, alignment, both BPM values and animation checks continued to pass. HTTP tests covered all new modules, CSS and translation files, including MIME types and the fixed route list.
 
-Die Bridge mit **IPC-Version 3** wurde erneut in die laufende Rekordbox-Instanz geladen. Sie meldete `connected`, `demo: false`, Version `7.2.18.0`, Master Deck 2 und frische Messungen (172 ms beim dokumentierten Abruf). Die vorherige DLL wurde zuerst vollständig entladen; Rekordbox lief weiter.
+Console checks covered English default help, German help (`--lang de --help`) and rejection of an invalid language. The web interface and console use the same translation files.
 
-| Deck | Position (ms) | Dauer (ms) |
+The bridge with **IPC version 3** was loaded into the running Rekordbox instance after completely unloading the previous DLL. Rekordbox continued running. The API reported `connected`, `demo: false`, version `7.2.18.0`, master Deck 2 and fresh measurements (172 ms in the recorded request).
+
+| Deck | Position (ms) | Duration (ms) |
 |---|---:|---:|
 | 1 | 221722 | 295550 |
 | 2 | 68335 | 292414 |
 | 3 | 52840 | 271526 |
 | 4 | 181631 | 181631 |
 
-Ein unabhängiger lesender Speicherabruf bestätigte für alle acht Devices die Namen `@CurrentTime`/`@TotalTime`, vtable `0x03B85620` und exakt dieselben Werte. `/api/master.current` lieferte die Position und Dauer von Deck 2. Die Werte bleiben beim Ergänzen von Bibliotheksmetadaten erhalten. Die fünf zusätzlichen Codeprüfungen wurden vorab am installierten EXE-Build verifiziert.
+Independent read-only memory queries confirmed the `@CurrentTime`/`@TotalTime` names, vtable `0x03B85620` and exactly these values for all eight devices. `/api/master.current` returned Deck 2's position and duration. Values survived library metadata enrichment. The five additional code checks had already been verified against the installed EXE build.
 
-Ein zusätzlicher Edge-Durchlauf gegen den echten Server bestätigte die Master-Timeline (1:08 / 4:52), das geladene Master-Cover, die Deck-Settings-Vorschau und den deutschen Verbindungsstatus nach Sprachwechsel. Screenshots: `master-timeline-live.png` und `deck-settings-live.png`. Im separat gestarteten Demo-Server stieg die native API-Position von 0 auf 657 ms bei 240000 ms Gesamtlänge; die deutsche Diagnose wurde ebenfalls geprüft.
+An additional Edge run against the real server confirmed the master timeline (1:08 / 4:52), loaded master artwork, deck settings preview and German connection status after switching language. Screenshots: `master-timeline-live.png` and `deck-settings-live.png`. In a separately started demo server, native API position increased from 0 to 657 ms with a total duration of 240000 ms; German diagnostics were also checked.
 
-Live geprüft wurden die vorhandenen stationären Positionen. Negative Vorlaufpositionen, Sprünge und Pausenverhalten wurden mit synthetischen API-Daten im Browser geprüft; eine gesonderte manuelle Play-/Seek-Bedienung in Rekordbox und ein Test in OBS werden hier nicht behauptet.
+Live checks used existing stationary positions. Negative lead-in, seeking and pause behavior were checked with synthetic API data in the browser. No separate manual play/seek operation in Rekordbox or OBS test is claimed.
 
-## Veröffentlichungsvorbereitung am 15. September 2026
+## Publication preparation — September 15, 2026
 
-Der Release-Build und alle fünf nativen Tests wurden erneut ausgeführt. Dabei wurde ein sporadischer Windows-Verbindungsabbruch bei abgelehnten POST-Anfragen gefunden: Die frühe Ablehnung konnte den Socket schließen, bevor der Anfrageinhalt vollständig gelesen war. Schreibmethoden werden jetzt von normalen, ausschließlich ablehnenden Handlern beantwortet, nachdem httplib den auf 1024 Bytes begrenzten Inhalt gelesen hat.
+The Release build and all five native tests ran again. An intermittent Windows disconnect was found for rejected POST requests: early rejection could close the socket before the request body was fully read. At this revision, write methods were handled by normal handlers that only rejected requests after httplib had read the body, bounded to 1024 bytes.
 
-Zusätzliche Prüfungen decken POST, PUT, PATCH, DELETE und OPTIONS sowie wiederholte POST/GET-Folgen auf derselben Verbindung ab. Nach der Korrektur bestanden alle fünf Tests und 20 aufeinanderfolgende HTTP-Testläufe. Die Änderung ergänzt keine schreibende API und verändert den nativen Rekordbox-Zugriff nicht.
+Additional checks covered POST, PUT, PATCH, DELETE, OPTIONS and repeated POST/GET sequences over one connection. After the fix, all five tests and 20 consecutive HTTP test runs passed. At that time, this added no write API and did not change native Rekordbox access.
 
-Die öffentliche README-Vorschau wurde mit dem bestehenden Browser-Testserver und synthetischen Tracks erstellt. Bibliotheksdaten, Rekordbox-Binärdateien, lokale IDE-Einstellungen und Build-Ausgaben sind nicht Bestandteil des Git-Repositories. Diese Veröffentlichungsvorbereitung erweitert die Versionskompatibilität nicht.
+The public README preview used the existing browser fixture server and synthetic tracks. Library data, Rekordbox binaries, local IDE settings and build output were excluded from Git. Publication preparation did not extend version compatibility.
 
-## Umbenennung in DeckStatus am 15. September 2026
+## Renaming to DeckStatus — September 15, 2026
 
-Anwendung, CMake-Targets, Solution/Projektdatei, C++-Namensraum, IPC-Objekte und Windows-Dateiinformationen tragen jetzt den Namen DeckStatus. Die neuen Laufzeitdateien heißen `DeckStatus.exe` und `DeckStatusBridge.dll`; die Produktnamen wurden an beiden kompilierten Dateien geprüft. Das IPC-Layout bleibt Version 3, mit eigener DeckStatus-Kennung und Objektnamen.
+The application, CMake targets, solution/project file, C++ namespace, IPC objects and Windows file information were renamed DeckStatus. Runtime files became `DeckStatus.exe` and `DeckStatusBridge.dll`; product names were checked in both compiled files. IPC remained version 3 with a dedicated DeckStatus signature and object names.
 
-Der Build und alle fünf nativen Tests bestanden mit den umbenannten Dateien, einschließlich Laden, doppelter Anbindung und Entladen der neuen DLL im isolierten Testprozess. Die Browserprüfung deckt zusätzlich die Übernahme alter Sprach-, Deck- und Master-Einstellungen in `deckstatus.*` ab und bestätigt, dass neue Werte dabei Vorrang behalten.
+The build and all five native tests passed with the new names, including loading, duplicate attachment and unloading the DLL in an isolated test process. Browser checks also covered migration of old language/deck/master settings into `deckstatus.*`, with existing new values taking precedence.
 
-Dashboard, Einstellungsseite und drei Overlay-Designs wurden für das README mit synthetischen Trackdaten neu aufgenommen. Der Rekordbox-Speicherzugriff wurde durch die Umbenennung nicht auf andere Builds erweitert; die ausschließlich für 7.2.18.0 dokumentierten Live-Prüfungen bleiben maßgeblich.
+Dashboard, settings and three overlay designs were captured again using synthetic tracks for the README. Renaming did not extend the Rekordbox memory profile to other builds; live validation remained limited to 7.2.18.0.
 
-## Ergänzung: DeckStatus 1.3.1 – 15.09.2026
+## DeckStatus 1.3.1 — September 15, 2026
 
-- Neue WASAPI-Audioquelle im Host, separater Waveform-Renderer und eigene Einstellungsseite; die bestehende Rekordbox-Profilprüfung bleibt unverändert.
-- Release-Build mit MSVC erfolgreich, sechs von sechs nativen CTest-Tests bestanden (einschließlich des konfigurierten Datenbanktests).
-- Bisherige Deck-/Master-Browser-Suite bestanden.
-- Neue Waveform-Browser-Suite bestanden: Audioeingang zuerst, kein automatischer Capture-Start, Start/Quellenwechsel/Stopp, sechs reale Canvas-Darstellungen, FFT-Frequenz/Amplitude, Stereo-/Kanalwahl, Rauschschwelle, Grenzen, Sprache/Speicherung, konstante Hintergrundtransparenz mit Nachleuchten, Stille und Fehler-/Stale-Zustände. Sämtliche Browser-Audiosignale waren synthetisch.
-- Standard-Audiotest liest die Geräteliste und prüft PCM-/Float-Konvertierung, NaN/Clipping, Mono/Stereo, Fensterreihenfolge, Stille und ungültige Pakete. CTest öffnet keine Audioquelle.
-- Separater opt-in Hardwaretest `audio_test.exe --loopback-smoke`: vorhandenen Windows-Ausgabe-Loopback zweimal geöffnet, Mixformat erhalten, gestoppt und erneut geöffnet. Kein Mikrofon geöffnet, keine Audiodateien gespeichert. Der Test prüft den Stream-Lebenszyklus, nicht die Wiedergabetreue eines Rekordbox-Signals.
-- Ressourcenprüfung der kompilierten EXE bestanden: Produktversion 1.3.1 / Dateiversion 1.3.1.0 und neun eingebettete Icon-Bilder (16, 20, 24, 32, 40, 48, 64, 128, 256 px).
-- Vorschau und Icon visuell kontrolliert; öffentliche Screenshots verwenden gekennzeichnete synthetische Daten.
-- Mikrofon-/Interface-Erfassung, Rekordbox-zu-Loopback-Signalübertragung und eine eigene OBS-Waveform-Sitzung bleiben nicht separat validiert.
-- Die produktive Rekordbox-Bridge wurde für diese Arbeiten nicht gestartet. Die einzige weiterhin live validierte Rekordbox-Version ist die eigene Installation **7.2.18.0, Windows x64**.
+- Added the host's WASAPI audio source, separate waveform renderer and settings page. Existing Rekordbox profile checks were unchanged.
+- The MSVC Release build and all six native CTest cases passed, including the configured database test. The existing deck/master browser suite also passed.
+- The new waveform browser suite passed: audio input first, no automatic capture, start/source change/stop, six actual canvas renderings, FFT frequency/amplitude, stereo/channel selection, noise floor, limits, language/persistence, constant background transparency with trails, silence, errors and stale data. All browser audio signals were synthetic.
+- The default audio test enumerated devices and checked PCM/float conversion, NaN/clipping, mono/stereo, window ordering, silence and invalid packets. CTest opened no audio source.
+- A separate opt-in hardware test, `audio_test.exe --loopback-smoke`, opened an existing Windows output loopback twice, obtained its mix format, stopped it and reopened it. No microphone was opened and no audio file was saved. This tested stream lifecycle, not fidelity of a Rekordbox signal.
+- Compiled EXE resources passed checks for product version 1.3.1, file version 1.3.1.0 and nine embedded icon sizes (16, 20, 24, 32, 40, 48, 64, 128, 256 px).
+- Preview and icon were visually inspected. Public screenshots used labeled synthetic data.
+- Microphone/interface capture, Rekordbox-to-loopback signal transfer and a dedicated OBS waveform session remained unvalidated.
+- Production Rekordbox injection was not started for this work. The only live-validated Rekordbox version remained the author's **7.2.18.0, Windows x64** installation.
 
+## Dashboard and Full History — September 15, 2026 (then-unreleased source)
 
-## Ergänzung: Dashboard und Full History – 15.09.2026 (unveröffentlichter Quellstand)
+- Waveform and Full History became accessible from the dashboard. Dashboard, overlay settings, waveform settings and history used the same SVG icon template as the EXE.
+- Four dashboard timelines were checked for position/duration, clamped progress, negative lead-in, unavailable and stale values.
+- Full session history for master-track changes was added alongside the unchanged 50-track overlay window. Tests covered repeats, old artwork/metadata, stable cursors, page limits and invalid API parameters.
+- All six native CTest cases and all three browser suites passed. The new suite used 137 synthetic history entries to test navigation, logo, four timelines, pagination, further track changes, artwork, XSS prevention, EN/DE, failure and empty sessions.
+- All six public README screenshots were regenerated with English UI and English synthetic data and visually inspected. The generator also checked embedded preview language.
+- Incremental builds copied changed web files without relinking the EXE; source/build hashes matched.
+- History remained session-local. MASTER changes were not proof of audible playback. Production injection was not started and no additional Rekordbox version was validated.
 
-- Waveform und Full History sind im Dashboard erreichbar. Dashboard, beide Overlay-Einstellungsseiten, Waveform-Einstellungen und History verwenden dieselbe Icon-SVG-Vorlage wie die EXE.
-- Vier Dashboard-Timelines mit Position/Gesamtdauer, begrenztem Fortschritt, negativem Vorlauf und nicht verfügbaren/veralteten Werten geprüft.
-- Vollständiges Sitzungsgedächtnis für Master-Track-Wechsel zusätzlich zum unveränderten 50-Track-Fenster des Overlays. Tests prüfen Wiederholungen, alte Cover/Metadaten, stabile Cursor, Seitenbegrenzung und ungültige API-Parameter.
-- Alle sechs nativen CTest-Tests und alle drei Browser-Suiten erfolgreich. Die neue Browser-Suite nutzt 137 synthetische History-Einträge und prüft Navigation, Logo, vier Timelines, Seitenwechsel, zusätzliche Trackwechsel, Cover, XSS-Abwehr, EN/DE, Ausfall und leere Sitzung.
-- Alle sechs öffentlichen README-Screenshots mit englischer Oberfläche und englischen synthetischen Daten neu erzeugt und visuell kontrolliert. Der neue Generator prüft auch die Sprache der eingebetteten Vorschauen.
-- Inkrementeller Build kopiert geänderte Webdateien auch ohne erneutes Linken der EXE; Hashvergleich zwischen Quell- und Build-Datei erfolgreich.
-- History bleibt auf die aktuelle App-Sitzung begrenzt. MASTER-Wechsel sind weiterhin kein Nachweis hörbarer Wiedergabe. Die produktive Bridge wurde nicht gestartet; keine zusätzliche Rekordbox-Version wurde validiert.
+## DeckStatus 1.3.2 — September 15, 2026
 
-## Ergänzung: DeckStatus 1.3.2 – 15.09.2026
+- The Release build and all six native CTest cases passed, including the configured database test. All three browser suites passed: deck/master, waveform, and dashboard/Full History.
+- Native demo tracks used English titles/artists: `Night Drive "Live"` by `Orbit & Friends` and `First Light` by `Studio North`. Language settings continued to translate UI and diagnostics, not track metadata.
+- All six public README images were regenerated as `*-en.png`. The generator checked English labels and track titles/artists, including embedded previews. Waveform and dashboard images received additional visual inspection. German waveform browser screenshots were written only to `build/test-artifacts` under a separate name.
+- EXE resources passed checks for product version `1.3.2`, file version `1.3.2.0` and nine icon sizes from 16 to 256 px.
+- The earlier dashboard/Full History additions were included in 1.3.2. Production injection and audio capture were not started. Live validation remained limited to the author's **Rekordbox 7.2.18.0 on Windows x64**.
 
-- Release-Build erfolgreich; alle sechs nativen CTest-Tests einschließlich des konfigurierten Datenbanktests bestanden.
-- Alle drei Browser-Suiten bestanden: Deck/Master, Waveform und Dashboard/Full History.
-- Die native Demo verwendet englische Tracktitel und Künstler: `Night Drive "Live"` von `Orbit & Friends` sowie `First Light` von `Studio North`. Die Spracheinstellung übersetzt weiterhin die Oberfläche und Diagnosen, nicht die Trackmetadaten.
-- Alle sechs öffentlichen README-Bilder neu als `*-en.png` erzeugt. Der Generator prüft englische Labels und die englischen Tracktitel/Künstler auch in eingebetteten Vorschauen. Waveform- und Dashboard-Bild zusätzlich visuell kontrolliert. Der deutsche Waveform-Browsertest schreibt seine Bilder ausschließlich unter `build/test-artifacts` mit separatem Namen.
-- Ressourcenprüfung bestanden: EXE-Produktversion `1.3.2`, Dateiversion `1.3.2.0`, neun eingebettete Icon-Größen von 16 bis 256 px.
-- Die vorherigen Dashboard-/Full-History-Ergänzungen sind Bestandteil von 1.3.2. Die produktive Bridge und Audioerfassung wurden für dieses Update nicht gestartet. Es bleibt ausschließlich die eigene Rekordbox-Installation **7.2.18.0 unter Windows x64** live validiert.
+## DeckStatus 1.4.0 — September 15, 2026
 
-## Ergänzung: DeckStatus 1.4.0 – 15.09.2026
+- Added opt-in ProLink mode, its device setup page, shared grouped navigation and server-side mode gates. Default startup remained Rekordbox mode; the injection profile and database/process options were unchanged.
+- Seven native CTest cases passed. The new ProLink test used only an owned helper with no network access: command validation, missing runtime, JSON/artwork transfer, stale data, process termination, restart with separate track IDs and owned-process shutdown. HTTP checks covered both modes, inactive endpoints, JSON validation and Origin restrictions.
+- Java model tests passed with the bundled Temurin runtime: synthetic CDJ status packets, flags/BPM, freshness limits, distinct player/media/slot identities, remounts, unknown values and Unicode JSON. An actual helper additionally tested UTF-8 output despite a Windows-1252 stdout default and shutdown on closed input. These model tests opened no network sockets.
+- The complete application test checked EN/DE demo, unchanged default mode, ProLink runtime, mode/API gates, web routes and disabled audio capture. A real discovery attempt correctly returned `prolinkPortsBusy` on this PC because the required ports were occupied; no device was connected. This exposed a Windows Java stdout encoding issue, fixed with an explicit UTF-8 interface.
+- Four browser suites passed. ProLink added coverage for discovery without automatic connection, player selection, connect/disconnect, safe device names, mode display/gates, shared audio functions, mobile layout and EN/DE. Existing overlay/waveform/history suites continued to pass.
+- Seven public README screenshots were regenerated with English UI and synthetic data. ProLink setup and dashboard navigation were visually inspected.
+- EXE resources passed checks for product version 1.4.0, file version 1.4.0.0 and nine embedded icon sizes.
+- **No live CDJ-3000 or DJM-A9 test was performed.** ProLink remained experimental; firmware combinations and real USB/streaming workflows were unvalidated. Production Rekordbox injection and audio capture remained off. Rekordbox live validation was still limited to the author's 7.2.18.0 installation.
 
-- Opt-in-ProLink-Modus mit eigener Geräte-Setup-Seite, gemeinsamer gruppierter Navigation und serverseitigen Modussperren. Der normale Start bleibt im Rekordbox-Modus; das Injection-Profil und die bestehenden Datenbank-/Prozessoptionen wurden nicht verändert.
-- Sieben native CTest-Tests bestanden. Der zusätzliche ProLink-Test nutzt ausschließlich einen eigenen Hilfsprozess ohne Netzwerkzugriff: Befehlsvalidierung, fehlende Laufzeit, JSON-/Cover-Übertragung, veraltete Daten, Prozessabbruch, Neustart mit getrennten Track-IDs und Beenden des eigenen Prozesses. HTTP-Tests prüfen beide Moduskonfigurationen, direkte inaktive Endpunkte, JSON-Validierung und Origin-Sperren.
-- Java-Modelltests mit der mitgelieferten Temurin-Laufzeit bestanden: synthetische CDJ-Statuspakete, Statusflags/BPM, Zeitgrenzen, unterschiedliche Player-/Medien-/Slot-Identitäten, Medienwechsel, unbekannte Werte und Unicode-JSON. Ein echter Hilfsprozess prüft zusätzlich UTF-8-Ausgabe trotz Windows-1252-Standardausgabe und das Beenden bei geschlossenem Eingabekanal. Diese Tests öffnen keine Netzwerksockets.
-- Der vollständige Programmtest prüft EN/DE-Demo, unveränderten Standardmodus, ProLink-Laufzeit, Modus-/API-Sperren, Webrouten und ausgeschaltete Audioerfassung. Der tatsächliche Suchversuch liefert auf diesem Rechner korrekt `prolinkPortsBusy`, weil die benötigten Ports belegt sind; es wird kein Gerät verbunden. Dabei wurde ein Windows-Zeichenkodierungsfehler der Java-Standardausgabe gefunden und durch eine explizite UTF-8-Schnittstelle behoben.
-- Vier Browser-Suiten bestanden. ProLink prüft zusätzlich Suche ohne automatisches Verbinden, Playerwahl, Verbinden/Trennen, sichere Gerätenamen, Modusanzeige und Sperren, gemeinsame Audiofunktionen, Mobilansicht sowie EN/DE. Die bestehenden Overlay-/Waveform-/History-Suiten bestehen weiterhin.
-- Alle sieben öffentlichen README-Screenshots mit englischer Oberfläche und synthetischen Daten neu erzeugt. ProLink-Setup und Dashboard mit der neuen Navigation visuell kontrolliert.
-- EXE-Ressourcenprüfung bestanden: Produktversion 1.4.0, Dateiversion 1.4.0.0 und neun eingebettete Icon-Größen.
-- **Kein Live-Test an CDJ-3000 oder DJM-A9 erfolgt.** ProLink ist experimentell; weder Firmwarekombinationen noch reale USB-/Streaming-Workflows sind damit validiert. Die produktive Rekordbox-Bridge und Audioerfassung wurden für diese Arbeiten nicht gestartet. Die bisherige Rekordbox-Livevalidierung bleibt auf die eigene Installation 7.2.18.0 begrenzt.
+## Configurable network access — September 15, 2026 (then-unreleased)
 
-## Ergänzung: Einstellbarer Netzwerkzugriff – 15.09.2026 (unveröffentlicht)
-
-- Acht native Tests bestanden. `network_access` prüft lokale Standardwerte, gültige/ungültige Adressen und Ports, gespeicherte Einstellungen, unveränderte laufende Konfiguration, CLI-Vorrang, Erhalt der vorherigen Datei bei fehlgeschlagenem Speichern und TCP-Peer-Regeln. Der HTTP-Test prüft den Wildcard-Listener über seine tatsächlich adressierte Loopback-IP sowie Host-/Origin-Abwehr und die Konfigurations-Endpunkte.
-- Der Versuch, einen lokalen Testclient mit einer LAN-Quelladresse an Loopback zu verbinden, war auf diesem Windows-System nicht möglich. Die zusätzlichen Remote-HTTP-Fälle wurden deshalb nicht ausgeführt; ihre Peer-Regeln wurden separat getestet. Es wird kein erfolgreicher Zugriff von einem zweiten PC behauptet.
-- Alle fünf Browser-Suiten bestanden. Die neue Netzwerk-Suite prüft Speicherung/Neustarthinweis, laufende und gespeicherte Werte, Erhalt ungespeicherter Eingaben während Statusabfragen, Adapter-/Portwahl, sichere Gerätenamen, URL-Anzeige, EN/DE, Mobilansicht und Ausfall. Sie prüft außerdem deaktivierte Netzwerk-, Audio- und ProLink-Bedienelemente für lesende Clients; Overlay-Designs bleiben bearbeitbar.
-- Die echte EXE wurde mit isolierten Konfigurationsdateien gestartet, konfiguriert, beendet und in beiden Modi neu gestartet. Gespeicherter Bind-/Port-Wechsel, CLI-Overrides, ungültige Adressen und Zugriff über die tatsächliche LAN-IP des eigenen PCs wurden geprüft. ProLink blieb ohne Gerätesuche/-verbindung; Audioerfassung und produktive Injection blieben ausgeschaltet.
-- Acht öffentliche README-Screenshots wurden mit englischer Oberfläche und synthetischen Daten neu erzeugt. Die Netzwerkseite wurde visuell geprüft. Standard-Konfigurationsdateien sind ignoriert und werden nicht in portable Pakete übernommen.
+- Eight native tests passed. `network_access` covered local defaults, valid/invalid addresses and ports, saved settings, unchanged running configuration, CLI precedence, preservation of the previous file after failed saves, and TCP peer rules. The HTTP test checked a wildcard listener through its actual addressed loopback IP, Host/Origin defenses and configuration endpoints.
+- Connecting a local test client from a LAN source address to loopback did not work on this Windows system. Additional remote HTTP cases were therefore not run; their peer rules were tested separately. No successful access from a second PC is claimed.
+- All five browser suites passed. The new network suite covered save/restart notices, active/saved values, preservation of unsaved input during polling, adapter/port selection, safe device names, URL display, EN/DE, mobile layout and failure. It also checked disabled network/audio/ProLink controls for read-only clients while overlay designs remained editable.
+- The real EXE was started with isolated configuration files, configured, stopped and restarted in both modes. Saved bind/port changes, CLI overrides, invalid addresses and access through the PC's actual LAN IP were checked. ProLink stayed idle without discovery/connection; audio capture and production injection stayed off.
+- Eight public README screenshots were regenerated with English UI and synthetic data. The network page was visually inspected. Default configuration files were ignored and excluded from portable packages.
 
 ## Accounts, ratings and scenes — 2026-09-15 (unreleased)
 
@@ -153,3 +153,20 @@ Dashboard, Einstellungsseite und drei Overlay-Designs wurden für das README mit
 - The authenticated network smoke passed with an isolated store: local defaults, saved bind/port, idle ProLink mode, the host's LAN address, CLI overrides and invalid addresses. Production injection, DJ-device discovery/connections and audio capture remained off.
 - EXE and DLL report 2.0.1 / 2.0.1.0; the EXE retains all nine icon sizes. Ten English public screenshots were regenerated from synthetic fixtures. The repository audit found no private/generated files or broken local documentation links.
 - Release notes document first-login credentials, regenerated OBS links when upgrading from v1.4.0, preservation of preview data and the unchanged compatibility limit: only the author's Rekordbox 7.2.18.0 Windows x64 installation is live-tested; real ProLink hardware remains unvalidated.
+
+## Additional ProLink profiles and English documentation — 2026-09-16 (unreleased)
+
+- The full Release build passed, including all nine native CTest cases and the Java model/UTF-8 pipe checks with the bundled runtime.
+- Synthetic announcement/status packets cover CDJ-3000, CDJ-3000X and XDJ-AZ, player numbers 1–6, both supported mixer profiles, rejection of unknown models, status flags/BPM, stale reports, shared-IP endpoints, shared-source track identity and distinct unknown media slots. No network sockets are opened by these Java tests.
+- The metadata-policy regression check initializes Beat Link's indirect Opus/Crate Digger dependencies and verifies that the DeviceSQL fallback cannot auto-start, including repeated configuration. Unrelated lifecycle listeners are preserved. This prevents using legacy export.pdb IDs for OneLibrary/Device Library Plus tracks.
+- The ProLink browser suite passed: selection and reconnect for CDJ-3000X and two XDJ-AZ endpoints sharing one IP, automatic/nonselectable DJM-900NXS2 and DJM-A9 cards, model-specific EN/DE guidance, safe text, default/source-mode gates, navigation and mobile layout. An asynchronous test wait was corrected to wait for completed disconnection before rediscovery.
+- All Markdown documentation under `docs/` is now English. The memory-profile translation preserves every hexadecimal address, exact byte signature and code block; the artwork-source MIT notice is retained. Historical validation statements remain identified by revision/date. English/German application translations remain available.
+- The portable package smoke test passed with isolated stores: authenticated EN/DE demo, unchanged default mode, idle ProLink/runtime availability, web routes, mode/API gates and audio off. Device discovery was not enabled. All 426 package files matched source/build output; 33 dependency archives matched pinned hashes and all 315 bundled runtime files remained unmodified. Local documentation links, translation-key parity and the repository publication audit passed.
+- **No CDJ-3000X, DJM-900NXS2, XDJ-AZ or other ProLink hardware was connected or live-tested.** XDJ-AZ support is limited to announced endpoints in PRO DJ LINK mode, not standalone four-deck mode. Real firmware, DBServer metadata, shared-IP concurrency, artwork and timelines still need device validation. Production injection and audio capture remained off; Rekordbox live compatibility remains limited to the author's 7.2.18.0 Windows x64 installation.
+
+## Release 2.0.2 — 2026-09-16
+
+- Full Release build passed: all nine native CTest cases and the Java ProLink model/UTF-8 pipe tests with pinned dependencies and the bundled runtime.
+- All six browser suites passed. The real-EXE portal suite ran through the isolated HTTPS proxy and verified original Host/Origin handling, Secure cookies, remote permissions, localhost OBS links, same-origin previews, accounts, presets, scenes, public ratings and persistence after restart.
+- The network EXE smoke passed with isolated storage: saved interface/domain configuration, simultaneous LAN/localhost/127.0.0.1 access, both source modes, CLI overrides and invalid addresses. No device discovery or audio capture was started.
+- Both EXE and DLL report product version 2.0.2 and file version 2.0.2.0. The EXE resource test confirmed all nine icon sizes. Documentation links and the publication audit passed. Production injection remained off and no new live hardware compatibility is claimed.

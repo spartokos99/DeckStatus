@@ -1,6 +1,6 @@
 param(
     [string]$Executable = (Join-Path $PSScriptRoot '..\build\Release\DeckStatus.exe'),
-    [string]$ExpectedVersion = '2.0.1'
+    [string]$ExpectedVersion = '2.0.2'
 )
 $ErrorActionPreference = 'Stop'
 $target = (Resolve-Path -LiteralPath $Executable).Path

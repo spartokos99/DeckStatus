@@ -6,6 +6,11 @@ namespace deckstatus {
 // Gate every registered handler after the request body has been consumed.
 class PortalServer : public httplib::Server {
 public:
+    ~PortalServer() override {
+        // Also release a bound socket when another required listener fails before startup.
+        const auto socket = svr_sock_.exchange(INVALID_SOCKET);
+        if (socket != INVALID_SOCKET) httplib::detail::close_socket(socket);
+    }
     std::function<bool(const httplib::Request&,httplib::Response&)> authorize;
     Handler guarded(Handler handler) { return [this,handler](const auto& request,auto& response) {
         try { if(!authorize||authorize(request,response))handler(request,response); }

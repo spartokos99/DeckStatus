@@ -1,53 +1,25 @@
-# Metadaten- und Cover-Datenquelle
+# Metadata and artwork sources
 
-`src/artwork.cpp` liest `djmdContent.ImagePath` anhand der Content-ID aus der
-lokalen `master.db`. Der Datenbankpfad kommt aus `--database`, alternativ aus
-`%APPDATA%/Pioneer/rekordboxAgent/storage/options.json` (`options` / `db-path`),
-sonst aus `%APPDATA%/Pioneer/rekordbox/master.db`.
+`src/artwork.cpp` reads `djmdContent.ImagePath` from the local `master.db`, using the content ID. The database path comes from `--database`, otherwise from `%APPDATA%/Pioneer/rekordboxAgent/storage/options.json` (`options` / `db-path`), with `%APPDATA%/Pioneer/rekordbox/master.db` as the fallback.
 
-`ArtworkResolver::enrich` ergaenzt anhand derselben gebundenen Content-ID
-Titel und Original-BPM aus `djmdContent`, Artist aus `djmdArtist.Name`, Album
-aus `djmdAlbum.Name`, Key aus `djmdKey.ScaleName`, Genre aus `djmdGenre.Name`
-und Label aus `djmdLabel.Name`. LEFT JOINs erhalten Titel mit fehlenden
-optionalen Beziehungen; SQL-NULL wird als leere Zeichenfolge ausgegeben.
-Die Datenbank speichert BPM mit Faktor 100. Die Live-BPM und Deck-/Track-IDs
-bleiben unveraendert. Bei fehlendem Eintrag werden vorhandene Collection-
-Metadaten geloescht und `metadata_available` auf 0 gesetzt. Zeichenfolgen
-werden an vollstaendigen UTF-8-Zeichen abgeschnitten; ungueltige UTF-8-Praefixe
-werden leer ausgegeben. Abfragen und Cover-Cache teilen sich einen Mutex.
+`ArtworkResolver::enrich` uses the same bound content ID to obtain the title and original BPM from `djmdContent`, artist from `djmdArtist.Name`, album from `djmdAlbum.Name`, key from `djmdKey.ScaleName`, genre from `djmdGenre.Name`, and label from `djmdLabel.Name`. LEFT JOINs retain tracks with missing optional relationships; SQL NULL becomes an empty string. The database stores BPM multiplied by 100. Live BPM and deck/track IDs remain unchanged. A missing row clears existing collection metadata and sets `metadata_available` to 0. Strings are truncated at complete UTF-8 character boundaries; invalid UTF-8 prefixes produce empty strings. Queries and the artwork cache share a mutex.
 
-Die Datenbank wird mit `SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX` geoeffnet.
-Es werden ausschliesslich SELECT-Abfragen ausgefuehrt. Die SQLCipher-kompatible
-`sqlite3.dll` sowie `zlib.dll`/`zlib1.dll` werden aus dem kanonischen Verzeichnis
-der ausgewaehlten lokalen Rekordbox-Installation geladen. Es werden keine
-Rekordbox-DLLs mit diesem Projekt verteilt.
+The database is opened with `SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX`. Only SELECT queries are executed. The SQLCipher-compatible `sqlite3.dll` and `zlib.dll`/`zlib1.dll` are loaded from the canonical directory of the selected local Rekordbox installation. No Rekordbox DLLs are distributed with this project.
 
-Die publizierten Kompatibilitaetskonstanten `BLOB` und `BLOB_KEY` sowie die
-Dekodierreihenfolge (Base85, XOR, zlib) stammen aus **pyrekordbox** von Dylan Jones
-(MIT-Lizenz, abgerufen am 14. September 2026):
+The published compatibility constants `BLOB` and `BLOB_KEY` and their decoding sequence (Base85, XOR, zlib) come from **pyrekordbox** by Dylan Jones (MIT license, accessed September 14, 2026):
 
-- [masterdb/database.py](https://github.com/dylanljones/pyrekordbox/blob/master/pyrekordbox/masterdb/database.py): `BLOB`, Datenbankinitialisierung und `share`-Verzeichnis.
-- [utils.py](https://github.com/dylanljones/pyrekordbox/blob/master/pyrekordbox/utils.py): `BLOB_KEY` und `deobfuscate`.
-- [config.py](https://github.com/dylanljones/pyrekordbox/blob/master/pyrekordbox/config.py): `options.json` und `db-path`.
-- [masterdb/models.py](https://github.com/dylanljones/pyrekordbox/blob/master/pyrekordbox/masterdb/models.py): `djmdContent` und die Metadatenbeziehungen sowie `ImagePath`.
-- [SQLite: Opening a database](https://www.sqlite.org/c3ref/open.html): Read-only- und Full-mutex-Flags.
-- [SQLite: Binding values](https://www.sqlite.org/c3ref/bind_blob.html): gebundene Content-ID.
+- [masterdb/database.py](https://github.com/dylanljones/pyrekordbox/blob/master/pyrekordbox/masterdb/database.py): `BLOB`, database initialization and the `share` directory.
+- [utils.py](https://github.com/dylanljones/pyrekordbox/blob/master/pyrekordbox/utils.py): `BLOB_KEY` and `deobfuscate`.
+- [config.py](https://github.com/dylanljones/pyrekordbox/blob/master/pyrekordbox/config.py): `options.json` and `db-path`.
+- [masterdb/models.py](https://github.com/dylanljones/pyrekordbox/blob/master/pyrekordbox/masterdb/models.py): `djmdContent`, metadata relationships and `ImagePath`.
+- [SQLite: Opening a database](https://www.sqlite.org/c3ref/open.html): read-only and full-mutex flags.
+- [SQLite: Binding values](https://www.sqlite.org/c3ref/bind_blob.html): bound content IDs.
 
-Der dekodierte Schluessel wird ausschliesslich an `sqlite3_key` uebergeben,
-anschliessend aus dem temporaeren Puffer geloescht und weder protokolliert noch
-per HTTP ausgegeben. Fuer unverschluesselte Testdatenbanken wird kein Schluessel
-gesetzt.
+The decoded key is passed only to `sqlite3_key`, then erased from the temporary buffer. It is never logged or returned over HTTP. No key is set for unencrypted test databases.
 
-Cover-Dateien werden nur innerhalb des kanonischen Datenbankverzeichnisses
-akzeptiert, einschliesslich `share/ARTWORK`. Der tatsaechlich geoeffnete
-Dateihandle wird erneut auf dieses Verzeichnis geprueft. Netzwerk-/Geraetepfade,
-Traversal und alternative Datenstroeme werden abgewiesen. Erlaubt sind anhand
-ihrer Dateisignatur erkannte JPEG-, PNG-, GIF-, WebP- und BMP-Bilder bis 8 MiB.
-Der Cache haelt maximal 16 Eintraege und 32 MiB; erfolgreiche Eintraege gelten
-10 Sekunden, fehlende Cover 2 Sekunden. Streamingtitel ohne lokalen
-`djmdContent`-Eintrag oder ohne gespeichertes Bild liefern kein Cover.
+Artwork files are accepted only within the canonical database directory, including `share/ARTWORK`. The actual opened file handle is checked against that directory again. Network/device paths, traversal and alternate data streams are rejected. JPEG, PNG, GIF, WebP and BMP images are identified by their signatures and limited to 8 MiB. The cache holds at most 16 entries and 32 MiB; successful entries last 10 seconds and missing artwork entries 2 seconds. Streaming tracks without a local `djmdContent` row or stored image have no artwork.
 
-## Lizenzhinweis fuer die uebernommenen pyrekordbox-Konstanten und den Algorithmus
+## License notice for the reused pyrekordbox constants and algorithm
 
 MIT License
 

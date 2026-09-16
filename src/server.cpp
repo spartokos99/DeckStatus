@@ -152,333 +152,388 @@ int run_server(const std::string& host, int port,
     }
 
     AudioCapture audio;
-    PortalServer server;
     auto* portal = features ? features->portal : nullptr;
-    // Windows SO_REUSEADDR permits multiple listeners on the same address.
-    // Use exclusive ownership so a second instance fails at startup.
-    server.set_socket_options([](socket_t socket) {
-        if (!httplib::detail::set_socket_opt(socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, 1))
-            throw std::runtime_error("Could not reserve the HTTP socket exclusively.");
-    });
-    server.new_task_queue = [] { return new httplib::ThreadPool(4, 64); };
-    server.set_read_timeout(3);
-    server.set_write_timeout(3);
-    server.set_keep_alive_timeout(2);
-    server.set_keep_alive_max_count(50);
-    server.set_payload_max_length(65536);
-    server.set_default_headers({
-        {"Cache-Control", "no-store"},
-        {"X-Content-Type-Options", "nosniff"},
-        {"X-Frame-Options", "SAMEORIGIN"},
-        {"Referrer-Policy", "no-referrer"},
-        {"Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; "
-                                    "style-src 'self' 'unsafe-inline'; img-src 'self'; "
-                                    "connect-src 'self'; object-src 'none'; base-uri 'none'; "
-                                    "frame-ancestors 'self'; form-action 'none'"}
-    });
+    const auto* network = features ? features->network : nullptr;
+    // Both listeners share audio, track state, accounts and scenes.
+    const auto configure = [&](PortalServer& server) {
+        // Windows SO_REUSEADDR permits multiple listeners on the same address.
+        // Use exclusive ownership so a second instance fails at startup.
+        server.set_socket_options([](socket_t socket) {
+            if (!httplib::detail::set_socket_opt(socket, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, 1))
+                throw std::runtime_error("Could not reserve the HTTP socket exclusively.");
+        });
+        server.new_task_queue = [] { return new httplib::ThreadPool(4, 64); };
+        server.set_read_timeout(3);
+        server.set_write_timeout(3);
+        server.set_keep_alive_timeout(2);
+        server.set_keep_alive_max_count(50);
+        server.set_payload_max_length(65536);
+        server.set_default_headers({
+            {"Cache-Control", "no-store"},
+            {"X-Content-Type-Options", "nosniff"},
+            {"X-Frame-Options", "SAMEORIGIN"},
+            {"Referrer-Policy", "no-referrer"},
+            {"Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                                        "style-src 'self' 'unsafe-inline'; img-src 'self'; "
+                                        "connect-src 'self'; object-src 'none'; base-uri 'none'; "
+                                        "frame-ancestors 'self'; form-action 'none'"}
+        });
 
-    const auto allowed = allowed_authorities(host, port);
-    server.set_pre_routing_handler([allowed, host, port](const httplib::Request& request,
-                                             httplib::Response& response) {
-        // Accept the socket's destination IP on a wildcard listener, not arbitrary
-        // Host names or forwarded headers supplied by a client.
-        const auto requested = lower_ascii(request.get_header_value("Host"));
-        const bool destination = host == "0.0.0.0" && valid_bind_address(request.local_addr) &&
-            (requested == authority(request.local_addr, port) || (port == 80 && requested == request.local_addr + ":80"));
-        if (request.get_header_value_count("Host") != 1 ||
-            (!allowed.contains(requested) && !destination)) {
-            json_response(response, {{"error", "Host is not allowed"}}, 403);
-            return httplib::Server::HandlerResponse::Handled;
-        }
-        if (request.get_header_value_count("Origin") > 1) {
-            json_response(response, {{"error", "Origin is not allowed"}}, 403);
-            return httplib::Server::HandlerResponse::Handled;
-        }
-        if (request.has_header("Origin")) {
-            const auto origin = lower_ascii(request.get_header_value("Origin"));
-            const auto expected = "http://" + lower_ascii(request.get_header_value("Host"));
-            if (origin != expected) {
-                json_response(response, {{"error", "Cross-origin requests are not allowed"}}, 403);
+        const auto domain = network ? network->active().public_domain : std::string{};
+        const auto public_request = [domain](const httplib::Request& request) {
+            const auto requested = lower_ascii(request.get_header_value("Host"));
+            return !domain.empty() && (requested == domain || requested == domain + ":443");
+        };
+        const auto local_request = [public_request](const httplib::Request& request) {
+            // A proxy on this PC must not turn a domain visitor into a local operator.
+            return !public_request(request) && local_network_peer(request.remote_addr, request.local_addr);
+        };
+        server.set_post_routing_handler([public_request](const auto& request, auto& response) {
+            if (public_request(request)) {
+                const auto cookies = response.headers.equal_range("Set-Cookie");
+                for (auto it = cookies.first; it != cookies.second; ++it) it->second += "; Secure";
+            }
+        });
+        const auto allowed = allowed_authorities(host, port);
+        const auto validate_request = [allowed, host, port, domain, public_request, portal](const httplib::Request& request,
+                                                 httplib::Response& response) {
+            // Accept the socket's destination IP on a wildcard listener, not arbitrary
+            // Host names or forwarded headers supplied by a client.
+            const auto requested = lower_ascii(request.get_header_value("Host"));
+            const bool destination = host == "0.0.0.0" && valid_bind_address(request.local_addr) &&
+                (requested == authority(request.local_addr, port) || (port == 80 && requested == request.local_addr + ":80"));
+            if (request.get_header_value_count("Host") != 1 ||
+                (!allowed.contains(requested) && !destination && !public_request(request))) {
+                json_response(response, {{"error", "Host is not allowed"}}, 403);
                 return httplib::Server::HandlerResponse::Handled;
             }
-        }
-        const bool public_navigation = (request.method == "GET" || request.method == "HEAD") &&
-            (request.path == "/history" || request.path == "/login") &&
-            request.get_header_value("Sec-Fetch-Mode") == "navigate" && request.get_header_value("Sec-Fetch-Dest") == "document";
-        if (request.has_header("Sec-Fetch-Site") &&
-            request.get_header_value("Sec-Fetch-Site") == "cross-site" && !public_navigation) {
-            json_response(response, {{"error", "Cross-site requests are not allowed"}}, 403);
-            return httplib::Server::HandlerResponse::Handled;
-        }
-        if (request.method != "GET" && request.method != "HEAD" &&
-            request.method != "POST" && request.method != "PUT" && request.method != "PATCH" &&
-            request.method != "DELETE" && request.method != "OPTIONS") {
+            if (request.get_header_value_count("Origin") > 1) {
+                json_response(response, {{"error", "Origin is not allowed"}}, 403);
+                return httplib::Server::HandlerResponse::Handled;
+            }
+            if (request.has_header("Origin")) {
+                const auto origin = lower_ascii(request.get_header_value("Origin"));
+                const bool external = public_request(request);
+                const auto expected = external ? "https://" + domain : "http://" + lower_ascii(request.get_header_value("Host"));
+                if (origin != expected && !(external && origin == expected + ":443")) {
+                    json_response(response, {{"error", "Cross-origin requests are not allowed"}}, 403);
+                    return httplib::Server::HandlerResponse::Handled;
+                }
+            }
+            // A local OBS link opened from the public domain is a cross-site navigation.
+            // Only these renderer documents with their matching read key may cross that boundary.
+            const bool renderer = request.path == "/overlay" || request.path == "/overlay.html" ||
+                request.path == "/master-overlay" || request.path == "/waveform" || request.path == "/scene";
+            const bool keyed_renderer = renderer && portal && raw_parameter_count(request,"key") == 1 &&
+                raw_parameter_count(request,"scene") <= 1 &&
+                portal->broadcast_access(request.get_param_value("key"),request.path,request.get_param_value("scene"));
+            const bool public_navigation = (request.method == "GET" || request.method == "HEAD") &&
+                (request.path == "/history" || request.path == "/login" || keyed_renderer) &&
+                request.get_header_value("Sec-Fetch-Mode") == "navigate" && request.get_header_value("Sec-Fetch-Dest") == "document";
+            if (request.has_header("Sec-Fetch-Site") &&
+                request.get_header_value("Sec-Fetch-Site") == "cross-site" && !public_navigation) {
+                json_response(response, {{"error", "Cross-site requests are not allowed"}}, 403);
+                return httplib::Server::HandlerResponse::Handled;
+            }
+            if (request.method != "GET" && request.method != "HEAD" &&
+                request.method != "POST" && request.method != "PUT" && request.method != "PATCH" &&
+                request.method != "DELETE" && request.method != "OPTIONS") {
+                response.set_header("Allow", "GET, HEAD");
+                json_response(response, {{"error", "Method is not allowed"}}, 405);
+                return httplib::Server::HandlerResponse::Handled;
+            }
+            return httplib::Server::HandlerResponse::Unhandled;
+        };
+        server.set_pre_routing_handler([validate_request](const auto& request, auto& response) {
+            // Consume bounded mutation bodies before sending a denial. Closing a Windows
+            // socket with unread bytes can reset it before the browser receives the 403.
+            if (request.method == "POST" || request.method == "PUT" || request.method == "PATCH" ||
+                request.method == "DELETE" || request.method == "OPTIONS")
+                return httplib::Server::HandlerResponse::Unhandled;
+            return validate_request(request, response);
+        });
+        server.set_exception_handler([](const auto&, auto& response, std::exception_ptr) {
+            json_response(response, {{"error", "Could not read the current state"}}, 500);
+        });
+        // Normal handlers run after httplib consumes the bounded request body.
+        // Rejecting a POST in pre-routing can close a Windows socket with unread
+        // bytes and reset the connection before the client receives the 405.
+        const auto reject_method = [](const auto&, auto& response) {
             response.set_header("Allow", "GET, HEAD");
             json_response(response, {{"error", "Method is not allowed"}}, 405);
-            return httplib::Server::HandlerResponse::Handled;
+        };
+        server.authorize = [portal, &assets, validate_request](const httplib::Request& request, auto& response) {
+            if (validate_request(request, response) == httplib::Server::HandlerResponse::Handled) return false;
+            if (!portal) return true; // Isolated native fixtures may omit the application store.
+            const auto& path = request.path;
+            const bool read = request.method == "GET" || request.method == "HEAD";
+            const auto asset = assets.find(path);
+            if (read && asset != assets.end() && !asset->second.mime.starts_with("text/html")) return true;
+            if (read && (path == "/login" || path == "/history" || path == "/api/history" || path.starts_with("/api/history/covers/") || path == "/api/auth/me")) return true;
+            if (request.method == "POST" && (path == "/api/auth/login" || path == "/api/auth/logout" || path == "/api/public/rating")) return true;
+            if (read && raw_parameter_count(request,"key") == 1 && raw_parameter_count(request,"scene") <= 1 && portal->broadcast_access(request.get_param_value("key"),path,request.get_param_value("scene"))) return true;
+            const auto user = portal->identity(portal_session(request));
+            if (user.is_null()) {
+                if (read && asset != assets.end()) { response.set_redirect("/login",303); return false; }
+                throw PortalError(401,"authRequired");
+            }
+            if (user["mustChangePassword"].get<bool>() && path != "/account/password" && path != "/api/auth/password") {
+                if (read && asset != assets.end()) { response.set_redirect("/account/password",303); return false; }
+                throw PortalError(403,"authPasswordRequired");
+            }
+            if ((path == "/admin" || path.starts_with("/api/admin/") || path == "/network/settings" || path == "/api/network") && user["role"] != "admin") throw PortalError(403,"authAdminRequired");
+            return true;
+        };
+        if (portal) {
+            server.Get("/api/auth/me",[portal](const auto& request,auto& response){json_response(response,{{"user",portal->identity(portal_session(request))}});});
+            server.Post("/api/auth/login",[portal](const auto& request,auto& response){
+                const auto body=portal_body(request);if(!body.contains("username")||!body["username"].is_string()||!body.contains("password")||!body["password"].is_string())throw PortalError(400,"portalInvalid");
+                auto result=portal->login(body["username"],body["password"],request.remote_addr);portal->logout(portal_session(request));session_cookie(response,result["session"]);result.erase("session");json_response(response,result);
+            });
+            server.Post("/api/auth/logout",[portal](const auto& request,auto& response){portal_body(request);portal->logout(portal_session(request));session_cookie(response,"");json_response(response,{{"ok",true}});});
+            server.Post("/api/auth/password",[portal](const auto& request,auto& response){portal->change_password(portal_session(request),portal_body(request));session_cookie(response,"");json_response(response,{{"ok",true}});});
+            server.Get("/api/admin/users",[portal](const auto&,auto& response){json_response(response,{{"users",portal->users()}});});
+            server.Post("/api/admin/users",[portal](const auto& request,auto& response){const auto user=portal->identity(portal_session(request));json_response(response,{{"users",portal->edit_user(user["id"],portal_body(request))}});});
+            server.Get("/api/admin/ratings",[portal](const auto&,auto& response){json_response(response,{{"tracks",portal->ratings()}});});
+            server.Get("/api/broadcast",[portal](const auto&,auto& response){json_response(response,portal->overlay_keys(false));});
+            server.Post("/api/admin/broadcast",[portal](const auto& request,auto& response){portal_body(request);json_response(response,portal->overlay_keys(true));});
+            server.Get("/api/scenes",[portal](const auto&,auto& response){json_response(response,{{"scenes",portal->scenes()}});});
+            server.Get("/api/presets",[portal](const auto&,auto& response){json_response(response,{{"presets",portal->presets()}});});
+            server.Post("/api/presets",[portal](const auto& request,auto& response){json_response(response,portal->edit_preset(portal_body(request)));});
+            server.Post("/api/scenes",[portal](const auto& request,auto& response){json_response(response,portal->edit_scene(portal_body(request)));});
+            server.Get("/api/scene",[portal](const httplib::Request& request,auto& response){if(raw_parameter_count(request,"scene")!=1)throw PortalError(400,"sceneInvalid");json_response(response,portal->scene(request.get_param_value("scene")));});
+            server.Post("/api/public/rating",[portal](const auto& request,auto& response){
+                const auto old=portal_cookie(request,"deckstatus_voter"),voter=portal->visitor(old);
+                if(old!=voter)throw PortalError(400,"ratingVisitHistory");
+                json_response(response,portal->rate(voter,request.remote_addr,portal_body(request)));
+            });
         }
-        return httplib::Server::HandlerResponse::Unhandled;
-    });
-    server.set_exception_handler([](const auto&, auto& response, std::exception_ptr) {
-        json_response(response, {{"error", "Could not read the current state"}}, 500);
-    });
-    // Normal handlers run after httplib consumes the bounded request body.
-    // Rejecting a POST in pre-routing can close a Windows socket with unread
-    // bytes and reset the connection before the client receives the 405.
-    const auto reject_method = [](const auto&, auto& response) {
-        response.set_header("Allow", "GET, HEAD");
-        json_response(response, {{"error", "Method is not allowed"}}, 405);
-    };
-    server.authorize = [portal, &assets](const httplib::Request& request, auto& response) {
-        if (!portal) return true; // Isolated native fixtures may omit the application store.
-        const auto& path = request.path;
-        const bool read = request.method == "GET" || request.method == "HEAD";
-        const auto asset = assets.find(path);
-        if (read && asset != assets.end() && !asset->second.mime.starts_with("text/html")) return true;
-        if (read && (path == "/login" || path == "/history" || path == "/api/history" || path.starts_with("/api/history/covers/") || path == "/api/auth/me")) return true;
-        if (request.method == "POST" && (path == "/api/auth/login" || path == "/api/auth/logout" || path == "/api/public/rating")) return true;
-        if (read && raw_parameter_count(request,"key") == 1 && raw_parameter_count(request,"scene") <= 1 && portal->broadcast_access(request.get_param_value("key"),path,request.get_param_value("scene"))) return true;
-        const auto user = portal->identity(portal_session(request));
-        if (user.is_null()) {
-            if (read && asset != assets.end()) { response.set_redirect("/login",303); return false; }
-            throw PortalError(401,"authRequired");
-        }
-        if (user["mustChangePassword"].get<bool>() && path != "/account/password" && path != "/api/auth/password") {
-            if (read && asset != assets.end()) { response.set_redirect("/account/password",303); return false; }
-            throw PortalError(403,"authPasswordRequired");
-        }
-        if ((path == "/admin" || path.starts_with("/api/admin/") || path == "/network/settings" || path == "/api/network") && user["role"] != "admin") throw PortalError(403,"authAdminRequired");
-        return true;
-    };
-    if (portal) {
-        server.Get("/api/auth/me",[portal](const auto& request,auto& response){json_response(response,{{"user",portal->identity(portal_session(request))}});});
-        server.Post("/api/auth/login",[portal](const auto& request,auto& response){
-            const auto body=portal_body(request);if(!body.contains("username")||!body["username"].is_string()||!body.contains("password")||!body["password"].is_string())throw PortalError(400,"portalInvalid");
-            auto result=portal->login(body["username"],body["password"],request.remote_addr);portal->logout(portal_session(request));session_cookie(response,result["session"]);result.erase("session");json_response(response,result);
+        server.Get("/api/audio/devices", [&](const auto&, auto& response) { json_response(response, audio.devices()); });
+        server.Get("/api/audio/state", [&](const auto&, auto& response) { json_response(response, audio.state()); });
+        const bool remote_control = network && network->active().allow_remote_control;
+        const auto can_control = [remote_control, public_request](const httplib::Request& request) {
+            if (public_request(request)) return remote_control;
+            return local_network_peer(request.remote_addr, request.local_addr) || may_control_network(request.remote_addr, remote_control);
+        };
+        server.Post("/api/audio/source", [&audio, can_control](const auto& request, auto& response) {
+            if (!can_control(request)) { json_response(response, {{"error", "networkReadOnly"}}, 403); return; }
+            const auto type = lower_ascii(request.get_header_value("Content-Type"));
+            if (type != "application/json" && type != "application/json; charset=utf-8") {
+                json_response(response, {{"error", "JSON content type required"}}, 415); return;
+            }
+            const auto body = Json::parse(request.body, nullptr, false);
+            if (!body.is_object() || body.size() != 1 || !body.contains("deviceId") || !body["deviceId"].is_string()) {
+                json_response(response, {{"error", "Expected a deviceId string; empty string stops capture"}}, 400); return;
+            }
+            if (!audio.select(body["deviceId"].template get<std::string>())) {
+                json_response(response, {{"error", "audioDeviceLost"}}, 400); return;
+            }
+            json_response(response, audio.state());
         });
-        server.Post("/api/auth/logout",[portal](const auto& request,auto& response){portal_body(request);portal->logout(portal_session(request));session_cookie(response,"");json_response(response,{{"ok",true}});});
-        server.Post("/api/auth/password",[portal](const auto& request,auto& response){portal->change_password(portal_session(request),portal_body(request));session_cookie(response,"");json_response(response,{{"ok",true}});});
-        server.Get("/api/admin/users",[portal](const auto&,auto& response){json_response(response,{{"users",portal->users()}});});
-        server.Post("/api/admin/users",[portal](const auto& request,auto& response){const auto user=portal->identity(portal_session(request));json_response(response,{{"users",portal->edit_user(user["id"],portal_body(request))}});});
-        server.Get("/api/admin/ratings",[portal](const auto&,auto& response){json_response(response,{{"tracks",portal->ratings()}});});
-        server.Get("/api/broadcast",[portal](const auto&,auto& response){json_response(response,portal->overlay_keys(false));});
-        server.Post("/api/admin/broadcast",[portal](const auto& request,auto& response){portal_body(request);json_response(response,portal->overlay_keys(true));});
-        server.Get("/api/scenes",[portal](const auto&,auto& response){json_response(response,{{"scenes",portal->scenes()}});});
-        server.Get("/api/presets",[portal](const auto&,auto& response){json_response(response,{{"presets",portal->presets()}});});
-        server.Post("/api/presets",[portal](const auto& request,auto& response){json_response(response,portal->edit_preset(portal_body(request)));});
-        server.Post("/api/scenes",[portal](const auto& request,auto& response){json_response(response,portal->edit_scene(portal_body(request)));});
-        server.Get("/api/scene",[portal](const httplib::Request& request,auto& response){if(raw_parameter_count(request,"scene")!=1)throw PortalError(400,"sceneInvalid");json_response(response,portal->scene(request.get_param_value("scene")));});
-        server.Post("/api/public/rating",[portal](const auto& request,auto& response){
-            const auto old=portal_cookie(request,"deckstatus_voter"),voter=portal->visitor(old);
-            if(old!=voter)throw PortalError(400,"ratingVisitHistory");
-            json_response(response,portal->rate(voter,request.remote_addr,portal_body(request)));
+        const bool prolink = features && features->mode == "prolink";
+        server.Get("/api/app", [prolink, network, portal, can_control, port](const auto& request, auto& response) {
+            const auto user=portal?portal->identity(portal_session(request)):Json(nullptr);
+            const bool admin=!portal||(!user.is_null()&&user["role"]=="admin");
+            json_response(response, {{"version", "2.0.2"}, {"mode", prolink ? "prolink" : "rekordbox"},
+                {"obsBaseUrl", network_url("127.0.0.1", port)},
+                {"user",user},
+                {"canControl", can_control(request)},
+                {"capabilities", {{"dashboard", true}, {"history", true}, {"deckOverlays", true}, {"masterOverlay", true},
+                    {"networkSettings", network != nullptr && admin}, {"scenes",portal!=nullptr}, {"admin",portal!=nullptr && admin},
+                    {"audioWaveform", true}, {"rekordboxSetup", !prolink}, {"prolinkSetup", prolink},
+                    {"playbackStatus", prolink}, {"onAir", prolink}, {"mixerControls", false}, {"trackWaveform", false}}}});
         });
-    }
-    server.Get("/api/audio/devices", [&](const auto&, auto& response) { json_response(response, audio.devices()); });
-    server.Get("/api/audio/state", [&](const auto&, auto& response) { json_response(response, audio.state()); });
-    const auto* network = features ? features->network : nullptr;
-    const bool remote_control = network && network->active().allow_remote_control;
-    const auto can_control = [remote_control](const httplib::Request& request) {
-        return local_network_peer(request.remote_addr, request.local_addr) || may_control_network(request.remote_addr, remote_control);
+        server.Get("/api/prolink/devices", [features, prolink](const auto&, auto& response) {
+            if (!prolink || !features->prolink_setup) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
+            json_response(response, features->prolink_setup());
+        });
+        server.Get("/api/rekordbox/status", [prolink, &snapshot](const auto&, auto& response) {
+            if (prolink) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
+            json_response(response, snapshot());
+        });
+        server.Post("/api/prolink/control", [features, prolink, can_control](const auto& request, auto& response) {
+            if (!prolink || !features->prolink_control) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
+            if (!can_control(request)) { json_response(response, {{"error", "networkReadOnly"}}, 403); return; }
+            const auto type = lower_ascii(request.get_header_value("Content-Type"));
+            if (type != "application/json" && type != "application/json; charset=utf-8") {
+                json_response(response, {{"error", "JSON content type required"}}, 415); return;
+            }
+            const auto body = Json::parse(request.body, nullptr, false);
+            if (!body.is_object()) { json_response(response, {{"error", "prolinkInvalidCommand"}}, 400); return; }
+            const auto result = features->prolink_control(body);
+            json_response(response, result, result.contains("error") ? 400 : 202);
+        });
+        server.Get("/api/network", [network, local_request](const auto& request, auto& response) {
+            if (!network) { json_response(response, {{"error", "networkUnavailable"}}, 503); return; }
+            json_response(response, network->describe(local_request(request)));
+        });
+        server.Post("/api/network", [features, local_request](const auto& request, auto& response) {
+            if (!local_request(request)) { json_response(response, {{"error", "networkLocalOnly"}}, 403); return; }
+            if (!features || !features->network) { json_response(response, {{"error", "networkUnavailable"}}, 503); return; }
+            const auto type = lower_ascii(request.get_header_value("Content-Type"));
+            if (type != "application/json" && type != "application/json; charset=utf-8") { json_response(response, {{"error", "JSON content type required"}}, 415); return; }
+            try {
+                features->network->save(Json::parse(request.body, nullptr, false));
+                json_response(response, features->network->describe(true));
+            } catch (const std::exception& error) {
+                const std::string message = error.what();
+                json_response(response, {{"error", message}}, message == "networkInvalidSettings" || message == "networkInvalidDomain" ? 400 : 500);
+            }
+        });
+        server.Post(R"(/.*)", reject_method);
+        server.Put(R"(/.*)", reject_method);
+        server.Patch(R"(/.*)", reject_method);
+        server.Delete(R"(/.*)", reject_method);
+        server.Options(R"(/.*)", reject_method);
+        server.set_error_handler([](const auto&, auto& response) {
+            if (response.body.empty()) {
+                json_response(response, {{"error", response.status == 404 ? "Not found" : "Request failed"}},
+                              response.status);
+            }
+        });
+
+        // Catch only these literal paths (dots escaped for httplib's regex routes).
+        for (const auto& [url, asset] : assets) {
+            std::string pattern;
+            for (char c : url) { if (c == '.') pattern += '\\'; pattern += c; }
+            server.Get(pattern, [asset](const auto&, auto& response) { response.set_content(asset.body, asset.mime); });
+        }
+        server.Get("/api/state", [&snapshot](const auto&, auto& response) { json_response(response, snapshot()); });
+        server.Get("/api/master", [master](const auto&, auto& response) {
+            if (!master) { json_response(response, {{"error", "Master feed is not available"}}, 503); return; }
+            json_response(response, master->snapshot());
+        });
+        server.Get("/api/history", [master,portal](const httplib::Request& request, auto& response) {
+            if (!master) { json_response(response, {{"error", "History is not available"}}, 503); return; }
+            std::uint64_t before = 0, page_size = 100;
+            for (const auto* name : {"before", "limit"}) {
+                if (!request.has_param(name)) continue;
+                const auto input = request.get_param_value(name);
+                auto& value = std::string_view(name) == "before" ? before : page_size;
+                const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), value);
+                if (raw_parameter_count(request, name) != 1 || input.empty() || error != std::errc{} ||
+                    end != input.data() + input.size() || value == 0 || (std::string_view(name) == "limit" && value > 100)) {
+                    json_response(response, {{"error", "Invalid history pagination"}}, 400); return;
+                }
+            }
+            auto result=master->full_snapshot(before, static_cast<std::size_t>(page_size));
+            if(portal){const auto old=portal_cookie(request,"deckstatus_voter"),voter=portal->visitor(old);if(old!=voter)response.set_header("Set-Cookie","deckstatus_voter="+voter+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000");result=portal->public_history(std::move(result),voter);}
+            json_response(response,result);
+        });
+        server.Get(R"(/api/(master|history)/covers/([1-9][0-9]{0,9}))", [master](const httplib::Request& request, auto& response) {
+            const auto input = request.matches[2].str();
+            std::uint32_t id{};
+            const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), id);
+            if (!master || error != std::errc{} || end != input.data() + input.size()) {
+                json_response(response, {{"error", "Master cover is not available"}}, 404); return;
+            }
+            auto [mime, bytes] = request.matches[1].str() == "history" ? master->history_cover(id) : master->cover(id);
+            if (bytes.empty()) { json_response(response, {{"error", "Master cover is not available"}}, 404); return; }
+            if (mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" && mime != "image/gif" && mime != "image/bmp") {
+                json_response(response, {{"error", "Cover format is not supported"}}, 415); return;
+            }
+            response.set_content(std::move(bytes), mime);
+        });
+        server.Get("/api/decks", [&snapshot](const auto&, auto& response) {
+            json_response(response, decks_from(snapshot()));
+        });
+        server.Get(R"(/api/decks/([1-4]))", [&snapshot](const httplib::Request& request,
+                                                       httplib::Response& response) {
+            const int deck_id = request.matches[1].str()[0] - '0';
+            for (const auto& deck : decks_from(snapshot())) {
+                if (deck.is_object() && deck.value("id", 0) == deck_id) {
+                    json_response(response, deck);
+                    return;
+                }
+            }
+            json_response(response, {{"error", "Deck is not available"}}, 404);
+        });
+        server.Get(R"(/api/decks/([1-4])/cover)", [&cover, &snapshot](const httplib::Request& request,
+                                                         httplib::Response& response) {
+            const int deck_id = request.matches[1].str()[0] - '0';
+            const auto before = loaded_track(snapshot(), deck_id);
+            if (request.has_param("trackId")) {
+                const auto input = request.get_param_value("trackId");
+                std::uint64_t requested_id{};
+                const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), requested_id);
+                if (raw_parameter_count(request, "trackId") != 1 || input.empty() ||
+                    error != std::errc{} || end != input.data() + input.size() || requested_id == 0) {
+                    json_response(response, {{"error", "Invalid trackId"}}, 400);
+                    return;
+                }
+                if (before != requested_id) {
+                    json_response(response, {{"error", "Track is no longer loaded"}}, 404);
+                    return;
+                }
+            }
+            if (!before) {
+                json_response(response, {{"error", "Deck is not loaded"}}, 404);
+                return;
+            }
+            auto [mime_type, bytes] = cover(deck_id);
+            // A database lookup may overlap a track change. Never label the next
+            // track's artwork with the previous track's URL (or the reverse).
+            if (loaded_track(snapshot(), deck_id) != before) {
+                json_response(response, {{"error", "Track changed while loading its cover"}}, 404);
+                return;
+            }
+            if (bytes.empty()) {
+                json_response(response, {{"error", "Cover is not available"}}, 404);
+                return;
+            }
+            if (mime_type != "image/jpeg" && mime_type != "image/png" &&
+                mime_type != "image/webp" && mime_type != "image/gif" &&
+                mime_type != "image/bmp") {
+                json_response(response, {{"error", "Cover format is not supported"}}, 415);
+                return;
+            }
+            response.set_content(std::move(bytes), mime_type);
+        });
+        server.Get("/api/health", [&snapshot](const auto&, auto& response) {
+            const auto state = snapshot();
+            const auto status = state.value("status", std::string("disconnected"));
+            const bool healthy = status == "connected" || status == "demo";
+            json_response(response, {
+                {"ok", healthy}, {"status", status},
+                {"message", state.value("message", std::string{})},
+                {"version", state.value("version", Json(nullptr))}
+            }, healthy ? 200 : 503);
+        });
+
     };
-    server.Post("/api/audio/source", [&audio, can_control](const auto& request, auto& response) {
-        if (!can_control(request)) { json_response(response, {{"error", "networkReadOnly"}}, 403); return; }
-        const auto type = lower_ascii(request.get_header_value("Content-Type"));
-        if (type != "application/json" && type != "application/json; charset=utf-8") {
-            json_response(response, {{"error", "JSON content type required"}}, 415); return;
-        }
-        const auto body = Json::parse(request.body, nullptr, false);
-        if (!body.is_object() || body.size() != 1 || !body.contains("deviceId") || !body["deviceId"].is_string()) {
-            json_response(response, {{"error", "Expected a deviceId string; empty string stops capture"}}, 400); return;
-        }
-        if (!audio.select(body["deviceId"].template get<std::string>())) {
-            json_response(response, {{"error", "audioDeviceLost"}}, 400); return;
-        }
-        json_response(response, audio.state());
-    });
-    const bool prolink = features && features->mode == "prolink";
-    server.Get("/api/app", [prolink, network, portal, can_control](const auto& request, auto& response) {
-        const auto user=portal?portal->identity(portal_session(request)):Json(nullptr);
-        const bool admin=!portal||(!user.is_null()&&user["role"]=="admin");
-        json_response(response, {{"version", "2.0.1"}, {"mode", prolink ? "prolink" : "rekordbox"},
-            {"user",user},
-            {"canControl", can_control(request)},
-            {"capabilities", {{"dashboard", true}, {"history", true}, {"deckOverlays", true}, {"masterOverlay", true},
-                {"networkSettings", network != nullptr && admin}, {"scenes",portal!=nullptr}, {"admin",portal!=nullptr && admin},
-                {"audioWaveform", true}, {"rekordboxSetup", !prolink}, {"prolinkSetup", prolink},
-                {"playbackStatus", prolink}, {"onAir", prolink}, {"mixerControls", false}, {"trackWaveform", false}}}});
-    });
-    server.Get("/api/prolink/devices", [features, prolink](const auto&, auto& response) {
-        if (!prolink || !features->prolink_setup) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
-        json_response(response, features->prolink_setup());
-    });
-    server.Get("/api/rekordbox/status", [prolink, &snapshot](const auto&, auto& response) {
-        if (prolink) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
-        json_response(response, snapshot());
-    });
-    server.Post("/api/prolink/control", [features, prolink, can_control](const auto& request, auto& response) {
-        if (!prolink || !features->prolink_control) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
-        if (!can_control(request)) { json_response(response, {{"error", "networkReadOnly"}}, 403); return; }
-        const auto type = lower_ascii(request.get_header_value("Content-Type"));
-        if (type != "application/json" && type != "application/json; charset=utf-8") {
-            json_response(response, {{"error", "JSON content type required"}}, 415); return;
-        }
-        const auto body = Json::parse(request.body, nullptr, false);
-        if (!body.is_object()) { json_response(response, {{"error", "prolinkInvalidCommand"}}, 400); return; }
-        const auto result = features->prolink_control(body);
-        json_response(response, result, result.contains("error") ? 400 : 202);
-    });
-    server.Get("/api/network", [network](const auto& request, auto& response) {
-        if (!network) { json_response(response, {{"error", "networkUnavailable"}}, 503); return; }
-        json_response(response, network->describe(local_network_peer(request.remote_addr, request.local_addr)));
-    });
-    server.Post("/api/network", [features](const auto& request, auto& response) {
-        if (!local_network_peer(request.remote_addr, request.local_addr)) { json_response(response, {{"error", "networkLocalOnly"}}, 403); return; }
-        if (!features || !features->network) { json_response(response, {{"error", "networkUnavailable"}}, 503); return; }
-        const auto type = lower_ascii(request.get_header_value("Content-Type"));
-        if (type != "application/json" && type != "application/json; charset=utf-8") { json_response(response, {{"error", "JSON content type required"}}, 415); return; }
-        try {
-            features->network->save(Json::parse(request.body, nullptr, false));
-            json_response(response, features->network->describe(true));
-        } catch (const std::exception& error) {
-            json_response(response, {{"error", error.what()}}, std::string(error.what()) == "networkInvalidSettings" ? 400 : 500);
-        }
-    });
-    server.Post(R"(/.*)", reject_method);
-    server.Put(R"(/.*)", reject_method);
-    server.Patch(R"(/.*)", reject_method);
-    server.Delete(R"(/.*)", reject_method);
-    server.Options(R"(/.*)", reject_method);
-    server.set_error_handler([](const auto&, auto& response) {
-        if (response.body.empty()) {
-            json_response(response, {{"error", response.status == 404 ? "Not found" : "Request failed"}},
-                          response.status);
-        }
-    });
-
-    // Catch only these literal paths (dots escaped for httplib's regex routes).
-    for (const auto& [url, asset] : assets) {
-        std::string pattern;
-        for (char c : url) { if (c == '.') pattern += '\\'; pattern += c; }
-        server.Get(pattern, [asset](const auto&, auto& response) { response.set_content(asset.body, asset.mime); });
+    PortalServer server;
+    configure(server);
+    std::unique_ptr<PortalServer> loopback;
+    if (host != "0.0.0.0" && host != "127.0.0.1" && host != "::") {
+        loopback = std::make_unique<PortalServer>();
+        configure(*loopback);
     }
-    server.Get("/api/state", [&snapshot](const auto&, auto& response) { json_response(response, snapshot()); });
-    server.Get("/api/master", [master](const auto&, auto& response) {
-        if (!master) { json_response(response, {{"error", "Master feed is not available"}}, 503); return; }
-        json_response(response, master->snapshot());
-    });
-    server.Get("/api/history", [master,portal](const httplib::Request& request, auto& response) {
-        if (!master) { json_response(response, {{"error", "History is not available"}}, 503); return; }
-        std::uint64_t before = 0, page_size = 100;
-        for (const auto* name : {"before", "limit"}) {
-            if (!request.has_param(name)) continue;
-            const auto input = request.get_param_value(name);
-            auto& value = std::string_view(name) == "before" ? before : page_size;
-            const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), value);
-            if (raw_parameter_count(request, name) != 1 || input.empty() || error != std::errc{} ||
-                end != input.data() + input.size() || value == 0 || (std::string_view(name) == "limit" && value > 100)) {
-                json_response(response, {{"error", "Invalid history pagination"}}, 400); return;
-            }
-        }
-        auto result=master->full_snapshot(before, static_cast<std::size_t>(page_size));
-        if(portal){const auto old=portal_cookie(request,"deckstatus_voter"),voter=portal->visitor(old);if(old!=voter)response.set_header("Set-Cookie","deckstatus_voter="+voter+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000");result=portal->public_history(std::move(result),voter);}
-        json_response(response,result);
-    });
-    server.Get(R"(/api/(master|history)/covers/([1-9][0-9]{0,9}))", [master](const httplib::Request& request, auto& response) {
-        const auto input = request.matches[2].str();
-        std::uint32_t id{};
-        const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), id);
-        if (!master || error != std::errc{} || end != input.data() + input.size()) {
-            json_response(response, {{"error", "Master cover is not available"}}, 404); return;
-        }
-        auto [mime, bytes] = request.matches[1].str() == "history" ? master->history_cover(id) : master->cover(id);
-        if (bytes.empty()) { json_response(response, {{"error", "Master cover is not available"}}, 404); return; }
-        if (mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" && mime != "image/gif" && mime != "image/bmp") {
-            json_response(response, {{"error", "Cover format is not supported"}}, 415); return;
-        }
-        response.set_content(std::move(bytes), mime);
-    });
-    server.Get("/api/decks", [&snapshot](const auto&, auto& response) {
-        json_response(response, decks_from(snapshot()));
-    });
-    server.Get(R"(/api/decks/([1-4]))", [&snapshot](const httplib::Request& request,
-                                                   httplib::Response& response) {
-        const int deck_id = request.matches[1].str()[0] - '0';
-        for (const auto& deck : decks_from(snapshot())) {
-            if (deck.is_object() && deck.value("id", 0) == deck_id) {
-                json_response(response, deck);
-                return;
-            }
-        }
-        json_response(response, {{"error", "Deck is not available"}}, 404);
-    });
-    server.Get(R"(/api/decks/([1-4])/cover)", [&cover, &snapshot](const httplib::Request& request,
-                                                     httplib::Response& response) {
-        const int deck_id = request.matches[1].str()[0] - '0';
-        const auto before = loaded_track(snapshot(), deck_id);
-        if (request.has_param("trackId")) {
-            const auto input = request.get_param_value("trackId");
-            std::uint64_t requested_id{};
-            const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), requested_id);
-            if (raw_parameter_count(request, "trackId") != 1 || input.empty() ||
-                error != std::errc{} || end != input.data() + input.size() || requested_id == 0) {
-                json_response(response, {{"error", "Invalid trackId"}}, 400);
-                return;
-            }
-            if (before != requested_id) {
-                json_response(response, {{"error", "Track is no longer loaded"}}, 404);
-                return;
-            }
-        }
-        if (!before) {
-            json_response(response, {{"error", "Deck is not loaded"}}, 404);
-            return;
-        }
-        auto [mime_type, bytes] = cover(deck_id);
-        // A database lookup may overlap a track change. Never label the next
-        // track's artwork with the previous track's URL (or the reverse).
-        if (loaded_track(snapshot(), deck_id) != before) {
-            json_response(response, {{"error", "Track changed while loading its cover"}}, 404);
-            return;
-        }
-        if (bytes.empty()) {
-            json_response(response, {{"error", "Cover is not available"}}, 404);
-            return;
-        }
-        if (mime_type != "image/jpeg" && mime_type != "image/png" &&
-            mime_type != "image/webp" && mime_type != "image/gif" &&
-            mime_type != "image/bmp") {
-            json_response(response, {{"error", "Cover format is not supported"}}, 415);
-            return;
-        }
-        response.set_content(std::move(bytes), mime_type);
-    });
-    server.Get("/api/health", [&snapshot](const auto&, auto& response) {
-        const auto state = snapshot();
-        const auto status = state.value("status", std::string("disconnected"));
-        const bool healthy = status == "connected" || status == "demo";
-        json_response(response, {
-            {"ok", healthy}, {"status", status},
-            {"message", state.value("message", std::string{})},
-            {"version", state.value("version", Json(nullptr))}
-        }, healthy ? 200 : 503);
-    });
-
     if (!server.bind_to_port(host, port)) {
         std::cerr << tr("Could not bind web server to ") << host << ':' << port << '\n';
+        return 1;
+    }
+    if (loopback && !loopback->bind_to_port("127.0.0.1", port)) {
+        std::cerr << tr("Could not bind web server to ") << "127.0.0.1:" << port << '\n';
         return 1;
     }
 
     // Wait for the listener before stopping it: httplib::stop() is a no-op before
     // listen_after_bind() starts. Keep the monitor alive until the listener exits.
+    std::atomic_bool shutting_down{};
     std::jthread monitor([&](std::stop_token token) {
         while (!token.stop_requested()) {
-            if (stop.load() && server.is_running()) {
-                server.stop();
-                return;
+            if (stop.load() || shutting_down.load()) {
+                if (server.is_running()) server.stop();
+                if (loopback && loopback->is_running()) loopback->stop();
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
+    });
+    bool loopback_listened = true;
+    std::jthread loopback_thread;
+    if (loopback) loopback_thread = std::jthread([&] {
+        loopback_listened = loopback->listen_after_bind();
+        shutting_down = true;
     });
     std::cout << "Dashboard: " << network_url(host == "0.0.0.0" ? "127.0.0.1" : host, port) << "/\n";
     if (network) {
@@ -486,8 +541,10 @@ int run_server(const std::string& host, int port,
         for (const auto& url : config["urls"]) std::cout << "Server: " << url.get<std::string>() << "/\n";
     }
     const bool listened = server.listen_after_bind();
+    shutting_down = true;
+    if (loopback_thread.joinable()) loopback_thread.join();
     monitor.request_stop();
-    return listened ? 0 : 1;
+    return listened && loopback_listened ? 0 : 1;
 }
 
 } // namespace deckstatus
