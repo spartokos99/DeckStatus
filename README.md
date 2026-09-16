@@ -19,9 +19,11 @@
   <a href="CHANGELOG.md">📝 Changelog</a>
 </p>
 
+<details>
+  <summar>🧪 Compatibility</summar>
 ## 🧪 Compatibility
 
-### Rekordbox (Software)
+### 🍦 Rekordbox (Software)
 
 |                    | Windows | macOS |
 |:------------------:|:-------:|:-----:|
@@ -29,23 +31,24 @@
 
 live-tested only with **Rekordbox 7.2.18.0 Windows x64 installation**.
 
-## Pro DJ Link (Hardware)
+### 🧰 Pro DJ Link (Hardware)
 
-|             | **Working** | **Note** |
-|:-----------:|:-----------:|:--------:|
-|   **CDJs**  |             |          |
-|   CDJ-3000  |      ✅      |          |
-|  CDJ-3000X  |      ✅      |          |
-|             |             |          |
-|  **MIXERS** |             |          |
-|    DJM-A9   |      ✅      |          |
-| DJM-900NXS2 |      ✅      |          |
-|             |             |          |
-|   **AiO**   |             |          |
-|    XDJ-AZ   |      ✅      |          |
+|             	| **Working** 	| **Note** 	|
+|:-----------:	|:-----------:	|:--------:	|
+|   **CDJs**  	|             	|          	|
+|   CDJ-3000  	|      ✅      	|          	|
+|  CDJ-3000X  	|      ✅      	|          	|
+|             	|             	|          	|
+|  **MIXERS** 	|             	|          	|
+|    DJM-A9   	|      ✅      	|          	|
+| DJM-900NXS2 	|      ✅      	|          	|
+|             	|             	|          	|
+|   **AiO**   	|             	|          	|
+|    XDJ-AZ   	|      ✅      	|          	|
 
  ProLink supports CDJ-3000, CDJ-3000X, XDJ-AZ, DJM-A9 and DJM-900NXS2 experimentally.
  No real ProLink hardware has been tested; see the [device and metadata limitations](docs/prolink.md).
+</details>
 
 ## ▶️ Run
 
