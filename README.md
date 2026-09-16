@@ -47,7 +47,7 @@ live-tested only with **Rekordbox 7.2.18.0 Windows x64 installation**.
 
 ### 🧰 Pro DJ Link (Hardware - Experimental)
 
-|             	| **Working** 	| **Tested** 	|
+|             	| **Implemented** 	| **Tested** 	|
 |:-----------:	|:-----------:	|:--------:	|
 |   **CDJs**  	|             	|          	|
 |   CDJ-3000  	|      ✅      	|      ❌    	|
