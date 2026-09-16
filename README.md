@@ -20,47 +20,31 @@
 </p>
 
 ## 🧪 Compatibility
-
-<details>
-  <summary>Read more</summary>
   
 ### 🍦 Rekordbox (Software)
 
-|                    | Windows | macOS |
-|:------------------:|:-------:|:-----:|
-| Rekordbox 7.2.18.0 |    ✅    |   ✅   |
-
 live-tested only with **Rekordbox 7.2.18.0 Windows x64 installation**.
 
-### 🧰 Pro DJ Link (Hardware)
+|                    | Windows | macOS |
+|:------------------:|:-------:|:-----:|
+| Rekordbox 7.2.18.0 |    ✅    |   ❌   |
 
-|             	| **Working** 	| **Note** 	|
+### 🧰 Pro DJ Link (Hardware - Experimental)
+
+|             	| **Working** 	| **Tested** 	|
 |:-----------:	|:-----------:	|:--------:	|
 |   **CDJs**  	|             	|          	|
-|   CDJ-3000  	|      ✅      	|          	|
-|  CDJ-3000X  	|      ✅      	|          	|
+|   CDJ-3000  	|      ✅      	|      ❌    	|
+|  CDJ-3000X  	|      ✅      	|      ❌    	|
 |             	|             	|          	|
 |  **MIXERS** 	|             	|          	|
-|    DJM-A9   	|      ✅      	|          	|
-| DJM-900NXS2 	|      ✅      	|          	|
+|    DJM-A9   	|      ✅      	|      ❌    	|
+| DJM-900NXS2 	|      ✅      	|      ❌    	|
 |             	|             	|          	|
 |   **AiO**   	|             	|          	|
-|    XDJ-AZ   	|      ✅      	|          	|
+|    XDJ-AZ   	|      ✅      	|      ❌    	|
 
- ProLink supports CDJ-3000, CDJ-3000X, XDJ-AZ, DJM-A9 and DJM-900NXS2 experimentally.
- No real ProLink hardware has been tested; see the [device and metadata limitations](docs/prolink.md).
-</details>
-
-## ▶️ Run
-
-1. Extract the full Windows ZIP into a writable folder.
-2. Start Rekordbox, then run **DeckStatus.exe**. For ProLink, use **Start-ProLink.cmd**.
-3. Open **http://127.0.0.1:18740**.
-4. On first start, sign in as **admin** with the temporary password printed in the DeckStatus console. Set a new password, then sign in again.
-
-Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks without Rekordbox or DJ hardware.
-
-Download the complete Windows package from [DeckStatus v2.0.2](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.2).
+No real ProLink hardware has been tested; see the [device and metadata limitations](docs/prolink.md).
 
 ## ✨ Features
 
@@ -72,6 +56,17 @@ Download the complete Windows package from [DeckStatus v2.0.2](https://github.co
 - ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
 - 🔐 **Accounts:** administrator/operator roles, user management and required initial password changes.
 - 🌐 **Optional LAN access**, JSON API, Rekordbox/ProLink modes and English/German application translations.
+
+## ▶️ Run
+
+1. Extract the full Windows ZIP into a writable folder.
+2. Start Rekordbox, then run **DeckStatus.exe**. For ProLink, use **Start-ProLink.cmd**.
+3. Open **http://127.0.0.1:18740**.
+4. On first start, sign in as **admin** with the temporary password printed in the DeckStatus console. Set a new password, then sign in again.
+
+Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks without Rekordbox or DJ hardware.
+
+Download the complete Windows package from [DeckStatus v2.0.2](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.2).
 
 ## 🛠️ Build and test
 
