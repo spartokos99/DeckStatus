@@ -19,34 +19,57 @@
   <a href="CHANGELOG.md">📝 Changelog</a>
 </p>
 
-**🧪 Compatibility:** live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. ProLink supports CDJ-3000, CDJ-3000X, XDJ-AZ (PRO DJ LINK mode), DJM-A9 and DJM-900NXS2 experimentally. No real ProLink hardware has been tested; see the [device and metadata limitations](docs/prolink.md).
+## 🧪 Compatibility
+
+### Rekordbox (Software)
+
+|                    | Windows | macOS |
+|:------------------:|:-------:|:-----:|
+| Rekordbox 7.2.18.0 |    ✅    |   ✅   |
+
+live-tested only with **Rekordbox 7.2.18.0 Windows x64 installation**.
+
+## Pro DJ Link (Hardware)
+
+|             | **Working** | **Note** |
+|:-----------:|:-----------:|:--------:|
+|   **CDJs**  |             |          |
+|   CDJ-3000  |      ✅      |          |
+|  CDJ-3000X  |      ✅      |          |
+|             |             |          |
+|  **MIXERS** |             |          |
+|    DJM-A9   |      ✅      |          |
+| DJM-900NXS2 |      ✅      |          |
+|             |             |          |
+|   **AiO**   |             |          |
+|    XDJ-AZ   |      ✅      |          |
+
+ ProLink supports CDJ-3000, CDJ-3000X, XDJ-AZ, DJM-A9 and DJM-900NXS2 experimentally.
+ No real ProLink hardware has been tested; see the [device and metadata limitations](docs/prolink.md).
 
 ## ▶️ Run
 
-1. Extract the full Windows ZIP into a writable folder. Keep the EXE, DLL, `web` and `prolink` together.
+1. Extract the full Windows ZIP into a writable folder.
 2. Start Rekordbox, then run **DeckStatus.exe**. For ProLink, use **Start-ProLink.cmd**.
 3. Open **http://127.0.0.1:18740**.
 4. On first start, sign in as **admin** with the temporary password printed in the DeckStatus console. Set a new password, then sign in again.
-5. Open **Stream → Scene Components**, configure an overlay and save a named preset. Insert it in **Stream → Scene editor**, save the scene and copy its URL into an **OBS Browser Source**.
 
 Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks without Rekordbox or DJ hardware.
 
-Download the complete Windows package from [DeckStatus v2.0.2](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.2). When upgrading from v1.4.0, generate new OBS URLs after signing in: overlays now require a read-only key. See the [upgrade notes](CHANGELOG.md#upgrade).
+Download the complete Windows package from [DeckStatus v2.0.2](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.2).
 
 ## ✨ Features
 
 - 🎛️ **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
 - 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles. Customise fields, colours, fonts, dimensions, alignment and smooth transitions.
-- 💾 **Saved presets:** save, load, update and delete named deck, master and waveform designs. The library persists on the server and is shared with signed-in users.
+- 💾 **Saved presets:** save, load, update and delete overlays. The library persists on the server and is shared with signed-in users.
 - 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder and style independent layers; save to update the same OBS source.
-- 🎶 **Public Full History:** viewers browse played MASTER tracks at `/history` and rate them from 1–5 stars without an account.
+- 🎶 **Public Full History:** viewers browse played tracks at `/history` and rate them from 1–5 stars without an account.
 - ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
 - 🔐 **Accounts:** administrator/operator roles, user management and required initial password changes.
 - 🌐 **Optional LAN access**, JSON API, Rekordbox/ProLink modes and English/German application translations.
 
 ![Scene editor with one master overlay and a waveform spanning the full scene width](docs/images/scene-editor-en.png)
-
-*One master overlay and one full-width waveform on a 1920 × 1080 canvas. English UI with synthetic demo tracks.*
 
 <details>
 <summary>🎨 Explore a few overlay styles</summary>
@@ -56,16 +79,6 @@ Download the complete Windows package from [DeckStatus v2.0.2](https://github.co
 Start with a built-in style, customise it and save it as your own preset.
 
 </details>
-
-## 🔗 Sharing and storage
-
-Dashboard and configuration pages require sign-in. Full History is public. Generated OBS URLs contain revocable read-only keys; keep these links private.
-
-Users, ratings, presets and scenes persist in **`DeckStatus.data`** beside the EXE. Network settings use **`DeckStatus.network.json`**. Preserve both when upgrading and back them up while the app is stopped. Played-track history itself belongs to the running session.
-
-Ratings allow one changeable vote per browser and track. This is lightweight audience feedback, not verified-person voting.
-
-The server initially accepts localhost connections only. Enable LAN access under **Connections → Network** and restart. For HTTPS through Caddy, configure your **Public domain** there; see the [domain and reverse-proxy setup](docs/network.md#https-and-caddy). Localhost stays available, and copied OBS links keep using `127.0.0.1`. For OBS on another PC, replace the link's origin with the reachable LAN/HTTPS address. Direct HTTP and the proxy-to-DeckStatus connection require a trusted network.
 
 ## 🛠️ Build and test
 
