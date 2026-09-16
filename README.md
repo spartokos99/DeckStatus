@@ -19,6 +19,10 @@
   <a href="CHANGELOG.md">📝 Changelog</a>
 </p>
 
+[!IMPORTANT]
+This tool only works with specific versions of RekordBox.
+I should also mention that the entire tool was 100% AI-generated; I originally intended to use it just for my own stream, but it turned out so well and proved so practical that I decided to share it so other streamers could use it too.
+
 ## ✨ Features
 
 - 🎛️ **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
