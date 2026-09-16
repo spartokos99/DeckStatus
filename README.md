@@ -19,8 +19,10 @@
   <a href="CHANGELOG.md">📝 Changelog</a>
 </p>
 
+##🧪 Compatibility
+
 <details>
-  <summary>🧪 Compatibility</summary>
+  <summary>Expand to view ...</summary>
   
 ### 🍦 Rekordbox (Software)
 
