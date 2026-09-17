@@ -12,7 +12,7 @@ const source=[
 ];
 withBrowser((req,res,url)=>{
  if(!url.pathname.startsWith('/api/'))return false;res.setHeader('Content-Type','application/json');
- if(url.pathname==='/api/app')res.end(JSON.stringify({version:'2.0.2',mode,canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink',networkSettings:true}}));
+ if(url.pathname==='/api/app')res.end(JSON.stringify({version:'2.1.0',mode,canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink',networkSettings:true}}));
  else if(url.pathname==='/api/prolink/devices'){
   if(failed){res.statusCode=503;res.end('{}');return true;}
   res.end(JSON.stringify({status:phase,message:phase==='connected'?'prolinkConnected':'prolinkStopped',runtimeAvailable:true,devices:devices.map(d=>({...d,selected:players.includes(d.number),playing:phase==='connected'&&d.number===1,synced:phase==='connected',onAir:phase==='connected'&&d.number===1,master:d.number===1,firmware:'test fixture',bpm:128})),players,localAddress:phase==='connected'?'192.0.2.100':'',networkInterface:'Ethernet · synthetic fixture',virtualPlayer:phase==='connected'?7:null}));
@@ -26,10 +26,11 @@ withBrowser((req,res,url)=>{
  assert.equal(await evaluate('document.querySelector("[data-capability=prolinkSetup]").getAttribute("aria-disabled")'),'true');
  assert.equal(await evaluate('document.querySelector("[data-capability=prolinkSetup]").hasAttribute("href")'),false);
  assert.equal(await evaluate('document.querySelectorAll(".nav-group").length'),3);
- assert.equal(await evaluate('document.querySelectorAll(".nav-link").length'),11);
+ assert.equal(await evaluate('document.querySelectorAll(".nav-link").length'),15);
  assert.deepEqual(await evaluate('[...document.querySelectorAll(".nav-group-label")].map(el=>el.textContent)'),['Start','Stream','Connections']);
- assert.equal(await evaluate('document.querySelector("[data-capability=admin]").parentElement.matches("nav")'),true,'Admin must stand alone');
- assert.deepEqual(await evaluate('[...document.querySelectorAll(".nav-components-menu a")].map(a=>a.dataset.href)'),['/overlay/settings','/master-overlay/settings','/waveform/settings']);
+ assert.equal(await evaluate('document.querySelector(".nav-standalone[data-capability=admin]").parentElement.matches("nav")'),true,'Admin must stand alone');
+ assert.equal(await evaluate('document.querySelector("[data-i18n=navAutomations]").closest(".nav-group")===document.querySelector("[data-capability=history]").closest(".nav-group")'),true,'Automations must belong to Stream');
+ assert.deepEqual(await evaluate('[...document.querySelectorAll(".nav-components-menu a")].map(a=>a.dataset.href)'),['/overlay/settings','/master-overlay/settings','/waveform/settings','/components/text','/components/image','/components/fx']);
  assert.equal(await evaluate('document.querySelector("[data-capability=scenes]").closest(".nav-group")===document.querySelector("[data-capability=history]").closest(".nav-group")'),true);
  await evaluate('document.querySelector(".nav-components summary").focus()');
  await call('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowDown',windowsVirtualKeyCode:40});

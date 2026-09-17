@@ -15,14 +15,12 @@ withBrowser((req,res,url)=>{
 },async({evaluate,navigate,until,delay,screenshot,root})=>{
   const change=async(id,value)=>evaluate(`(()=>{const el=document.getElementById(${JSON.stringify(id)});el.value=${JSON.stringify(String(value))};el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   const pixels=()=>evaluate(`(()=>{const c=document.querySelector('canvas');const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let n=0;for(let i=3;i<d.length;i+=4)if(d[i])n++;return n;})()`);
-  await navigate('/waveform/settings');await until(()=>evaluate('document.getElementById("device").options.length===4'),'Device selection missing');
+  await navigate('/waveform/settings');await until(()=>evaluate('!!document.getElementById("preset").options.length'),'Waveform design missing');
   assert.equal(await evaluate('document.documentElement.lang'),'en');
-  assert.equal(await evaluate('document.querySelector("main select").id'),'device','Audio input must be first setting');
-  assert.equal(await evaluate('document.querySelectorAll("#device img").length'),0,'Device names interpreted as HTML');
+  assert.equal(await evaluate('document.getElementById("device")'),null,'Device selection remains in waveform settings');
+  assert.equal(await evaluate('document.getElementById("start")'),null,'Capture controls remain in waveform settings');
   assert.equal(posts.length,0,'Loading settings opened audio capture');
-  await change('device','input-1');assert.equal(posts.length,0,'Choosing an input must not start recording');
-  await evaluate('document.getElementById("start").click()');
-  await until(()=>posts.length===1,'Start did not call capture API');assert.deepEqual(posts[0],{deviceId:'input-1'});
+  active=true;deviceId='input-1';
   await until(()=>evaluate('document.getElementById("preview").contentDocument?.querySelector("canvas")?.dataset.signal==="live"'),'Live waveform missing');
   assert.ok(!(await evaluate('document.getElementById("url").value')).includes('input-1'),'Source ID leaked into visual URL');
   await change('preset','neon');await change('gain','2.7');await change('height','300');
@@ -30,7 +28,7 @@ withBrowser((req,res,url)=>{
   assert.equal(await evaluate('document.getElementById("height").value'),'300');
   await evaluate('document.querySelector("[data-language]").value="de";document.querySelector("[data-language]").dispatchEvent(new Event("change"))');
   assert.equal(await evaluate('document.documentElement.lang'),'de');
-  assert.equal(await evaluate('document.getElementById("start").textContent'),'Start / Quelle wechseln');
+  assert.equal(await evaluate('document.querySelector("[data-i18n=audioManagedInAdmin]").textContent.includes("Admin")'),true);
   assert.ok((await evaluate('document.getElementById("url").value')).includes('lang=de'));
   // Inspect the actual rendered settings, using only labelled synthetic input.
   await change('preset','mint');await delay(650);await screenshot('waveform-settings-de');
@@ -56,12 +54,10 @@ withBrowser((req,res,url)=>{
   assert.ok(rendering.alpha>=127&&rendering.alpha<=128,'Trails accumulated background opacity');assert.equal(rendering.gated,true,'Noise gate ignored');
   // Stale data and device loss must erase samples and history, including trails.
   stale=true;await until(()=>evaluate('document.querySelector("canvas").dataset.signal==="idle"'),'Stale audio stayed live');assert.equal(await pixels(),0);
-  stale=false;failure=true;await navigate('/waveform/settings?lang=de');await until(()=>evaluate('document.getElementById("audio-status").textContent.includes("Audiogerät nicht verfügbar")'),'Device-loss translation missing');
-  failure=false;await change('device','loop-1');await evaluate('document.getElementById("start").click()');await until(()=>deviceId==='loop-1','Switch to loopback failed');
-  await evaluate('document.getElementById("stop").click()');await until(()=>!active,'Stop capture failed');
-  assert.deepEqual(posts.at(-1),{deviceId:''});
+  stale=false;failure=true;await delay(400);assert.equal(await pixels(),0,'Lost device painted audio');
+  failure=false;active=false;deviceId='';assert.equal(posts.length,0,'Waveform UI sent capture commands');
   await navigate(new URL(url).pathname+new URL(url).search);await delay(500);assert.equal(await pixels(),0,'Stopped capture painted audio');
   // An active but silent input remains transparent; no synthesized activity.
   active=true;signal.fill(0);await delay(400);assert.equal(await pixels(),0,'Silence fabricated audio');
-  console.log('Waveform UI: input consent, source switching/stop, 6 render modes, FFT, bounds, persistence, EN/DE, stale/error/silent handling passed.');
+  console.log('Waveform UI: admin-managed input, no capture controls, 6 render modes, FFT, bounds, persistence, EN/DE, stale/error/silent handling passed.');
 }).catch(error=>{console.error(error);process.exitCode=1;});

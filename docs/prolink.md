@@ -58,7 +58,7 @@ Windows Firewall must allow the bundled `prolink/runtime/bin/java.exe` on the pr
 
 The web server initially binds to `127.0.0.1`; the current source supports optional [network access](network.md). The Java helper has no HTTP service: bounded newline-delimited JSON travels over inherited anonymous pipes. The host launches it without a visible console and owns it through a Windows job object. Closing/crashing the host terminates its helper. Stale helper or player reports stop producing live deck data. No ProLink networking or Java process starts in Rekordbox mode.
 
-The portable ZIP includes an unmodified **Eclipse Temurin 21.0.12.1+1 Windows x64 JRE**. Users do not need to install Java. The legacy export download is disabled; metadata is cached in memory by Beat Link. No audio recording or playback is added. The existing WASAPI waveform remains a separate feature and starts with capture off.
+The portable ZIP includes an unmodified **Eclipse Temurin 21.0.12.1+1 Windows x64 JRE**. Users do not need to install Java. The legacy export download is disabled; metadata is cached in memory by Beat Link. No audio recording or playback is added. The existing WASAPI waveform remains a separate feature. Capture defaults to off; administrators can opt into starting a saved Windows audio device at application launch under Admin → Audio input.
 
 ## Build and validation
 

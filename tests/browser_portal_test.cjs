@@ -5,7 +5,7 @@ const {httpsProxy}=require('./https_proxy_fixture.cjs');
 const root=path.resolve(process.env.DECKSTATUS_TEST_ROOT||'build/Release'),output=path.resolve('build/test-artifacts');fs.mkdirSync(output,{recursive:true});
 const directory=fs.mkdtempSync(path.join(output,'portal browser ')),data=path.join(directory,'DeckStatus.data');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-let child,proxy,log='',sceneId,sceneKey,ratingId;const password='Browser test passphrase 42!';
+let child,proxy,log='',sceneId,sceneKey,ratingId,savedAudioId='';const password='Browser test passphrase 42!';
 async function launch(port){log='';child=spawn(path.join(root,'DeckStatus.exe'),['--demo','--port',String(port),'--data-dir',data,'--network-config',path.join(directory,'network.json')],{cwd:root,windowsHide:true,stdio:['ignore','pipe','pipe']});let launchError;child.on('error',error=>launchError=error);child.stdout.on('data',chunk=>log+=chunk);child.stderr.on('data',chunk=>log+=chunk);for(let i=0;i<150;i++){if(launchError)throw launchError;if(child.exitCode!==null)throw Error('Test EXE exited during startup');try{if((await fetch('http://127.0.0.1:'+port+'/api/auth/me')).ok)return;}catch{}await delay(50);}throw Error('Test EXE did not start');}
 async function stop(){if(!child||child.exitCode!==null)return;const closed=new Promise(resolve=>child.on('close',resolve));child.kill();await closed;child=null;}
 (async()=>{
@@ -32,11 +32,12 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
     assert.equal((await fetch(localUrl)).status,200,'Local OBS overlay failed without browser session');
     assert.equal(await evaluate('new URL(document.getElementById("preview").src).origin'),fixture.baseUrl,'Preview did not stay on the current origin');
    };
-   const signIn=async secret=>{await navigate('/login?lang=en');await fill('username','admin');await fill('password',secret);await evaluate('document.getElementById("login-form").requestSubmit()');};
+   const signIn=async secret=>{await navigate('/login?lang=en');await evaluate('import("/auth.js").then(()=>true)');await fill('username','admin');await fill('password',secret);await evaluate('document.getElementById("login-form").requestSubmit()');};
    await signIn(temporary);await until(()=>evaluate('location.pathname==="/account/password"'),'Forced password page missing');
+   await evaluate('import("/auth.js").then(()=>true)');
    assert.equal(await evaluate('(async()=> (await fetch("/api/scenes")).status)()'),403);
    await fill('current-password',temporary);await fill('new-password',password);await fill('confirm-password',password);await evaluate('document.getElementById("password-form").requestSubmit()');
-   await until(()=>evaluate('location.pathname==="/login"'),'Password redirect missing');await signIn(password);await until(()=>evaluate('location.pathname==="/"'),'Dashboard login failed');
+   try{await until(()=>evaluate('location.pathname==="/login"'),'Password redirect missing');}catch(error){throw Error(error.message+'; '+await evaluate('JSON.stringify({path:location.pathname,message:document.getElementById("auth-message")?.textContent})'));}await signIn(password);await until(()=>evaluate('location.pathname==="/"'),'Dashboard login failed');
    const cookies=(await call('Storage.getCookies')).cookies;
    await until(()=>evaluate('document.querySelectorAll("#decks [data-field=overlay]").length===4'),'Dashboard deck links missing');
    for(const url of await evaluate('[...document.querySelectorAll("#decks [data-field=overlay]")].map(a=>a.href)')){
@@ -48,6 +49,19 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
     assert.equal(access.app.canControl,false);assert.equal(access.network.canConfigure,false,'HTTPS proxy inherited local permissions');
    }
    await navigate('/admin?lang=en');await until(()=>evaluate('document.getElementById("users-list").children.length===1'),'Admin list missing');
+   await click('[data-tab=audio]');
+   const audio=await evaluate('(async()=> (await fetch("/api/admin/audio")).json())()');assert.equal(audio.settings.autoStart,false);assert.equal(audio.state.status,'stopped');
+   if(proxy){
+    assert.equal(audio.canControl,false);assert.equal(await evaluate('(async()=> (await fetch("/api/admin/audio",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"stop"})})).status)()'),403);
+   }else{
+    const devices=await evaluate('(async()=> (await (await fetch("/api/audio/devices")).json()).devices)()');
+    if(devices.length){
+     savedAudioId=devices[0].id;await until(()=>evaluate('!document.querySelector("#admin-audio-device").disabled'),'Audio controls missing');
+     await change('admin-audio-device',savedAudioId);await click('#admin-audio-save');
+     await until(()=>evaluate('document.querySelector("#admin-audio-message").textContent.includes("Audio settings saved")'),'Audio selection save failed');
+     assert.equal(await evaluate('(async()=> (await (await fetch("/api/audio/state")).json()).status)()'),'stopped','Saving input opened a real device');
+    }
+   }
    await click('[data-tab=users]');await fill('user-name','helper');await fill('user-password','Temporary helper passphrase');await evaluate('document.getElementById("user-form").requestSubmit()');await until(()=>evaluate('document.getElementById("users-list").children.length===2'),'User creation failed');
    await presetPage('/master-overlay/settings?history=2&historyScale=0.55&align=right&timeline=1&width=640&lang=en');
    const masterPreset=await savePreset('Studio <Master>');
@@ -101,11 +115,10 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1120,deviceScaleFactor:1,mobile:false});
    await evaluate('document.querySelector("[data-language]").value="de";document.querySelector("[data-language]").dispatchEvent(new Event("change"))');assert.equal(await evaluate('document.getElementById("scene-new").textContent'),'Neue Szene');
    await click('#nav-logout');await until(()=>evaluate('location.pathname==="/login"'),'Logout failed');
-   await navigate('/history?lang=en');await until(()=>evaluate('document.querySelector("[data-stars=\\"5\\"]")&&!document.querySelector("[data-stars=\\"5\\"]").disabled'),'Public history rating missing');
+   await navigate('/history?lang=en');await until(()=>evaluate('document.querySelector("[data-stars]")?.disabled'),'Anonymous stars not disabled');
    assert.equal(await evaluate('document.querySelector("nav").hidden'),true,'Anonymous history shows admin navigation');
-   ratingId=await evaluate('document.querySelector("tbody tr").dataset.ratingId');await click('tbody tr [data-stars="5"]');await until(()=>evaluate('document.getElementById("rating-feedback").textContent.includes("saved")'),'Rating not saved');
-   assert.equal((await call('Storage.getCookies')).cookies.find(c=>c.name==='deckstatus_voter')?.secure,Boolean(proxy),'Voter Secure flag does not match access mode');
-   await click('tbody tr [data-stars="3"]');await until(()=>evaluate('document.querySelector("tbody tr [data-stars=\\"3\\"]").getAttribute("aria-pressed")==="true"'),'Vote update failed');
+   assert.equal(await evaluate('document.getElementById("history-ratings-link").hidden'),true);
+   assert.equal(await evaluate('(async()=> (await fetch("/api/public/rating",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({track:"fake",stars:5})})).status)()'),401,'Anonymous vote accepted');
    await screenshot('public-history-en');
    await navigate('/scene?scene='+sceneId+'&key='+sceneKey);await until(()=>evaluate('document.querySelectorAll("iframe").length===3'),'Anonymous OBS scene missing');
    await until(()=>evaluate('[...document.querySelectorAll("iframe")].filter(f=>f.src.includes("overlay")).every(f=>f.contentDocument?.querySelector(".track"))'),'OBS child overlays failed authentication');
@@ -115,15 +128,15 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    await until(()=>evaluate('document.querySelector(".scene-item").style.left==="230px"'),'Saved geometry did not update the open OBS scene');
    assert.equal(await evaluate('window.originalSceneFrame===document.querySelector("iframe")'),true,'Geometry update restarted the renderer');
    await signIn(password);await until(()=>evaluate('location.pathname==="/"'),'Relogin failed');await navigate('/admin?lang=en');
-   await until(()=>evaluate('document.querySelectorAll("#rating-rows tr").length>0'),'Persistent ratings missing in admin');
-   const ratings=await evaluate('(async()=> (await (await fetch("/api/admin/ratings")).json()).tracks)()');assert.equal(ratings.find(row=>row.id===ratingId).count,1);assert.equal(ratings.find(row=>row.id===ratingId).average,3);
+   await until(()=>evaluate('!document.getElementById("ratings-empty").hidden'),'Empty ratings not shown');
    await screenshot('admin-ratings-en');
    // A second editor changes the scene; stale saves must not overwrite it.
    const conflict=await evaluate(`(async()=>{const s=(await (await fetch('/api/scenes')).json()).scenes[0];const body={action:'save',id:s.id,revision:s.revision,scene:{...s,name:'Updated scene'}};await fetch('/api/scenes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});return (await fetch('/api/scenes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).status;})()`);assert.equal(conflict,409);
    await stop();await launch(port);assert.ok(!log.includes('Temporary password:'),'Bootstrap reappeared after restart');
    assert.equal(await evaluate('(async()=> (await fetch("/api/admin/ratings")).status)()'),401,'Session survived restart');
    await signIn(password);await until(()=>evaluate('location.pathname==="/"'),'Login after restart failed');
-   const persisted=await evaluate('(async()=> ({ratings:(await (await fetch("/api/admin/ratings")).json()).tracks,scenes:(await (await fetch("/api/scenes")).json()).scenes}))()');assert.equal(persisted.scenes[0].name,'Updated scene');assert.equal(persisted.ratings.find(row=>row.id===ratingId).average,3);
+   const restoredAudio=await evaluate('(async()=> (await fetch("/api/admin/audio")).json())()');assert.equal(restoredAudio.settings.deviceId,savedAudioId);assert.equal(restoredAudio.settings.autoStart,false);assert.equal(restoredAudio.state.status,'stopped');
+   const persisted=await evaluate('(async()=> ({ratings:(await (await fetch("/api/admin/ratings")).json()).tracks,scenes:(await (await fetch("/api/scenes")).json()).scenes}))()');assert.equal(persisted.scenes[0].name,'Updated scene');assert.equal(persisted.ratings.length,0);
    const persistedPresets=await evaluate('(async()=> (await (await fetch("/api/presets")).json()).presets)()');assert.equal(persistedPresets.length,3);assert.equal(persistedPresets.find(p=>p.id===masterPreset).options.history,7);assert.equal(persisted.scenes[0].items[0].options.history,3);
    // A different browser preference state still has the same server presets.
    await evaluate('localStorage.clear()');await presetPage('/overlay/settings?lang=de');await change('saved-preset',deckPreset);await click('#preset-load');
@@ -136,9 +149,10 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
     await until(()=>evaluate('location.hostname==="127.0.0.1"&&document.querySelectorAll("iframe").length===3'),'Opening a local scene from the domain was blocked');
     await until(()=>evaluate('[...document.querySelectorAll("iframe")].filter(f=>f.src.includes("overlay")).every(f=>f.contentDocument?.querySelector(".track"))'),'Local scene child renderers did not load');
    }
-   console.log('Real EXE browser tests passed: authentication, users, public voting, all component preset CRUD/EN-DE/mobile/restart, scene insertion and independent snapshots, drag/save/OBS tokens and conflicts.');
+   console.log('Real EXE browser tests passed: authentication, users, Twitch-required voting, all component preset CRUD/EN-DE/mobile/restart, scene insertion and independent snapshots, drag/save/OBS tokens and conflicts.');
    if(proxy){
-    for(const route of ['/api/auth/login','/api/auth/password','/api/auth/logout','/api/public/rating','/api/scenes','/api/presets'])
+    assert.ok(proxy.requests.some(r=>r.method==='POST'&&r.path==='/api/public/rating'&&r.status===401),'HTTPS anonymous vote was not rejected');
+    for(const route of ['/api/auth/login','/api/auth/password','/api/auth/logout','/api/scenes','/api/presets'])
      assert.ok(proxy.requests.some(r=>r.method==='POST'&&r.path===route&&r.host===proxy.domain&&r.origin===proxy.baseUrl&&r.status===200),'Missing successful HTTPS request: '+route);
     console.log('HTTPS reverse-proxy browser checks passed: original domain/Origin headers, secure cookies, remote permissions, localhost OBS links, same-origin previews and restart.');
    }

@@ -1,16 +1,16 @@
 # Audio waveform overlay
 
-DeckStatus 1.3.1 adds a Windows WASAPI audio source and a Canvas overlay. Audio capture is independent of the injected Rekordbox metadata bridge. It also works when the host is running in `--demo` mode; demo tracks never generate audio.
+Introduced in DeckStatus 1.3.1, this feature provides a Windows WASAPI audio source and a Canvas overlay. Audio capture is independent of the injected Rekordbox metadata bridge. It also works when the host is running in `--demo` mode; demo tracks never generate audio.
 
 ## Setup
 
-1. Open `/waveform/settings` on the running local DeckStatus server.
-2. Choose an **audio input** first. Windows recording endpoints include microphones, line inputs and interfaces. **Output loopback** entries capture a playback endpoint's shared Windows mix.
-3. Press **Start / switch source**. Selecting a device alone does not activate it.
-4. Choose a preset and customize the visualization. Copy its URL into an OBS browser source with the displayed width/height.
+1. Sign in as an administrator and open **Admin → Audio input** (`/admin#audio`).
+2. Choose an **audio input** and click **Save**. Windows recording endpoints include microphones, line inputs and interfaces. **Output loopback** entries capture a playback endpoint's shared Windows mix.
+3. Press **Start / switch source** when you want to capture. Choosing/saving an input does not activate it or switch a running capture. Optionally enable and save **Start audio capture automatically when DeckStatus starts** for future launches.
+4. Open **Scene Components → Waveform**, choose a preset and customize the visualization. Copy its URL into an OBS browser source with the displayed width/height.
 5. Stop capture with **Stop capture** or by exiting DeckStatus. Closing a browser tab leaves capture running.
 
-There is one shared source for the server session. Visual URLs contain only appearance options; they do not activate microphones or select a source. No source is restored on application restart. Other local clients can explicitly select/stop the source via the API.
+There is one shared source for the server session. Visual URLs contain only appearance options; they do not activate microphones or select a source. The chosen endpoint ID/name and autostart flag persist in `DeckStatus.data/portal.json`. Autostart is off by default; when enabled it opens only that saved device at application startup, after HTTP sockets bind and before login. A missing device is reported in Admin without choosing a fallback. Stop leaves the saved device and autostart policy intact; disable and save autostart to prevent capture next time. Only administrators can save settings or start/switch/stop capture; remote requests also require Allow remote controls.
 
 Windows microphone privacy settings must permit desktop applications to access a recording device. An unplugged device produces an error; refresh the device list and select a source again. No fallback microphone is opened automatically.
 
@@ -36,9 +36,9 @@ The host retains only the most recent **1,024 samples per channel** in memory. B
 
 Visual settings are stored under `deckstatus.waveform.options`. Generated URLs normalize and bound each supported option. After changing a design, replace its URL in OBS. The audio stream is never played by the overlay, stored in files or uploaded.
 
-## Local API
+## HTTP API
 
-All routes use the existing loopback listener, Host/Origin validation, no-store headers and bounded requests.
+All routes use the configured listeners, Host/Origin validation, authentication/scoped read keys, no-store headers and bounded requests. Administration and capture mutations require an administrator session; remote mutations additionally require Allow remote controls.
 
 ### `GET /api/audio/devices`
 
@@ -48,6 +48,18 @@ Returns `devices: [{id, name, kind}]` where `kind` is `input` or `loopback`, plu
 
 Returns `status` (`stopped`, `starting`, `capturing`, `error`), `error`, `deviceId`, `deviceName`, `sampleRate`, `sequence`, `sampleAgeMs`, `fresh`, `left` and `right`. Both channel arrays contain exactly 1,024 finite floats in −1…1. Mono is duplicated; multichannel capture uses the first two channels. When unavailable/stale, sample arrays contain zeroes. No packet received yet means `sampleAgeMs: null` and `fresh: false`.
 
+### `GET/POST /api/admin/audio`
+
+GET returns `{settings:{deviceId,deviceName,autoStart},state,controlError,canControl}`. The saved device and the currently active device may differ until Start / switch source is pressed. POST accepts one of these JSON commands:
+
+```json
+{"action":"save","deviceId":"<endpoint ID>","autoStart":false}
+{"action":"start"}
+{"action":"stop"}
+```
+
+Save atomically stores the selection/policy without opening a device. Start uses the saved input; Stop does not erase settings. Autostart errors appear as `controlError`; errors from an opened WASAPI worker appear in `state.error`. There is no automatic fallback or retry loop for an unavailable endpoint. Refresh the device list and start manually after reconnecting it. Operators and OBS keys cannot use this endpoint.
+
 ### `POST /api/audio/source`
 
 Requires `Content-Type: application/json` and exactly one string field:
@@ -56,13 +68,13 @@ Requires `Content-Type: application/json` and exactly one string field:
 {"deviceId":"<ID returned by /api/audio/devices>"}
 ```
 
-An empty ID stops capture. Invalid schema/device ID returns 400; an unsupported content type returns 415. A successful request returns the capture state, which may still be `starting`; poll for actual activation or a device error. GET requests cannot change capture state. No endpoint controls Rekordbox playback.
+This compatibility endpoint is now administrator-only. A valid non-empty ID is remembered and starts capture. An empty ID stops capture without clearing the saved selection or autostart option. Invalid schema/device ID returns 400; an unsupported content type returns 415. A successful request returns the capture state, which may still be `starting`; poll for actual activation or a device error. GET requests cannot change capture state. No endpoint controls Rekordbox playback.
 
 ## Implementation and validation
 
 The capture worker owns its COM/WASAPI objects and uses shared mode. It supports PCM 8/16/24/32-bit and IEEE float32, including compatible extensible formats. It releases every acquired WASAPI buffer, handles silent/discontinuous packets, clamps samples and stops its audio client before releasing it. Source changes stop/join the previous worker before opening another.
 
-- Six native CTest tests and both browser suites passed locally for 1.3.1.
+- Six native CTest tests and both browser suites passed locally for 1.3.1. The current admin/persistence changes have separate coverage in `portal_access`, `browser_admin_audio_test.cjs`, `browser_portal_test.cjs` and `audio_startup_smoke.cjs`; see the validation log.
 - Audio conversion tests cover signed PCM limits, stereo/mono, clipping, NaN, buffer bounds, silence and ring ordering.
 - Default CTest never opens an audio device; it only enumerates endpoints and tests invalid selection/stop.
 - The opt-in `audio_test.exe --loopback-smoke` successfully opened, stopped and reopened a local Windows output-loopback endpoint. It saves no audio files and selects no microphone.

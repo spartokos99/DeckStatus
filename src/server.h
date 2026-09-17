@@ -3,6 +3,7 @@
 #include <atomic>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -12,12 +13,15 @@ namespace deckstatus {
 class MasterHistory;
 class NetworkConfig;
 class Portal;
+struct TwitchTransport;
 struct ServerFeatures {
     std::string mode = "rekordbox";
     std::function<nlohmann::json()> prolink_setup;
     std::function<nlohmann::json(const nlohmann::json&)> prolink_control;
     NetworkConfig* network = nullptr;
     Portal* portal = nullptr;
+    // Optional protocol fixture; production leaves this empty.
+    std::shared_ptr<TwitchTransport> twitch_transport;
 };
 
 // cover returns { MIME type, binary image data }; empty data means no cover.

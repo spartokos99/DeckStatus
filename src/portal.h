@@ -29,6 +29,16 @@ public:
     Json edit_user(const std::string& actor, const Json& command);
     Json presets() const;
     Json edit_preset(const Json& command);
+    Json media() const;
+    Json audio_settings() const;
+    Json save_audio_settings(const Json& settings);
+    // Native integration only: secrets are DPAPI-encrypted at rest, never HTTP output.
+    Json twitch_settings() const;
+    void save_twitch_settings(const Json& settings);
+    Json twitch_credentials() const;
+    void save_twitch_credentials(const Json& credentials);
+    Json edit_media(const Json& command);
+    std::pair<std::string, std::string> media_file(const std::string& id) const;
     Json scenes() const;
     Json edit_scene(const Json& command);
     Json scene(const std::string& id, bool include_secret = false) const;
@@ -37,6 +47,8 @@ public:
     Json public_history(Json history, const std::string& voter);
     Json rate(const std::string& voter, const std::string& peer, const Json& command);
     Json ratings() const;
+    Json rate_twitch(const Json& viewer,const std::string& peer,const Json& command);
+    Json rating_viewers(const std::string& track) const;
     std::string visitor(const std::string& cookie) const;
     static std::string random_token();
 private:

@@ -3,11 +3,7 @@
 <body><div class="shell"><header></header>
 <div class="intro"><span class="eyebrow" data-i18n="stream"></span><h1 data-i18n="waveHeading"></h1><p data-i18n="waveIntro"></p></div>
 <main class="layout"><section class="panel">
-<h2 data-i18n="waveInputHeading"></h2>
-<p id="remote-readonly" class="hint" hidden data-i18n="networkReadOnly"></p>
-<div class="setting"><label for="device" data-i18n="waveInput"></label><select id="device"></select><small data-i18n="waveInputHelp"></small></div>
-<div class="audio-buttons"><button id="start" data-i18n="waveStart" disabled></button><button id="stop" data-i18n="waveStop" disabled></button><button id="refresh" data-i18n="waveRefresh"></button></div>
-<span id="audio-status" role="status" aria-live="polite"></span><meter id="level" class="meter" min="0" max="1" value="0" data-i18n-aria="waveLevel"></meter><p class="hint" data-i18n="waveShared"></p>
+<p class="hint" data-i18n="audioManagedInAdmin"></p><p><a id="audio-admin-link" href="/admin#audio" data-i18n="audioAdminLink" hidden></a></p>
 <h2 data-i18n="waveDesignHeading"></h2><div class="setting"><label for="preset" data-i18n="presetBuiltIn"></label><select id="preset"></select></div>
 <div id="main-controls" class="wave-controls"></div>
 <details open><summary data-i18n="waveSignalControls"></summary><div id="signal-controls" class="wave-controls"></div></details>

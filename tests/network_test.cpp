@@ -84,6 +84,8 @@ void exercise_server(NetworkConfig& config, const std::filesystem::path& web, bo
         require(description["urls"][0]=="http://127.0.0.1:"+std::to_string(port)&&description["urls"][1]=="https://"+domain,"Local/public URLs missing");
         status(client.Post("/api/network",proxy,"{}","application/json"),403);
         status(client.Post("/api/audio/source",proxy,R"({"deviceId":""})","application/json"),allow_remote?200:403);
+        status(client.Post("/api/admin/twitch",proxy,R"({"action":"reset"})","application/json"),allow_remote?400:403); // Fixture has no Portal; reaching command validation proves the network gate passed.
+        status(client.Post("/api/admin/automations",proxy,R"({"action":"reset"})","application/json"),allow_remote?400:403);
         status(client.Post("/api/prolink/control",proxy,R"({"action":"disconnect"})","application/json"),allow_remote?202:403);
         actions=0;
     }
@@ -118,6 +120,8 @@ void exercise_server(NetworkConfig& config, const std::filesystem::path& web, bo
         require(Json::parse(network->body)["canConfigure"]==false,"Remote client can edit network settings");
         status(remote.Post("/api/network",spoofed,saved.dump(),"application/json"),403);
         status(remote.Post("/api/audio/source",spoofed,R"({"deviceId":""})","application/json"),allow_remote?200:403);
+        status(remote.Post("/api/admin/twitch",spoofed,R"({"action":"reset"})","application/json"),allow_remote?400:403);
+        status(remote.Post("/api/admin/automations",spoofed,R"({"action":"reset"})","application/json"),allow_remote?400:403);
         status(remote.Post("/api/prolink/control",spoofed,R"({"action":"disconnect"})","application/json"),allow_remote?202:403);
         require(actions== (allow_remote?1:0),"Denied ProLink request reached the callback");
         status(remote.Get("/api/state"),200);remote_checked=true;break;

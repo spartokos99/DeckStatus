@@ -4,10 +4,10 @@ import {api} from './auth.js';
 const header = document.querySelector('header');
 const groups = [
   ['navMonitor', [['dashboard','/','dashboard','▦'],['navApi','/api/state','dashboard','↗']]],
-  ['navOverlays', [['navScenes','/scenes','scenes','▧'],['fullHistory','/history','history','◷']]],
+  ['navOverlays', [['navScenes','/scenes','scenes','▧'],['navAutomations','/automations','admin','↯'],['fullHistory','/history','history','◷']]],
   ['navSources', [['navRekordbox','/rekordbox/settings','rekordboxSetup','●'],['navProlink','/prolink/settings','prolinkSetup','⌁'],['navNetwork','/network/settings','networkSettings','⇄']]]
 ];
-const components = [['deckSettings','/overlay/settings','deckOverlays','▤'],['masterSettings','/master-overlay/settings','masterOverlay','♔'],['waveNav','/waveform/settings','audioWaveform','∿']];
+const components = [['deckSettings','/overlay/settings','deckOverlays','▤'],['masterSettings','/master-overlay/settings','masterOverlay','♔'],['waveNav','/waveform/settings','audioWaveform','∿'],['creativeText','/components/text','scenes','T'],['creativeImage','/components/image','scenes','▧'],['creativeFx','/components/fx','scenes','✧']];
 function navLink([key,href,capability,icon]) {
   const link=document.createElement('a');link.dataset.href=href;link.dataset.capability=capability;link.className='nav-link';
   const symbol=document.createElement('span');symbol.className='nav-symbol';symbol.ariaHidden='true';symbol.textContent=icon;

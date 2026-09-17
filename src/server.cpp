@@ -1,5 +1,7 @@
 #include "server.h"
 #include "audio_capture.h"
+#include "audio_control.h"
+#include "twitch.h"
 #include "network.h"
 #include "portal_http.h"
 #include "language.h"
@@ -142,6 +144,14 @@ int run_server(const std::string& host, int port,
         {"/scenes", "scene-editor.html"}, {"/scene-editor.js", "scene-editor.js"}, {"/scene-editor.css", "scene-editor.css"},
         {"/component-presets.js", "component-presets.js"}, {"/component-presets.css", "component-presets.css"},
         {"/scene", "scene.html"}, {"/scene.js", "scene.js"}, {"/scene-shared.js", "scene-shared.js"},
+        {"/components/text", "creative-settings.html"}, {"/components/image", "creative-settings.html"}, {"/components/fx", "creative-settings.html"},
+        {"/component/text", "creative.html"}, {"/component/image", "creative.html"}, {"/component/fx", "creative.html"},
+        {"/creative-settings.js", "creative-settings.js"}, {"/creative.js", "creative.js"}, {"/creative-options.js", "creative-options.js"},
+        {"/creative-renderer.js", "creative-renderer.js"}, {"/audio-reactivity.js", "audio-reactivity.js"}, {"/creative.css", "creative.css"},
+        {"/media-library.js", "media-library.js"},
+        {"/admin-audio.js", "admin-audio.js"},
+        {"/admin-twitch.js", "admin-twitch.js"}, {"/twitch.css", "twitch.css"},
+        {"/automations", "automations.html"}, {"/automations.js", "automations.js"},
         {"/locales/en.json", "locales/en.json"}, {"/locales/de.json", "locales/de.json"}
     }) {
         const auto body = read_page(web_root / file);
@@ -154,6 +164,8 @@ int run_server(const std::string& host, int port,
     AudioCapture audio;
     auto* portal = features ? features->portal : nullptr;
     const auto* network = features ? features->network : nullptr;
+    AudioControl audio_control(portal,[&]{return audio.devices();},[&]{return audio.state();},[&](const auto& id){return audio.select(id);});
+    TwitchIntegration twitch(portal,features?features->twitch_transport:nullptr);
     // Both listeners share audio, track state, accounts and scenes.
     const auto configure = [&](PortalServer& server) {
         // Windows SO_REUSEADDR permits multiple listeners on the same address.
@@ -167,7 +179,7 @@ int run_server(const std::string& host, int port,
         server.set_write_timeout(3);
         server.set_keep_alive_timeout(2);
         server.set_keep_alive_max_count(50);
-        server.set_payload_max_length(65536);
+        server.set_payload_max_length(12*1024*1024); // Only authenticated media uploads may exceed the normal 64 KiB limit.
         server.set_default_headers({
             {"Cache-Control", "no-store"},
             {"X-Content-Type-Options", "nosniff"},
@@ -223,7 +235,8 @@ int run_server(const std::string& host, int port,
             // A local OBS link opened from the public domain is a cross-site navigation.
             // Only these renderer documents with their matching read key may cross that boundary.
             const bool renderer = request.path == "/overlay" || request.path == "/overlay.html" ||
-                request.path == "/master-overlay" || request.path == "/waveform" || request.path == "/scene";
+                request.path == "/master-overlay" || request.path == "/waveform" || request.path == "/scene" ||
+                request.path == "/component/text" || request.path == "/component/image" || request.path == "/component/fx";
             const bool keyed_renderer = renderer && portal && raw_parameter_count(request,"key") == 1 &&
                 raw_parameter_count(request,"scene") <= 1 &&
                 portal->broadcast_access(request.get_param_value("key"),request.path,request.get_param_value("scene"));
@@ -262,16 +275,18 @@ int run_server(const std::string& host, int port,
             response.set_header("Allow", "GET, HEAD");
             json_response(response, {{"error", "Method is not allowed"}}, 405);
         };
-        server.authorize = [portal, &assets, validate_request](const httplib::Request& request, auto& response) {
+        server.authorize = [portal, &twitch, &assets, validate_request](const httplib::Request& request, auto& response) {
             if (validate_request(request, response) == httplib::Server::HandlerResponse::Handled) return false;
+            if(request.body.size()>65536&&request.path!="/api/media")throw PortalError(413,"portalCapacity");
             if (!portal) return true; // Isolated native fixtures may omit the application store.
             const auto& path = request.path;
             const bool read = request.method == "GET" || request.method == "HEAD";
             const auto asset = assets.find(path);
             if (read && asset != assets.end() && !asset->second.mime.starts_with("text/html")) return true;
-            if (read && (path == "/login" || path == "/history" || path == "/api/history" || path.starts_with("/api/history/covers/") || path == "/api/auth/me")) return true;
-            if (request.method == "POST" && (path == "/api/auth/login" || path == "/api/auth/logout" || path == "/api/public/rating")) return true;
+            if (read && (path == "/login" || path == "/history" || path == "/api/history" || path.starts_with("/api/history/covers/") || path == "/api/auth/me" || path == "/api/public/twitch")) return true;
+            if (request.method == "POST" && (path == "/api/auth/login" || path == "/api/auth/logout" || path == "/api/public/rating" || path == "/api/public/twitch")) return true;
             if (read && raw_parameter_count(request,"key") == 1 && raw_parameter_count(request,"scene") <= 1 && portal->broadcast_access(request.get_param_value("key"),path,request.get_param_value("scene"))) return true;
+            if (read && raw_parameter_count(request,"key") == 1 && raw_parameter_count(request,"scene") == 1 && twitch.broadcast_access(request.get_param_value("key"),path,request.get_param_value("scene"))) return true;
             const auto user = portal->identity(portal_session(request));
             if (user.is_null()) {
                 if (read && asset != assets.end()) { response.set_redirect("/login",303); return false; }
@@ -281,7 +296,7 @@ int run_server(const std::string& host, int port,
                 if (read && asset != assets.end()) { response.set_redirect("/account/password",303); return false; }
                 throw PortalError(403,"authPasswordRequired");
             }
-            if ((path == "/admin" || path.starts_with("/api/admin/") || path == "/network/settings" || path == "/api/network") && user["role"] != "admin") throw PortalError(403,"authAdminRequired");
+            if ((path == "/admin" || path == "/automations" || path.starts_with("/api/admin/") || path == "/api/audio/source" || path == "/network/settings" || path == "/api/network") && user["role"] != "admin") throw PortalError(403,"authAdminRequired");
             return true;
         };
         if (portal) {
@@ -295,17 +310,26 @@ int run_server(const std::string& host, int port,
             server.Get("/api/admin/users",[portal](const auto&,auto& response){json_response(response,{{"users",portal->users()}});});
             server.Post("/api/admin/users",[portal](const auto& request,auto& response){const auto user=portal->identity(portal_session(request));json_response(response,{{"users",portal->edit_user(user["id"],portal_body(request))}});});
             server.Get("/api/admin/ratings",[portal](const auto&,auto& response){json_response(response,{{"tracks",portal->ratings()}});});
+            server.Get(R"(/api/admin/ratings/([a-f0-9]{64})/viewers)",[portal](const auto& request,auto& response){json_response(response,portal->rating_viewers(request.matches[1].str()));});
+            server.Get("/api/public/twitch",[&twitch](const auto& request,auto& response){json_response(response,twitch.viewer_status(portal_cookie(request,"deckstatus_viewer")));});
+            server.Post("/api/public/twitch",[&twitch](const auto& request,auto& response){
+                const auto cmd=portal_body(request);auto result=twitch.viewer_command(portal_cookie(request,"deckstatus_viewer"),request.remote_addr,cmd);
+                if(result.contains("session")){response.set_header("Set-Cookie","deckstatus_viewer="+result["session"].template get<std::string>()+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=3600");result.erase("session");}
+                if(cmd.value("action",std::string{})=="logout")response.set_header("Set-Cookie","deckstatus_viewer=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");json_response(response,result);
+            });
             server.Get("/api/broadcast",[portal](const auto&,auto& response){json_response(response,portal->overlay_keys(false));});
             server.Post("/api/admin/broadcast",[portal](const auto& request,auto& response){portal_body(request);json_response(response,portal->overlay_keys(true));});
             server.Get("/api/scenes",[portal](const auto&,auto& response){json_response(response,{{"scenes",portal->scenes()}});});
             server.Get("/api/presets",[portal](const auto&,auto& response){json_response(response,{{"presets",portal->presets()}});});
             server.Post("/api/presets",[portal](const auto& request,auto& response){json_response(response,portal->edit_preset(portal_body(request)));});
+            server.Get("/api/media",[portal](const auto&,auto& response){json_response(response,{{"media",portal->media()}});});
+            server.Post("/api/media",[portal](const auto& request,auto& response){json_response(response,portal->edit_media(portal_body(request)));});
+            server.Get("/api/media/([a-f0-9]{64})",[portal](const auto& request,auto& response){const auto [mime,bytes]=portal->media_file(request.matches[1].str());response.set_content(bytes,mime);});
             server.Post("/api/scenes",[portal](const auto& request,auto& response){json_response(response,portal->edit_scene(portal_body(request)));});
-            server.Get("/api/scene",[portal](const httplib::Request& request,auto& response){if(raw_parameter_count(request,"scene")!=1)throw PortalError(400,"sceneInvalid");json_response(response,portal->scene(request.get_param_value("scene")));});
-            server.Post("/api/public/rating",[portal](const auto& request,auto& response){
-                const auto old=portal_cookie(request,"deckstatus_voter"),voter=portal->visitor(old);
-                if(old!=voter)throw PortalError(400,"ratingVisitHistory");
-                json_response(response,portal->rate(voter,request.remote_addr,portal_body(request)));
+            server.Get("/api/scene",[portal,&twitch](const httplib::Request& request,auto& response){if(raw_parameter_count(request,"scene")!=1)throw PortalError(400,"sceneInvalid");json_response(response,twitch.render(portal->scene(request.get_param_value("scene"))));});
+            server.Post("/api/public/rating",[portal,&twitch](const auto& request,auto& response){
+                const auto viewer=twitch.viewer_identity(portal_cookie(request,"deckstatus_viewer"),true);
+                json_response(response,portal->rate_twitch(viewer,request.remote_addr,portal_body(request)));
             });
         }
         server.Get("/api/audio/devices", [&](const auto&, auto& response) { json_response(response, audio.devices()); });
@@ -315,7 +339,24 @@ int run_server(const std::string& host, int port,
             if (public_request(request)) return remote_control;
             return local_network_peer(request.remote_addr, request.local_addr) || may_control_network(request.remote_addr, remote_control);
         };
-        server.Post("/api/audio/source", [&audio, can_control](const auto& request, auto& response) {
+        const auto audio_description=[&audio_control,can_control](const auto& request){auto result=audio_control.describe();result["canControl"]=can_control(request);return result;};
+        server.Get("/api/admin/twitch",[&twitch,can_control](const auto& request,auto& response){auto result=twitch.describe();result["canControl"]=can_control(request);json_response(response,result);});
+        server.Get("/api/admin/automations",[&twitch,can_control](const auto& request,auto& response){auto result=twitch.automation_description();result["canControl"]=can_control(request);json_response(response,result);});
+        server.Post("/api/admin/automations",[&twitch,can_control](const auto& request,auto& response){if(!can_control(request))throw PortalError(403,"networkReadOnly");auto result=twitch.automation_command(portal_body(request));result["canControl"]=true;json_response(response,result);});
+        server.Post("/api/admin/twitch",[&twitch,can_control](const auto& request,auto& response){if(!can_control(request))throw PortalError(403,"networkReadOnly");auto result=twitch.command(portal_body(request));result["canControl"]=true;json_response(response,result);});
+        server.Get("/api/admin/audio",[audio_description](const auto& request,auto& response){json_response(response,audio_description(request));});
+        server.Post("/api/admin/audio",[&audio_control,can_control,audio_description](const auto& request,auto& response){
+            if(!can_control(request))throw PortalError(403,"networkReadOnly");
+            const auto body=portal_body(request);
+            if(!body.is_object()||!body.contains("action")||!body["action"].is_string())throw PortalError(400,"audioSettingsInvalid");
+            const auto action=body["action"].template get<std::string>();
+            if(action=="save"&&body.size()==3){auto settings=body;settings.erase("action");audio_control.save(settings);}
+            else if(action=="start"&&body.size()==1)audio_control.start_saved();
+            else if(action=="stop"&&body.size()==1)audio_control.stop();
+            else throw PortalError(400,"audioSettingsInvalid");
+            json_response(response,audio_description(request));
+        });
+        server.Post("/api/audio/source", [&audio, &audio_control, can_control](const auto& request, auto& response) {
             if (!can_control(request)) { json_response(response, {{"error", "networkReadOnly"}}, 403); return; }
             const auto type = lower_ascii(request.get_header_value("Content-Type"));
             if (type != "application/json" && type != "application/json; charset=utf-8") {
@@ -325,16 +366,14 @@ int run_server(const std::string& host, int port,
             if (!body.is_object() || body.size() != 1 || !body.contains("deviceId") || !body["deviceId"].is_string()) {
                 json_response(response, {{"error", "Expected a deviceId string; empty string stops capture"}}, 400); return;
             }
-            if (!audio.select(body["deviceId"].template get<std::string>())) {
-                json_response(response, {{"error", "audioDeviceLost"}}, 400); return;
-            }
+            audio_control.select(body["deviceId"].template get<std::string>());
             json_response(response, audio.state());
         });
         const bool prolink = features && features->mode == "prolink";
         server.Get("/api/app", [prolink, network, portal, can_control, port](const auto& request, auto& response) {
             const auto user=portal?portal->identity(portal_session(request)):Json(nullptr);
             const bool admin=!portal||(!user.is_null()&&user["role"]=="admin");
-            json_response(response, {{"version", "2.0.2"}, {"mode", prolink ? "prolink" : "rekordbox"},
+            json_response(response, {{"version", "2.1.0"}, {"mode", prolink ? "prolink" : "rekordbox"},
                 {"obsBaseUrl", network_url("127.0.0.1", port)},
                 {"user",user},
                 {"canControl", can_control(request)},
@@ -396,14 +435,17 @@ int run_server(const std::string& host, int port,
         for (const auto& [url, asset] : assets) {
             std::string pattern;
             for (char c : url) { if (c == '.') pattern += '\\'; pattern += c; }
-            server.Get(pattern, [asset](const auto&, auto& response) { response.set_content(asset.body, asset.mime); });
+            server.Get(pattern, [asset,url](const auto&, auto& response) {
+                if(url=="/components/image")response.set_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://upload.wikimedia.org; connect-src 'self' https://commons.wikimedia.org https://upload.wikimedia.org; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
+                response.set_content(asset.body, asset.mime);
+            });
         }
         server.Get("/api/state", [&snapshot](const auto&, auto& response) { json_response(response, snapshot()); });
         server.Get("/api/master", [master](const auto&, auto& response) {
             if (!master) { json_response(response, {{"error", "Master feed is not available"}}, 503); return; }
             json_response(response, master->snapshot());
         });
-        server.Get("/api/history", [master,portal](const httplib::Request& request, auto& response) {
+        server.Get("/api/history", [master,portal,&twitch](const httplib::Request& request, auto& response) {
             if (!master) { json_response(response, {{"error", "History is not available"}}, 503); return; }
             std::uint64_t before = 0, page_size = 100;
             for (const auto* name : {"before", "limit"}) {
@@ -417,7 +459,7 @@ int run_server(const std::string& host, int port,
                 }
             }
             auto result=master->full_snapshot(before, static_cast<std::size_t>(page_size));
-            if(portal){const auto old=portal_cookie(request,"deckstatus_voter"),voter=portal->visitor(old);if(old!=voter)response.set_header("Set-Cookie","deckstatus_voter="+voter+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000");result=portal->public_history(std::move(result),voter);}
+            if(portal){const auto viewer=twitch.viewer_identity(portal_cookie(request,"deckstatus_viewer"));result=portal->public_history(std::move(result),viewer.is_null()?std::string{}:"twitch:"+viewer["id"].get<std::string>());result["viewer"]=viewer;const auto admin=portal->identity(portal_session(request));result["canViewRatings"]=!admin.is_null()&&admin["role"]=="admin"&&!admin["mustChangePassword"].get<bool>();}
             json_response(response,result);
         });
         server.Get(R"(/api/(master|history)/covers/([1-9][0-9]{0,9}))", [master](const httplib::Request& request, auto& response) {
@@ -517,6 +559,9 @@ int run_server(const std::string& host, int port,
         return 1;
     }
 
+    // Persisted opt-in is evaluated once, after both sockets bind successfully.
+    if(!stop.load())audio_control.start_on_launch();
+    if(!stop.load())twitch.start();
     // Wait for the listener before stopping it: httplib::stop() is a no-op before
     // listen_after_bind() starts. Keep the monitor alive until the listener exits.
     std::atomic_bool shutting_down{};

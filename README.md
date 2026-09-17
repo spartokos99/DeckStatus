@@ -20,7 +20,7 @@
 </p>
 
 > [!IMPORTANT]
-> This tool only works with specific versions of RekordBox (ProLink mode should work fine).
+> Rekordbox support has been live-tested only on the author’s **Rekordbox 7.2.18.0 Windows x64** installation. ProLink support is experimental and has not been tested with real hardware.
 > 
 > I should also mention that the entire tool was 100% AI-generated; I originally intended to use it just for my own stream, but it turned out so well and proved so practical that I decided to share it so other streamers could use it too.
 
@@ -29,11 +29,14 @@
 - 🎛️ **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
 - 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles. Customise fields, colours, fonts, dimensions, alignment and smooth transitions.
 - 💾 **Saved presets:** save, load, update and delete overlays. The library persists on the server and is shared with signed-in users.
-- 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder and style independent layers; save to update the same OBS source.
-- 🎶 **Public Full History:** viewers browse played tracks at `/history` and rate them from 1–5 stars without an account.
-- ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
+- 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder, hide/show and style independent layers; save to update the same OBS source.
+- 🎶 **Public Full History:** viewers browse played tracks at `/history` without an account. Rating tracks from 1–5 stars requires a separate Twitch sign-in.
+- ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions. Click a vote count to see Twitch usernames and individual ratings; older anonymous votes are preserved.
+- 🖼️ **Creative components:** static text, uploaded images/GIFs, optional Wikimedia Commons import, and audio-driven fog/flash effects. Make layer scale, position, rotation and opacity react to sound.
+- ⚡ **Twitch automations:** trigger up to 16 actions per rule with rewards, chat commands/text, raids or stream status. Change layers, toggle audio reactivity or reply in chat, with individual durations and shared cooldowns.
+- 🎙️ **Shared audio input:** choose and save a device under Admin → Audio input; optionally start capture automatically on launch.
 - 🔐 **Accounts:** administrator/operator roles, user management and required initial password changes.
-- 🌐 **Optional LAN access**, JSON API, Rekordbox/ProLink modes and English/German application translations.
+- 🌐 **Optional LAN access and HTTPS domain support** behind a reverse proxy, JSON API, Rekordbox/ProLink modes and English/German application translations.
 
 ## 🧪 Compatibility
   
@@ -71,7 +74,11 @@ No real ProLink hardware has been tested; see the [device and metadata limitatio
 
 Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks without Rekordbox or DJ hardware.
 
-Download the complete Windows package from [DeckStatus v2.0.2](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.2).
+For upgrades, stop DeckStatus and preserve **DeckStatus.data** and **DeckStatus.network.json** before replacing application files. Existing users, presets, scenes and ratings remain valid.
+
+Configure Twitch under **Admin → Twitch** and edit rules under **Stream → Automations**. Viewer sign-in uses the same Public Twitch Client ID. Live Twitch account/OBS validation is still pending; see the [Twitch setup guide](docs/twitch.md).
+
+Download the complete Windows package from [DeckStatus v2.1.0](https://github.com/spartokos99/DeckStatus/releases/tag/v2.1.0).
 
 ## 🛠️ Build and test
 
@@ -85,10 +92,14 @@ node tests/browser_dashboard_history_test.cjs
 node tests/browser_prolink_test.cjs
 node tests/browser_network_test.cjs
 node tests/browser_portal_test.cjs
+node tests/browser_creative_test.cjs
+node tests/browser_admin_audio_test.cjs
+node tests/browser_twitch_layers_test.cjs
+node tests/browser_viewer_ratings_test.cjs
 node tests/network_smoke.cjs
 ~~~
 
-Browser tests require Node.js 22+ and Microsoft Edge. Native tests cover injection fixtures, metadata, HTTP, audio, ProLink, network settings, authentication, ratings, presets, scenes and storage migration. The portal browser test runs the real EXE with isolated data, including preset reuse, anonymous OBS rendering and restart persistence. Automated tests do not establish additional Rekordbox or real ProLink compatibility.
+Browser tests require Node.js 22+ and Microsoft Edge. Native tests cover injection fixtures, metadata, HTTP, audio, ProLink, network settings, authentication, ratings, presets, scenes and storage migration. Twitch protocol tests use an isolated transport and do not contact a real account. The portal browser test runs the real EXE with isolated data, including preset reuse, anonymous OBS rendering and restart persistence. Automated tests do not establish additional Rekordbox or real ProLink compatibility.
 
 Set `$env:DECKSTATUS_TEST_PROXY='1'` before the portal browser test to run it through an isolated HTTPS proxy, including Secure cookies, local OBS links and same-origin previews. Unset it afterwards with `Remove-Item Env:DECKSTATUS_TEST_PROXY`.
 

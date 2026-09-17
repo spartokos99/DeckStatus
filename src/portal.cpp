@@ -1,4 +1,5 @@
 #include "portal.h"
+#include "scene_components.h"
 #include <Windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
@@ -20,6 +21,12 @@ std::string hex(const unsigned char* bytes, std::size_t size) {
     return result;
 }
 bool token(const std::string& value) { return value.size()==64 && value.find_first_not_of("0123456789abcdef")==std::string::npos; }
+Json valid_audio_settings(const Json& value) {
+    if(!value.is_object()||value.size()!=3||!value.contains("deviceId")||!value["deviceId"].is_string()||!value.contains("deviceName")||!value["deviceName"].is_string()||!value.contains("autoStart")||!value["autoStart"].is_boolean())throw PortalError(400,"audioSettingsInvalid");
+    const auto id=value["deviceId"].get<std::string>(),name=value["deviceName"].get<std::string>();
+    if(id.size()>2048||name.size()>2000||id.find('\0')!=std::string::npos||name.find('\0')!=std::string::npos||(id.empty()&&value["autoStart"].get<bool>()))throw PortalError(400,"audioSettingsInvalid");
+    return value;
+}
 std::string sha(const std::string& input) {
     std::array<unsigned char,32> bytes{};
     if (BCryptHash(BCRYPT_SHA256_ALG_HANDLE,nullptr,0,reinterpret_cast<PUCHAR>(const_cast<char*>(input.data())),static_cast<ULONG>(input.size()),bytes.data(),32)<0) throw PortalError(500,"portalCryptoFailed");
@@ -78,13 +85,15 @@ double number(const Json& value,const char* key,double low,double high) {
 }
 Json valid_preset(const Json& value) {
     const auto name=text(value,"name",80),kind=text(value,"type",12);
-    if(canonical(name).empty()||(kind!="deck"&&kind!="master"&&kind!="waveform"))throw PortalError(400,"presetInvalid");
+    if(canonical(name).empty()||!components::type(kind))throw PortalError(400,"presetInvalid");
     if(!value.contains("options")||!value["options"].is_object()||value["options"].size()>50)throw PortalError(400,"presetInvalid");
     static const std::set<std::string> track={"deck","history","fields","duration","width","historyScale","align","lang","timeline","font","fontSize","coverSize","padding","gap","layout","badges","background","textColor","mutedColor","accent","opacity","radius","border","shadow"};
     static const std::set<std::string> wave={"width","height","lang","background","opacity","gap","mode","color","color2","gradient","gain","smoothing","gate","lineWidth","bars","rounding","glow","trails","channel","minHz","maxHz","historySeconds","fps","grid","centerLine","hideSilent"};
     static const std::set<std::string> fields={"title","artist","album","key","bpm","cover"};
     const auto& keys=kind=="waveform"?wave:track;
     for(auto it=value["options"].begin();it!=value["options"].end();++it) {
+        if(components::reaction_keys.contains(it.key())||(components::creative(kind)&&components::creative_keys.contains(it.key()))) {components::validate_option(it.key(),it.value());continue;}
+        if(components::creative(kind))throw PortalError(400,"presetInvalid");
         if(!keys.contains(it.key())||it.value().dump().size()>256)throw PortalError(400,"presetInvalid");
         if(it.key()=="fields") {
             if(!it.value().is_array()||it.value().empty()||it.value().size()>6)throw PortalError(400,"presetInvalid");
@@ -103,13 +112,17 @@ Json valid_scene(const Json& value) {
     Json items=Json::array();std::set<std::string> ids;
     for(const auto& item:value["items"]) {
         auto id=text(item,"id",64),kind=text(item,"type",12);
-        if(!std::regex_match(id,std::regex("[a-zA-Z0-9_-]{1,64}"))||!ids.insert(id).second||(kind!="deck"&&kind!="master"&&kind!="waveform"))throw PortalError(400,"sceneInvalid");
+        if(!std::regex_match(id,std::regex("[a-zA-Z0-9_-]{1,64}"))||!ids.insert(id).second||!components::type(kind))throw PortalError(400,"sceneInvalid");
         if(!item.contains("visible")||!item["visible"].is_boolean()||!item.contains("options")||!item["options"].is_object()||item["options"].size()>50)throw PortalError(400,"sceneInvalid");
         // Options are data, never URLs/HTML/scripts. Renderers normalize this allowlist.
         static const std::set<std::string> keys={"deck","history","fields","duration","width","height","historyScale","align","lang","timeline","font","fontSize","coverSize","padding","gap","layout","badges","background","textColor","mutedColor","accent","opacity","radius","border","shadow","mode","color","color2","gradient","gain","smoothing","gate","lineWidth","bars","rounding","glow","trails","channel","minHz","maxHz","historySeconds","fps","grid","centerLine","hideSilent"};
-        for(auto it=item["options"].begin();it!=item["options"].end();++it)if(!keys.contains(it.key())||it.value().is_object()||it.value().dump().size()>256)throw PortalError(400,"sceneInvalid");
+        for(auto it=item["options"].begin();it!=item["options"].end();++it){
+            if(components::reaction_keys.contains(it.key())||(components::creative(kind)&&components::creative_keys.contains(it.key()))) {components::validate_option(it.key(),it.value());continue;}
+            if(components::creative(kind)||!keys.contains(it.key())||it.value().is_object()||it.value().dump().size()>256)throw PortalError(400,"sceneInvalid");
+        }
         items.push_back({{"id",id},{"type",kind},{"x",number(item,"x",-7680,7680)},{"y",number(item,"y",-4320,4320)},{"width",number(item,"width",32,7680)},{"height",number(item,"height",32,4320)},{"opacity",number(item,"opacity",0,1)},{"visible",item["visible"]},{"options",item["options"]}});
         if(item.contains("name"))items.back()["name"]=text(item,"name",80);
+        if(item.contains("rotation"))items.back()["rotation"]=number(item,"rotation",-360,360);
     }
     return {{"name",name},{"width",width},{"height",height},{"background",background},{"items",items}};
 }
@@ -131,6 +144,7 @@ Portal::Portal(const std::filesystem::path& directory) : file_(directory/"portal
             for(const auto* kind:{"deck","master","waveform"})if(!token(data_["overlayKeys"].value(kind,std::string{})))throw PortalError(500,"portalDataInvalid");
             for(const auto& s:data_["scenes"]) {valid_scene(s);if(!token(s.value("key",std::string{}))||!s.at("revision").is_number_integer())throw PortalError(500,"portalDataInvalid");}
             for(const auto& r:data_["ratings"]) {if(!r.at("votes").is_object())throw PortalError(500,"portalDataInvalid");for(auto it=r["votes"].begin();it!=r["votes"].end();++it)if(!token(it.key())||!it.value().is_number_integer()||it.value()<1||it.value()>5)throw PortalError(500,"portalDataInvalid");}
+            for(const auto& r:data_["ratings"])if(r.contains("viewers")){if(!r["viewers"].is_object())throw PortalError(500,"portalDataInvalid");for(auto it=r["viewers"].begin();it!=r["viewers"].end();++it)if(!r["votes"].contains(it.key())||!it.value().is_object()||!it.value().contains("login")||!it.value()["login"].is_string()||!std::regex_match(it.value()["login"].get<std::string>(),std::regex("[A-Za-z0-9_]{1,100}")))throw PortalError(500,"portalDataInvalid");}
             if(data_.contains("presets")) {
                 if(!data_["presets"].is_object()||data_["presets"].size()>200)throw PortalError(500,"portalDataInvalid");
                 for(auto it=data_["presets"].begin();it!=data_["presets"].end();++it) {
@@ -146,6 +160,17 @@ Portal::Portal(const std::filesystem::path& directory) : file_(directory/"portal
             Json user={{"id",id},{"username","admin"},{"role","admin"}};set_password(user,password,true);
             commit({{"version",1},{"users",{{id,user}}},{"scenes",Json::object()},{"presets",Json::object()},{"ratings",Json::object()},{"overlayKeys",{{"deck",random_token()},{"master",random_token()},{"waveform",random_token()}}},{"visitorSecret",random_token()},{"bootstrap",protect(password,true)}});
         }
+        if(data_.contains("audioSettings"))valid_audio_settings(data_["audioSettings"]);
+        auto next=data_;bool migrated=false;
+        if(!next.contains("media")){next["media"]=Json::object();migrated=true;}
+        if(!next["media"].is_object()||next["media"].size()>100)throw PortalError(500,"portalDataInvalid");
+        std::size_t media_size=0;
+        for(auto it=next["media"].begin();it!=next["media"].end();++it){const auto encoded=text(it.value(),"data",11200000);const auto bytes=components::decode(encoded);const auto info=components::image_info(bytes);
+            if(it.key()!=sha(bytes)||it.value().at("id")!=it.key()||it.value().at("mime")!=info["mime"])throw PortalError(500,"portalDataInvalid");
+            text(it.value(),"name",160);text(it.value(),"credit",2000);text(it.value(),"source",2000);media_size+=encoded.size();}
+        if(media_size>32*1024*1024)throw PortalError(500,"portalDataInvalid");
+        for(const auto* kind:{"text","image","fx"}){if(!next["overlayKeys"].contains(kind)){next["overlayKeys"][kind]=random_token();migrated=true;}else if(!token(next["overlayKeys"][kind]))throw PortalError(500,"portalDataInvalid");}
+        if(migrated)commit(next);
     } catch(...) {CloseHandle(lock_file_);lock_file_=nullptr;throw;}
 }
 Portal::~Portal(){if(lock_file_)CloseHandle(lock_file_);}
@@ -209,6 +234,34 @@ Json Portal::edit_user(const std::string& actor,const Json& command) {
     commit(next);if(!id.empty())invalidate(id);Json out=Json::array();for(const auto& u:data_["users"])out.push_back(safe_user(u));return out;
 }
 Json Portal::presets() const {std::lock_guard lock(mutex_);Json out=Json::array();for(const auto& p:data_["presets"])out.push_back(p);return out;}
+Json Portal::twitch_settings() const {std::lock_guard lock(mutex_);return data_.value("twitchSettings",Json{{"clientId",""},{"enabled",false},{"rules",Json::array()},{"revision",0}});}
+void Portal::save_twitch_settings(const Json& settings) {std::lock_guard lock(mutex_);auto next=data_;next["twitchSettings"]=settings;commit(next);}
+Json Portal::twitch_credentials() const {std::lock_guard lock(mutex_);const auto encrypted=data_.value("twitchCredentials",std::string{});return encrypted.empty()?Json::object():Json::parse(protect(encrypted,false));}
+void Portal::save_twitch_credentials(const Json& credentials) {std::lock_guard lock(mutex_);auto next=data_;next["twitchCredentials"]=credentials.empty()?"":protect(credentials.dump(),true);commit(next);}
+Json Portal::audio_settings() const {std::lock_guard lock(mutex_);return data_.value("audioSettings",Json{{"deviceId",""},{"deviceName",""},{"autoStart",false}});}
+Json Portal::save_audio_settings(const Json& settings) {const auto value=valid_audio_settings(settings);std::lock_guard lock(mutex_);auto next=data_;next["audioSettings"]=value;commit(next);return value;}
+Json Portal::media() const {std::lock_guard lock(mutex_);Json out=Json::array();for(auto m:data_["media"]){m.erase("data");out.push_back(m);}return out;}
+std::pair<std::string,std::string> Portal::media_file(const std::string& id) const {
+    std::lock_guard lock(mutex_);if(!token(id)||!data_["media"].contains(id))throw PortalError(404,"portalNotFound");
+    const auto& m=data_["media"][id];return {m["mime"].get<std::string>(),components::decode(m["data"])};
+}
+Json Portal::edit_media(const Json& command) {
+    std::lock_guard lock(mutex_);const auto action=text(command,"action",16);auto next=data_;
+    if(action=="delete"){
+        const auto id=text(command,"id",64);if(!next["media"].contains(id))throw PortalError(404,"portalNotFound");
+        for(const auto& s:next["scenes"])for(const auto& item:s["items"])if(item["options"].value("assetId",std::string{})==id)throw PortalError(409,"mediaInUse");
+        for(const auto& p:next["presets"])if(p["options"].value("assetId",std::string{})==id)throw PortalError(409,"mediaInUse");
+        next["media"].erase(id);commit(next);return {{"deleted",true}};
+    }
+    if(action!="upload")throw PortalError(400,"mediaInvalid");
+    const auto name=text(command,"name",160),encoded=text(command,"data",11200000),bytes=components::decode(encoded),id=sha(bytes);
+    auto m=components::image_info(bytes);m["id"]=id;m["name"]=name;m["credit"]=command.contains("credit")?text(command,"credit",2000):"";m["source"]=command.contains("source")?text(command,"source",2000):"";
+    const auto source=m["source"].get<std::string>();if(!source.empty()&&!source.starts_with("https://commons.wikimedia.org/wiki/"))throw PortalError(400,"mediaInvalid");
+    if(data_["media"].contains(id)){auto existing=data_["media"][id];existing.erase("data");return existing;}
+    std::size_t size=encoded.size();for(const auto& asset:next["media"])size+=asset["data"].get_ref<const std::string&>().size();
+    if(next["media"].size()>=100||size>32*1024*1024)throw PortalError(507,"mediaCapacity");
+    m["data"]=encoded;next["media"][id]=m;commit(next);m.erase("data");return m;
+}
 Json Portal::edit_preset(const Json& command) {
     std::lock_guard lock(mutex_);const auto action=text(command,"action",16),id=command.value("id",std::string{});auto next=data_;
     if(!id.empty()&&!next["presets"].contains(id))throw PortalError(404,"portalNotFound");
@@ -216,6 +269,7 @@ Json Portal::edit_preset(const Json& command) {
     if(action=="delete") {if(id.empty())throw PortalError(400,"presetInvalid");next["presets"].erase(id);commit(next);return {{"deleted",true}};}
     if(action!="save")throw PortalError(400,"presetInvalid");if(id.empty()&&next["presets"].size()>=200)throw PortalError(400,"portalCapacity");
     auto p=valid_preset(command.at("preset"));
+    if(p["type"]=="image"){const auto asset=p["options"].value("assetId",std::string{});if(!asset.empty()&&!next["media"].contains(asset))throw PortalError(400,"mediaMissing");}
     if(!id.empty()&&p["type"]!=next["presets"][id]["type"])throw PortalError(400,"presetInvalid");
     const auto target=id.empty()?random_token():id;p["id"]=target;p["revision"]=id.empty()?1:next["presets"][id]["revision"].get<int>()+1;
     next["presets"][target]=p;commit(next);return p;
@@ -230,6 +284,7 @@ Json Portal::edit_scene(const Json& command) {
     if(action=="rotate") {if(id.empty())throw PortalError(400,"sceneInvalid");auto& s=next["scenes"][id];s["key"]=random_token();s["revision"]=s["revision"].get<int>()+1;commit(next);return s;}
     if(action!="save")throw PortalError(400,"sceneInvalid");if(id.empty()&&next["scenes"].size()>=100)throw PortalError(400,"portalCapacity");
     auto s=valid_scene(command.at("scene"));const auto target=id.empty()?random_token():id;s["id"]=target;s["revision"]=id.empty()?1:next["scenes"][id]["revision"].get<int>()+1;s["key"]=id.empty()?random_token():next["scenes"][id]["key"].get<std::string>();
+    for(const auto& item:s["items"])if(item["type"]=="image"){const auto asset=item["options"].value("assetId",std::string{});if(!asset.empty()&&!next["media"].contains(asset))throw PortalError(400,"mediaMissing");}
     next["scenes"][target]=s;commit(next);return s;
 }
 bool Portal::broadcast_access(const std::string& key,const std::string& path,const std::string& scene_id) const {
@@ -237,8 +292,15 @@ bool Portal::broadcast_access(const std::string& key,const std::string& path,con
     if(!scene_id.empty()) {
         if(!data_["scenes"].contains(scene_id)||!equal(data_["scenes"][scene_id]["key"],key))return false;
         if(path=="/scene"||path=="/api/scene")return true;
-        for(const auto& item:data_["scenes"][scene_id]["items"])if(item["visible"].get<bool>())kinds.insert(item["type"]);
+        for(const auto& item:data_["scenes"][scene_id]["items"])if(item["visible"].get<bool>()){
+            kinds.insert(item["type"]);
+            if(item["options"].value("audioEnabled",false)||item["type"]=="fx")kinds.insert("reactive");
+            if(item["type"]=="image"&&path=="/api/media/"+item["options"].value("assetId",std::string{}))return true;
+        }
     } else for(auto it=data_["overlayKeys"].begin();it!=data_["overlayKeys"].end();++it)if(equal(it.value(),key))kinds.insert(it.key());
+    for(const auto* kind:{"text","image","fx"})if(kinds.contains(kind)&&path==std::string("/component/")+kind)return true;
+    if(scene_id.empty()&&kinds.contains("image")&&std::regex_match(path,std::regex("/api/media/[a-f0-9]{64}")))return true;
+    if(path=="/api/audio/state"&&(kinds.contains("reactive")||(scene_id.empty()&&(kinds.contains("text")||kinds.contains("image")||kinds.contains("fx")))))return true;
     return (kinds.contains("deck")&&(path=="/overlay"||path=="/overlay.html"||path=="/api/state"||std::regex_match(path,std::regex("/api/decks/[1-4]/cover"))))||
         (kinds.contains("master")&&(path=="/master-overlay"||path=="/api/master"||std::regex_match(path,std::regex("/api/master/covers/[1-9][0-9]{0,9}"))))||
         (kinds.contains("waveform")&&(path=="/waveform"||path=="/api/audio/state"));
@@ -265,5 +327,18 @@ Json Portal::rate(const std::string& voter,const std::string& peer,const Json& c
     auto next=data_;auto& record=next["ratings"][id];if(record.is_null()){record=catalog_[id];record["id"]=id;record["votes"]=Json::object();}
     record["votes"][sha(voter)]=command["stars"];commit(next);return summary(record,voter);
 }
-Json Portal::ratings() const {std::lock_guard lock(mutex_);Json out=Json::array();for(const auto& record:data_["ratings"]){auto row=record;row.erase("votes");row.update(summary(record,""));row.erase("mine");out.push_back(row);}return out;}
+Json Portal::ratings() const {std::lock_guard lock(mutex_);Json out=Json::array();for(const auto& record:data_["ratings"]){auto row=record;row.erase("votes");row.erase("viewers");row.update(summary(record,""));row.erase("mine");out.push_back(row);}return out;}
+Json Portal::rate_twitch(const Json& viewer,const std::string& peer,const Json& command){
+    if(!viewer.is_object()||!viewer.contains("id")||!viewer.contains("login")||!viewer["id"].is_string()||!viewer["login"].is_string()||!std::regex_match(viewer["id"].get<std::string>(),std::regex("[0-9]{1,32}"))||!std::regex_match(viewer["login"].get<std::string>(),std::regex("[A-Za-z0-9_]{1,100}")))throw PortalError(401,"viewerRequired");
+    const auto voter="twitch:"+viewer["id"].get<std::string>();std::lock_guard lock(mutex_);throttle("rating-peer:"+peer,120);throttle("rating:"+sha(voter),30);
+    const auto id=text(command,"track",64);if(!catalog_.contains(id))throw PortalError(404,"ratingUnknown");
+    if(command.size()!=2||!command.contains("stars")||!command["stars"].is_number_integer()||command["stars"]<1||command["stars"]>5)throw PortalError(400,"ratingInvalid");
+    auto next=data_;auto& record=next["ratings"][id];if(record.is_null()){record=catalog_[id];record["id"]=id;record["votes"]=Json::object();}
+    record["votes"][sha(voter)]=command["stars"];record["viewers"][sha(voter)]={{"login",viewer["login"]}};commit(next);return summary(record,voter);
+}
+Json Portal::rating_viewers(const std::string& track) const{
+    std::lock_guard lock(mutex_);if(!data_["ratings"].contains(track))throw PortalError(404,"ratingUnknown");const auto& record=data_["ratings"][track];Json rows=Json::array();int legacy=0;
+    for(auto it=record["votes"].begin();it!=record["votes"].end();++it){if(record.contains("viewers")&&record["viewers"].contains(it.key()))rows.push_back({{"login",record["viewers"][it.key()]["login"]},{"stars",it.value()}});else ++legacy;}
+    return {{"viewers",rows},{"legacyCount",legacy}};
+}
 }

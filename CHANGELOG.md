@@ -1,5 +1,34 @@
 # Changelog
 
+## 2.1.0 · 2026-09-17
+
+- Require Twitch viewer sign-in for new track ratings, with one vote per Twitch account and track across browsers. Preserve older anonymous votes.
+- Add an administrator-only voter detail modal and a permission-aware ratings link on Full History. Keep viewer sessions separate from DeckStatus administrator and streamer/bot credentials.
+- Allow 1–16 ordered actions per automation with individual targets and durations, duplication/reordering and automatic migration of existing rules. Queue multiple chat replies under the send limit.
+- Move rule editing, testing and logs to **Stream → Automations**; keep Client ID and account linking in **Admin → Twitch**, with independent saves and unchanged administrator permissions.
+- Add timed **Enable audio reactive** / **Disable audio reactive** automation actions for all scene component types. Restore saved reaction settings on expiry without changing capture state or saved designs.
+- Improve scene layers with type icons, selected/hidden states, direct visibility toggles and ordering buttons; keep hidden components and their settings.
+- Add Admin Twitch integration with Public-client device login, optional bot account, DPAPI-protected credentials and persistent opt-in connection settings.
+- Add reward, chat command/text, raid and stream-status rules for chat replies and live scene visibility/text/geometry changes, with durations, cooldowns, roles, templates, a dry-run tester and runtime reset.
+- Add an isolated OAuth/EventSub/Helix fixture and browser coverage. Live Twitch validation is pending; see the [setup guide](docs/twitch.md). README and technical guides now describe the 2.1.0 workflows.
+- Fix opaque backgrounds around master/deck and waveform components in rendered scenes by matching the iframe colour scheme to the embedded overlay document. Preserve configured component backgrounds.
+- Move shared audio input selection/start/stop to Admin; waveform settings now configure only the visualization.
+- Persist the selected device and an optional capture-on-launch setting, off by default. Retain settings on Stop and report unavailable saved devices without fallback.
+- Require administrator permissions for audio settings and capture mutations, retaining the remote-control gate.
+
+- Add reusable static text, image/animated GIF and full-scene audio FX components, with standalone OBS links and shared presets.
+- Add a persistent upload library and optional Wikimedia Commons search/import with retained source/credit metadata.
+- Add audio-driven scale, position, rotation and opacity for scene layers, plus configurable fog and threshold-triggered flash effects.
+- Share the existing explicitly started Windows audio source; stale/stalled samples return effects to rest. Loading scenes or presets never starts capture.
+- Preserve existing accounts, source modes and OBS keys during media/key migration. Add native and browser coverage and an English [component guide](docs/scene-components.md).
+
+### Upgrade and compatibility
+
+- Stop DeckStatus and back up **DeckStatus.data** and **DeckStatus.network.json** before replacing application files with the complete ZIP. Existing accounts, keys, presets, scenes, media and ratings are preserved. Legacy one-action automations upgrade automatically; older anonymous ratings remain in totals without fabricated Twitch identities.
+- Audio input controls now live under **Admin → Audio input**. Capture-on-start is opt-in; loading a scene never starts capture. Twitch account setup stays under **Admin → Twitch**; rule editing moved to **Stream → Automations**.
+- New ratings require Twitch viewer sign-in. Viewer sessions expire on restart; votes persist. Streamer/bot credentials use Windows DPAPI and require relinking after moving to a different PC/Windows profile.
+- Default mode is still Rekordbox. Only the author's **Rekordbox 7.2.18.0 Windows x64** installation has been live-tested. ProLink hardware, production Twitch account authorization and OBS Studio integration remain unverified in live use. Automated checks use synthetic fixtures; see [validation](docs/validation.md).
+
 ## 2.0.2 · 2026-09-16
 
 - Add experimental CDJ-3000X, DJM-900NXS2 and XDJ-AZ (PRO DJ LINK mode) device profiles, setup guidance and synthetic packet/browser coverage. No live hardware validation is claimed.

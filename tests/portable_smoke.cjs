@@ -18,7 +18,12 @@ async function run(args,test){
 }
 (async()=>{
  for(const language of ['en','de'])await run(['--demo','--lang',language],async(request)=>{
-  const app=(await request('/api/app')).data;assert.equal(app.mode,'rekordbox');assert.equal(app.version,'2.0.2');
+  const app=(await request('/api/app')).data;assert.equal(app.mode,'rekordbox');assert.equal(app.version,'2.1.0');
+  assert.equal((await request('/automations')).status,200);assert.equal((await request('/automations.js')).status,200);
+  assert.deepEqual((await request('/api/admin/automations')).data.settings,{enabled:false,rules:[],revision:0});
+  assert.deepEqual((await request('/api/public/twitch')).data,{available:false,user:null,pending:null});
+  assert.equal((await request('/api/public/rating',{track:'fake',stars:5})).status,401);
+  assert.equal((await request('/api/history')).data.canViewRatings,true);
   const state=(await request('/api/state')).data;assert.equal(state.decks[0].title,'Night Drive "Live"');assert.equal(state.decks[1].artist,'Studio North');
   assert.equal(state.decks[0].bpm,128);assert.equal(state.decks[0].originalBpm,126);assert.equal(state.decks[0].durationMs,240000);
   assert.equal((await request('/api/prolink/devices')).status,409);assert.equal((await request('/api/prolink/control',{action:'discover'})).status,409);
@@ -30,7 +35,7 @@ async function run(args,test){
   assert.equal((await request('/api/rekordbox/status')).status,409);assert.equal((await request('/api/health')).status,503);
   assert.equal((await request('/api/prolink/control',{action:'play'})).status,400);
   assert.equal((await request('/api/prolink/control',{action:'connect',players:[1,1]})).status,400);
-  for(const route of ['/','/prolink/settings','/rekordbox/settings','/overlay/settings','/master-overlay/settings','/history','/waveform/settings','/navigation.js','/navigation.css','/admin','/scenes'])assert.equal((await request(route)).status,200);
+  for(const route of ['/','/prolink/settings','/rekordbox/settings','/overlay/settings','/master-overlay/settings','/history','/waveform/settings','/navigation.js','/navigation.css','/admin','/scenes','/automations','/automations.js','/api/admin/automations'])assert.equal((await request(route)).status,200);
   if(process.env.DECKSTATUS_TEST_DISCOVERY==='1'){
   // Passive discovery exercises the actual bundled JVM. No virtual device joins the network.
   assert.equal((await request('/api/prolink/control',{action:'discover'})).status,202);

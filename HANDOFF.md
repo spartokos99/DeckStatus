@@ -4,13 +4,16 @@ Prepared on **2026-09-16** for continuing development on another Windows PC. Rea
 
 ## Current state
 
-- Repository: [spartokos99/DeckStatus](https://github.com/spartokos99/DeckStatus), branch `main`.
-- Published application: [v2.0.2](https://github.com/spartokos99/DeckStatus/releases/tag/v2.0.2).
-- Application release commit: `b82fd1a2f07c80aa5b87638eda9e7efcde17fce1`. This documentation handoff is a later, documentation-only commit; the release tag stays on the tested application commit.
-- Asset: `DeckStatus-2.0.2-win-x64.zip`, 93,566,741 bytes. SHA-256: `a1dc000a7b46ca6a131b851d0ab2525c3fbc3db753552574c876b374d6944571`. GitHub also hosts its `.sha256` sidecar.
-- The requested implementation and release work is complete. There is no active implementation task to resume automatically; wait for the owner's next feature or fix request after orientation.
-- A native OBS Studio plugin was discussed as a possible future project, but has **not** been implemented or commissioned. Current OBS integration uses Browser Sources.
-- The old workspace contained an unrelated, untracked `rb_inj.sln`. It was deliberately left untouched and excluded from commits/releases. The repository's original folder name may still be `rb_inj`; the product is DeckStatus.
+- Official package: [DeckStatus 2.1.0](https://github.com/spartokos99/DeckStatus/releases/tag/v2.1.0), `DeckStatus-2.1.0-win-x64.zip`, 93,723,204 bytes; SHA-256 `f17f72a678bede4caf8f79d1304fc2134cfb5a616768fb2e8aa9e00b48cc596a`. Fresh extraction passed portable EN/DE demo, idle ProLink and missing-device audio-startup smoke. All 442 files match source/build, 33 dependency archives match pinned hashes and 315 runtime files match the pinned runtime. Release assets include the checksum sidecar.
+- Release line: **v2.1.0**, repository [spartokos99/DeckStatus](https://github.com/spartokos99/DeckStatus), branch main. Version 2.1.0 bundles the creative components, shared Admin audio configuration, transparency fixes, multi-action Twitch automations and Twitch-authenticated viewer ratings developed after v2.0.2. See CHANGELOG.md and docs/validation.md for features and validation boundaries.
+- The owner explicitly requested the official release and README/documentation updates on 2026-09-17. The previous instruction to leave README.md unchanged is superseded; preserve its current structure when updating individual details.
+- Full History remains publicly readable; new votes require a separate Twitch viewer session. Viewer tokens are memory-only, revalidated before voting, and never grant portal roles. Votes use hashed Twitch IDs with admin-only usernames; older anonymous votes are retained. See src/twitch_viewers.h and docs/twitch.md.
+- Automations use 1–16 ordered actions with individual targets/durations and shared cooldowns. Legacy single-action stores migrate atomically. Stream → Automations is admin-only; Admin → Twitch holds Client ID/account linking. Split saves preserve unrelated settings and reject revision conflicts. Chat output is queued with bounds and send limits.
+- Scene Components includes text, images/GIFs and audio FX. Media is persistent; Commons imports are opt-in. Shared audio configuration, endpoint persistence and opt-in launch capture live in Admin → Audio input. Loading designs/presets never starts capture.
+- Scene iframe transparency depends on matching the iframe colour scheme to the embedded overlay document. Preserve the explicit transparent background and dark scheme in scene-shared.js.
+- The native WinHTTP transport and production Twitch account permissions have not been validated with real Twitch accounts. ProLink hardware and OBS Studio remain untested in live use. Rekordbox compatibility is limited to the author's 7.2.18.0 Windows x64 installation.
+- The local DeckStatus.vcxproj additions for AGENTS.md/HANDOFF.md and untracked rb_inj.sln predate these changes. Preserve them; they are not part of the release commit. The CMake build is authoritative.
+- A native OBS Studio plugin was discussed but has not been commissioned or implemented. Current integration uses Browser Sources.
 
 ## First steps on another PC
 
@@ -36,10 +39,11 @@ DeckStatus serves live DJ metadata and stream overlays from either the default R
 - Four deck cards: title, artist, album, key, artwork, current/original BPM and track timelines.
 - Deck overlays, master overlay with configurable history/scale/alignment and smooth transitions, and Windows-input audio waveform overlays with six styles.
 - Shared saved component presets and a monitor-sized scene editor. Inserting a preset creates an independent layer copy; changing a preset does not rewrite existing scenes. A saved scene uses one OBS Browser Source URL.
+- New reusable text/image/FX components; bounded persistent media library and opt-in Wikimedia Commons search/import. Audio-reactive transforms work on every scene layer. One shared reaction loop per scene uses the Windows audio source configured in Admin (manual start or explicitly enabled launch autostart); no device starts when loading content.
 - Accounts with administrator/operator roles, initial password change, user management and server-side authorization.
-- Public Full History and 1–5-star browser-based ratings. Ratings persist across sessions; the played-track sequence does not. This is lightweight audience feedback, not verified-person voting.
+- Public Full History and aggregate ratings, with Twitch sign-in required for new 1–5-star votes. One vote per verified Twitch account/track; admins can see usernames and individual stars. Legacy anonymous votes remain. Ratings persist across sessions; played-track history does not.
 - Configurable local/LAN access, optional public HTTPS domain behind a reverse proxy, and separately gated remote audio/ProLink controls.
-- English default UI plus German translations. Navigation: Start, Stream (Scene editor, Full History, Scene Components dropdown), Connections and standalone Admin. Inactive source-mode functions remain visible but disabled.
+- English default UI plus German translations. Navigation: Start, Stream (Scene editor, Automations, Full History, Scene Components dropdown), Connections and standalone Admin. Inactive source-mode functions remain visible but disabled.
 
 ## Source map
 
@@ -52,12 +56,13 @@ DeckStatus serves live DJ metadata and stream overlays from either the default R
 | Network | `src/network.cpp`, `src/network.h` | Validated persisted listener/domain options, interfaces and peer policy |
 | Persistent portal | `src/portal.cpp`, `src/portal.h` | Users/passwords, sessions, ratings, presets, scenes, revision checks and OBS keys |
 | History | `src/master_history.h` | Shared master observations, overlay history and paginated full session history |
-| Windows audio | `src/audio_capture.cpp`, `src/audio_samples.h` | Explicit WASAPI input/loopback capture and sample processing |
+| Windows audio | `src/audio_capture.cpp`, `src/audio_samples.h`, `src/audio_control.h`, `web/admin-audio.js` | WASAPI input/loopback, saved admin settings, opt-in startup and sample processing |
 | Native ProLink host | `src/prolink.cpp` | Owned JVM process, bounded JSON IPC, freshness, artwork and restart handling |
 | Java ProLink | `prolink/src/com/deckstatus/prolink/Main.java`, `DeviceSupport.java` in the same directory | Discovery/connection, exact model profiles, status/metadata adaptation |
 | Shared web UI | `web/navigation.js`, `web/auth.js`, `web/i18n.js`, `web/locales/` | Navigation, authentication and shared translations |
 | Overlay links/designs | `web/broadcast.js`, `web/settings.js`, `web/master-options.js`, `web/overlay-shared.js` | Scoped URLs, deck/master options and common rendering |
 | Presets/scenes | `web/component-presets.js`, `web/scene-editor.js`, `web/scene.js`, `web/scene-shared.js` | Shared preset library, editing and live scene rendering |
+| Creative components | `src/scene_components.h`, `web/creative-*.js`, `web/audio-reactivity.js`, `web/media-library.js` | Media validation, text/image/canvas FX, shared audio reactions and opt-in Commons imports |
 | Waveforms | `web/waveform-settings.js`, `web/waveform.js`, `web/waveform-renderer.js`, `web/waveform-options.js` | Device controls, visualization options and canvas output |
 | Build/resources | `CMakeLists.txt`, `build.ps1`, `prolink/build.ps1`, `src/deckstatus.rc` | Native/Java build, packaging inputs, version information and icon |
 
@@ -96,6 +101,15 @@ See [docs/network.md](docs/network.md). Do not solve a Host rejection by broadly
 
 The private store contains users, password hashes, votes, presets, scenes and scoped keys. Store writes are atomic, use revisions where appropriate and preserve prior data on failure. Invalid stores are not silently replaced. OBS keys authorize only their renderer/read routes; they cannot administer users or source controls. Public history must not expose unobserved library data or private settings. Preserve migration coverage and the last-admin protections.
 
+### Creative components
+
+- New types: `text`, `image`, `fx`; old preset types and source modes remain intact. Scene layers allow static `rotation` and audio reaction options. Text is literal, images reference a local SHA-256 asset ID, FX uses procedural canvas drawing.
+- Media is Base64 in `portal.json`: 8 MiB / 4096×4096 per file, 100 files and 32 MiB encoded across the library. Original animated GIF bytes are retained. Deletion rejects references in saved scenes/presets. Atomic persistence and read scopes are covered by tests.
+- Commons search/import happens only on explicit user action in the browser. Only `/components/image` allows the two Wikimedia origins through CSP. No external URLs/keys enter saved renderer options; imported assets render locally. Attribution/source metadata remains in the library.
+- Media upload bodies can reach 12 MiB; all other routes retain 64 KiB. Scene keys expose visible referenced assets only; standalone image keys can fetch any known media ID but not list the library. Text/image/FX keys can read samples, never control capture.
+- New FX layers fill the canvas; after changing scene resolution use Fill scene. Flash triggers on rising threshold crossings with cooldown; fog/motion uses attack/release. Stale and stalled buffers clear effects. Analysis is approximate (1,024-sample FFT), not beat-grid detection.
+- New stores and existing stores receive media storage and three extra read keys. Existing credentials and OBS keys are retained. No hardware testing was added.
+
 ## Validation commands
 
 From the repository root:
@@ -108,6 +122,10 @@ node tests/browser_dashboard_history_test.cjs
 node tests/browser_prolink_test.cjs
 node tests/browser_network_test.cjs
 node tests/browser_portal_test.cjs
+node tests/browser_creative_test.cjs
+node tests/browser_creative_portal_test.cjs
+node tests/browser_admin_audio_test.cjs
+node tests/audio_startup_smoke.cjs
 node tests/network_smoke.cjs
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/resource_test.ps1
 ```
@@ -122,7 +140,7 @@ Remove-Item Env:DECKSTATUS_TEST_PROXY
 
 The proxy fixture uses an ephemeral certificate and a disposable browser profile, not a change to system trust. `DECKSTATUS_TEST_ROOT` can point the portal suite at an extracted package. `node tests/portable_smoke.cjs 'C:/path/to/extracted-package'` checks the portable application in isolated demo/idle-ProLink modes. Leave `DECKSTATUS_TEST_DISCOVERY` unset for ordinary checks.
 
-Native tests include `portal_access`, `network_access`, `prolink_backend`, `master_history`, `artwork_database`, `http_server`, `scanner_boundaries`, `injection_lifecycle` and `audio_capture`. Injection targets an owned fixture; the default audio test does not open capture. The optional database test needs CMake's `REKORDBOX_TEST_EXE` set to an appropriate local executable; a new machine without it may skip that case. Report what actually ran.
+Native tests include `twitch_automation`, `portal_access`, `network_access`, `prolink_backend`, `master_history`, `artwork_database`, `http_server`, `scanner_boundaries`, `injection_lifecycle` and `audio_capture`. Injection targets an owned fixture; the default audio test does not open capture. The optional database test needs CMake's `REKORDBOX_TEST_EXE` set to an appropriate local executable; a new machine without it may skip that case. Report what actually ran.
 
 For v2.0.2, all nine native cases, Java model/UTF-8 pipe checks and all six browser suites passed. The portal suite also passed through HTTPS. Network smoke verified simultaneous local/LAN access with a configured domain. EXE/DLL versions and nine icon sizes were checked. A freshly extracted ZIP, including a path with spaces, passed portable smoke; 426 files matched source/build output, 33 dependency archives matched pinned hashes and all 315 bundled runtime files were unmodified. These are dated results, not proof that a future checkout or a new PC has been tested.
 
@@ -138,12 +156,12 @@ When the owner requests another release:
 6. Commit the intended source changes, create the requested tag and push without forcing unrelated history. Create a GitHub draft release, upload the ZIP/checksum, verify uploaded sizes/digests and then publish. Keep repository-document links in GitHub release notes absolute and version-pinned.
 7. Verify the public tag/release/assets. Report the release URL and completed checks. Keep credentials in the configured credential manager or CLI authentication; never print or commit them.
 
-The local one-off publishing scripts used for v2.0.2 are not part of the clone. Recreate the workflow using available authenticated tools rather than expecting those ignored files to exist. The current documentation handoff does not change the v2.0.2 ZIP, tag or published version.
+The local one-off publishing scripts used for v2.0.2 are not part of the clone. Recreate the workflow using available authenticated tools rather than expecting those ignored files to exist. Never move or overwrite previously published release tags/assets.
 
 ## Continuing with a new assistant
 
 Suggested first prompt:
 
-> Read AGENTS.md and HANDOFF.md, inspect the current Git status, and summarize the project state and compatibility boundaries in German. Treat the published v2.0.2 work as complete. Do not start production injection, device discovery or audio capture during orientation. Then continue with my next request.
+> Read AGENTS.md and HANDOFF.md, inspect the current Git status, and summarize the project state and compatibility boundaries in German. Treat the v2.1.0 release work as complete after checking GitHub publication. Do not start production injection, device discovery or audio capture during orientation. Then continue with my next request.
 
 Keep this file current with future decisions and completed work. It transfers project context, not the previous chat session or its tool permissions.

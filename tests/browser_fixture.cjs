@@ -11,11 +11,12 @@ async function withBrowser(handler,test){
     res.setHeader('Cache-Control','no-store');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
     const url=new URL(req.url,'http://localhost');if(handler(req,res,url))return;
-    if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({version:'2.0.2',mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));}
+    if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({version:'2.1.0',mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));}
     const routes={'/waveform':'waveform.html','/waveform/settings':'waveform-settings.html','/':'index.html','/history':'history.html','/overlay':'overlay.html','/master-overlay':'master-overlay.html','/overlay/settings':'master-settings.html','/master-overlay/settings':'master-settings.html'};
     routes['/prolink/settings']='prolink-settings.html';routes['/rekordbox/settings']='rekordbox-settings.html';
     routes['/network/settings']='network-settings.html';
-    Object.assign(routes,{'/login':'login.html','/account/password':'password.html','/admin':'admin.html','/scenes':'scene-editor.html','/scene':'scene.html'});
+    for(const kind of ['text','image','fx']){routes['/component/'+kind]='creative.html';routes['/components/'+kind]='creative-settings.html';}
+    Object.assign(routes,{'/login':'login.html','/account/password':'password.html','/admin':'admin.html','/automations':'automations.html','/scenes':'scene-editor.html','/scene':'scene.html'});
     const name=routes[url.pathname]||url.pathname.slice(1);
     if(!/^(?:[a-z0-9-]+\.(?:js|html|css|svg)|locales\/(?:en|de)\.json)$/.test(name)){res.statusCode=404;return res.end();}
     const asset=path.join(root,'web',name);if(!fs.existsSync(asset)){res.statusCode=404;return res.end();}
@@ -27,8 +28,9 @@ async function withBrowser(handler,test){
     await new Promise(resolve=>fixture.listen(0,'127.0.0.1',resolve));const base=handler.baseUrl||'http://127.0.0.1:'+fixture.address().port;
     browser=spawn(process.argv[2]||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',['--headless=new','--no-first-run','--disable-background-networking','--remote-debugging-port=0','--user-data-dir='+profile,...(handler.browserArgs||[]),'about:blank'],{windowsHide:true,stdio:'ignore'});
     let error;browser.on('error',e=>{error=e;});const portFile=path.join(profile,'DevToolsActivePort');
-    await until(()=>{if(error)throw error;return fs.existsSync(portFile);},'Browser did not start',15000);
-    const port=fs.readFileSync(portFile,'utf8').split('\n')[0],targets=await(await fetch('http://127.0.0.1:'+port+'/json/list')).json();
+    let port;
+    await until(()=>{if(error)throw error;try{const lines=fs.readFileSync(portFile,'utf8').trim().split('\n');if(/^\d+$/.test(lines[0])&&lines[1]?.startsWith('/devtools/')){port=lines[0];return true;}}catch(e){if(!['EBUSY','ENOENT'].includes(e.code))throw e;}return false;},'Browser did not start',15000);
+    const targets=await(await fetch('http://127.0.0.1:'+port+'/json/list')).json();
     socket=new WebSocket(targets.find(t=>t.type==='page').webSocketDebuggerUrl);await new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject;});
     let sequence=0;const pending=new Map(),exceptions=[];
     socket.onmessage=({data})=>{const m=JSON.parse(data),job=pending.get(m.id);if(job){pending.delete(m.id);clearTimeout(job.timer);m.error?job.reject(Error(JSON.stringify(m.error))):job.resolve(m.result);}if(m.method==='Runtime.exceptionThrown')exceptions.push(m.params.exceptionDetails);};

@@ -22,7 +22,7 @@ The page shows active and saved settings separately. Saving does not interrupt t
 |---|---|
 | This PC only | Other PCs cannot connect; local audio/ProLink controls remain available |
 | Network access, remote controls off | Authenticated clients can use their account permissions; audio/ProLink control from another PC is disabled. Full History remains public. OBS keys allow their matching read routes. |
-| Network access, remote controls on | Authenticated users on other PCs can additionally start/switch/stop audio capture and discover/connect/disconnect ProLink devices |
+| Network access, remote controls on | Administrators on other PCs can additionally save audio settings and start/switch/stop capture; authenticated operators/admins can discover/connect/disconnect ProLink devices |
 
 Signed-in clients can edit overlay designs and shared scenes. The remote-controls switch affects audio/ProLink controls, not scene editing or user-management permissions. Blocked source-control requests receive HTTP 403.
 
@@ -44,7 +44,7 @@ Use trusted networks for direct HTTP and the proxy-to-DeckStatus connection: **H
 
 Keep the original **Host** and **Origin** headers. Remove earlier `header_up Host ...` or Origin rewrites; Caddy forwards these headers by default for an HTTP upstream. Caddy manages the public certificate; DeckStatus continues listening on its selected HTTP port. If Caddy runs on the same PC, its upstream can instead be `127.0.0.1:18740` with DeckStatus in local-only mode. If it runs on another PC, use the reachable LAN interface and allow its TCP connection through Windows Firewall. See [Caddy's reverse proxy documentation](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy).
 
-The setting does not change DNS, open ports or install a certificate. It allows only the exact domain (also accepting an explicit default `:443`), with a matching HTTPS Origin when present. HTTP Origins, other ports and wildcard/subdomain matches stay blocked. Session and rating cookies on the domain use `Secure`; direct IP/localhost cookies keep their HTTP behavior. Clear the domain and restart to disable domain access. Existing settings files without `publicDomain` retain their original behavior.
+The setting does not change DNS, open ports or install a certificate. It allows only the exact domain (also accepting an explicit default `:443`), with a matching HTTPS Origin when present. HTTP Origins, other ports and wildcard/subdomain matches stay blocked. Session and Twitch viewer cookies on the domain use `Secure`; direct IP/localhost cookies keep their HTTP behavior. Clear the domain and restart to disable domain access. Existing settings files without `publicDomain` retain their original behavior.
 
 Domain requests respect **Allow remote controls**, including when Caddy connects from localhost. Network settings remain read-only through the domain. `Forwarded` and `X-Forwarded-*` are not trusted for host/origin validation or local privileges. Rate limits use the actual TCP peer, so clients behind the same proxy share IP-based limits. International domain names must use ASCII/punycode. HTTPS ports other than 443 and hosting under a path prefix are not supported.
 
@@ -106,7 +106,7 @@ node tests/browser_portal_test.cjs
 Remove-Item Env:DECKSTATUS_TEST_PROXY
 ```
 
-This checks login, required password changes, Secure cookies, public ratings, presets/scenes, local OBS links, same-origin previews, anonymous scene rendering and restart persistence. The fixture creates a temporary certificate and maps a test domain only inside its disposable Edge process; it does not change system DNS or certificate trust. It uses Node TLS termination with Caddy-compatible HTTP forwarding, not a real Caddy deployment.
+This checks login, required password changes, Secure cookies, public history and Twitch-required voting, presets/scenes, local OBS links, same-origin previews, anonymous scene rendering and restart persistence. The fixture creates a temporary certificate and maps a test domain only inside its disposable Edge process; it does not change system DNS or certificate trust. It uses Node TLS termination with Caddy-compatible HTTP forwarding, not a real Caddy deployment.
 
 `node tests/network_smoke.cjs [PATH_TO_BUILD_OR_EXTRACTED_PACKAGE]` launches the real EXE with isolated configuration files, saves settings and restarts it in both modes, checks CLI precedence and requests the host's actual LAN address. It uses demo metadata or an idle ProLink source, never production injection, device connection or audio capture.
 

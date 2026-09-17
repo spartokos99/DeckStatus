@@ -3,6 +3,17 @@ import {api} from './auth.js';
 const $ = id => document.getElementById(id);
 const rows = new Map(), cursors = [null];
 let page = 0, state = { entries: [], total: 0, status: 'starting' }, busy = false, timer, disposed = false;
+let viewerState={available:false,user:null,pending:null},viewerBusy=false,viewerTimer,voting=false;
+function renderViewer(){
+  $('viewer-status').textContent=viewerState.user?t('viewerSignedIn',{user:viewerState.user.login}):t(viewerState.available?'viewerRequired':'viewerUnavailable');
+  $('viewer-login').hidden=!!viewerState.user||!!viewerState.pending;$('viewer-login').disabled=viewerBusy||!viewerState.available;
+  $('viewer-logout').hidden=!viewerState.user&&!viewerState.pending;$('viewer-logout').disabled=viewerBusy;
+  $('viewer-pending').hidden=!viewerState.pending;if(viewerState.pending){$('viewer-code').textContent=viewerState.pending.code;$('viewer-activate').href=viewerState.pending.url;}
+  $('history-ratings-link').hidden=!state.canViewRatings;
+}
+async function viewerRequest(action){if(viewerBusy)return;viewerBusy=true;renderViewer();try{viewerState=await api('/api/public/twitch',action?{action}:undefined);$('viewer-error').textContent='';if(action==='logout')state.viewer=null;await load();}catch(error){$('viewer-error').textContent=error.message;if(action==='poll'){viewerState.pending=null;viewerState.user=null;}}finally{viewerBusy=false;render();}}
+async function pollViewer(){if(disposed)return;await viewerRequest(viewerState.pending?'poll':undefined);if(!disposed)viewerTimer=setTimeout(pollViewer,5000);}
+$('viewer-login').addEventListener('click',()=>viewerRequest('start'));$('viewer-logout').addEventListener('click',()=>viewerRequest('logout'));
 const text = value => typeof value === 'string' && value.trim() ? value : '—';
 const tempo = value => Number.isFinite(value) && value > 0 ? value.toLocaleString(locale(), { maximumFractionDigits: 2 }) : '—';
 function rowFor(entry) {
@@ -15,7 +26,7 @@ function rowFor(entry) {
     image.addEventListener('error', () => { image.hidden = true; });
     rows.set(entry.entryId, row);
     const rating=document.createElement('td');rating.className='history-rating';const stars=document.createElement('div');stars.className='rating-stars';stars.setAttribute('role','group');stars.setAttribute('aria-label',t('ratingYourVote'));
-    for(let value=1;value<=5;value++){const button=document.createElement('button');button.type='button';button.textContent='★';button.dataset.stars=value;button.setAttribute('aria-label',t('ratingStars',{count:value}));button.addEventListener('click',async()=>{stars.querySelectorAll('button').forEach(b=>b.disabled=true);try{const result=await api('/api/public/rating',{track:row.dataset.ratingId,stars:value});for(const item of state.entries)if(item.ratingId===row.dataset.ratingId)item.rating=result;$('rating-feedback').textContent=t('ratingThanks');render();}catch(error){$('rating-feedback').textContent=error.message;}finally{stars.querySelectorAll('button').forEach(b=>b.disabled=false);}});stars.append(button);}
+    for(let value=1;value<=5;value++){const button=document.createElement('button');button.type='button';button.textContent='★';button.dataset.stars=value;button.setAttribute('aria-label',t('ratingStars',{count:value}));button.addEventListener('click',async()=>{if(voting||!state.viewer)return;voting=true;render();try{const result=await api('/api/public/rating',{track:row.dataset.ratingId,stars:value});for(const item of state.entries)if(item.ratingId===row.dataset.ratingId)item.rating=result;$('rating-feedback').textContent=t('ratingThanks');render();}catch(error){$('rating-feedback').textContent=error.message;}finally{voting=false;await load();render();}});stars.append(button);}
     const average=document.createElement('span');average.className='rating-average';rating.append(stars,average);row.append(rating);
   }
   const field = (name, value) => { row.querySelector('[data-field="' + name + '"]').textContent = value; };
@@ -23,7 +34,7 @@ function rowFor(entry) {
   row.dataset.entryId = entry.entryId; row.dataset.current = String(current);
   field('number', entry.entryId);
   row.dataset.ratingId=entry.ratingId||'';
-  row.querySelectorAll('[data-stars]').forEach(button=>{const active=Number(button.dataset.stars)<=entry.rating?.mine;button.dataset.active=active;button.setAttribute('aria-pressed',String(Number(button.dataset.stars)===entry.rating?.mine));button.setAttribute('aria-label',t('ratingStars',{count:button.dataset.stars}));button.disabled=!entry.ratingId;});
+  row.querySelectorAll('[data-stars]').forEach(button=>{const active=Number(button.dataset.stars)<=entry.rating?.mine;button.dataset.active=active;button.setAttribute('aria-pressed',String(Number(button.dataset.stars)===entry.rating?.mine));button.setAttribute('aria-label',t('ratingStars',{count:button.dataset.stars}));button.disabled=voting||!state.viewer||!entry.ratingId;});
   row.querySelector('.rating-average').textContent=entry.rating?.count?t('ratingSummary',{average:entry.rating.average.toLocaleString(locale(),{maximumFractionDigits:1}),count:entry.rating.count}):t(entry.ratingId?'ratingNoVotes':'ratingUnavailable');
   const date = Number.isFinite(entry.startedAt) ? new Date(entry.startedAt) : null;
   const validDate = date && Number.isFinite(date.getTime());
@@ -45,6 +56,7 @@ function rowFor(entry) {
   return row;
 }
 function render() {
+  renderViewer();
   document.title = t('fullHistory') + ' · DeckStatus';
   $('count').textContent = t('historyCount', { count: state.total.toLocaleString(locale()) });
   const live = state.status === 'connected' || state.status === 'demo';
@@ -79,6 +91,6 @@ $('older').addEventListener('click', () => { if (busy || !state.nextBefore) retu
 $('newer').addEventListener('click', () => { if (busy || !page) return; --page; load(); });
 $('refresh').addEventListener('click', () => { if (busy) return; page = 0; cursors.splice(1); load(); });
 window.addEventListener('languagechange', render);
-window.addEventListener('pagehide', () => { disposed = true; clearTimeout(timer); });
+window.addEventListener('pagehide', () => { disposed = true; clearTimeout(timer);clearTimeout(viewerTimer); });
 const ratingHeading=document.createElement('th');ratingHeading.scope='col';ratingHeading.dataset.i18n='ratingYourVote';document.querySelector('thead tr').append(ratingHeading);
-translate(); load();
+translate(); load();pollViewer();

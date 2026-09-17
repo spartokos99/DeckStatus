@@ -1,4 +1,5 @@
 #include "portal.h"
+#include "twitch.h"
 #include "server.h"
 #include "master_history.h"
 #include <Windows.h>
@@ -9,8 +10,11 @@
 
 using Json=nlohmann::json;
 using deckstatus::Portal;
+using deckstatus::TwitchTransport;
 void check(bool value,const char* message){if(!value)throw std::runtime_error(message);}
 template<class F>void fails(int status,F fn){try{fn();}catch(const deckstatus::PortalError& e){check(e.status==status,"Wrong error status");return;}throw std::runtime_error("Expected rejection");}
+#include "creative_portal_checks.h"
+#include "audio_settings_checks.h"
 int main(int argc,char** argv){
     const auto root=std::filesystem::temp_directory_path()/(L"DeckStatus-portal-test-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64()));
     try{
@@ -76,6 +80,14 @@ int main(int argc,char** argv){
             deckstatus::MasterHistory master;Json state={{"status","demo"},{"demo",true},{"masterDeckId",1},{"decks",Json::array({entry})}};master.update(state);
             httplib::Server reserve;const auto port=reserve.bind_to_any_port("127.0.0.1");std::jthread reserve_thread([&]{reserve.listen_after_bind();});reserve.wait_until_ready();reserve.stop();reserve_thread.join();
             deckstatus::ServerFeatures features;features.portal=&portal;std::atomic_bool stop=false;
+            auto twitchSettings=portal.twitch_settings();twitchSettings["clientId"]="viewerclient123";portal.save_twitch_settings(twitchSettings);
+            features.twitch_transport=std::make_shared<TwitchTransport>();
+            features.twitch_transport->request=[](const auto&,const auto& path,const auto&,const auto&,const auto&)->TwitchTransport::Response{
+                if(path==L"/oauth2/device")return {200,{{"device_code","fixture-device"},{"user_code","HTTP123"},{"interval",5},{"expires_in",300}}};
+                if(path==L"/oauth2/token")return {200,{{"access_token","fixture-token"}}};
+                if(path==L"/oauth2/validate")return {200,{{"client_id","viewerclient123"},{"user_id","789"},{"login","http_viewer"},{"expires_in",3600}}};
+                throw std::runtime_error("Unexpected viewer HTTP fixture request");
+            };
             std::jthread server([&]{deckstatus::run_server("127.0.0.1",port,argv[1],[&]{return state;},[](int){return std::pair<std::string,std::string>{};},stop,&master,&features);});
             struct Stop {std::atomic_bool& flag;~Stop(){flag=true;}} cleanup{stop};
             httplib::Client client("127.0.0.1",port);client.set_read_timeout(5);client.set_connection_timeout(1);client.set_keep_alive(false);
@@ -83,6 +95,22 @@ int main(int argc,char** argv){
             const auto status=[&](const httplib::Result& r,int code){check(bool(r),"HTTP transport failed");check(r->status==code,"Unexpected HTTP status");};
             status(client.Get("/"),303);status(client.Get("/api/state"),401);status(client.Get("/history"),200);status(client.Get("/api/history"),200);
             status(client.Get("/api/presets"),401);status(client.Post("/api/presets","{}","application/json"),401);
+            status(client.Get("/api/admin/audio"),401);status(client.Post("/api/admin/audio",R"({"action":"stop"})","application/json"),401);
+            status(client.Get("/api/admin/twitch"),401);status(client.Post("/api/admin/twitch",R"({"action":"reset"})","application/json"),401);
+            status(client.Get("/api/public/twitch"),200);status(client.Post("/api/public/rating",R"({"track":"fake","stars":5,"login":"spoof"})","application/json"),401);
+            status(client.Get("/api/admin/ratings/"+track+"/viewers"),401);
+            check(!Json::parse(client.Get("/api/history")->body)["canViewRatings"].get<bool>(),"Anonymous history exposed admin link");
+            status(client.Post("/api/public/twitch",{{"Origin","http://evil.example"}},R"({"action":"start"})","application/json"),403);
+            const auto startViewer=client.Post("/api/public/twitch",R"({"action":"start"})","application/json");status(startViewer,200);
+            check(startViewer->body.find("fixture-device")==std::string::npos&&startViewer->body.find("session")==std::string::npos,"Viewer HTTP response leaked secrets");
+            auto viewerCookie=startViewer->get_header_value("Set-Cookie");check(viewerCookie.find("HttpOnly")!=std::string::npos&&viewerCookie.find("SameSite=Strict")!=std::string::npos,"Viewer cookie flags missing");viewerCookie=viewerCookie.substr(0,viewerCookie.find(';'));
+            client.set_default_headers({{"Cookie",viewerCookie}});std::this_thread::sleep_for(std::chrono::milliseconds(5050));
+            const auto viewerLogin=client.Post("/api/public/twitch",R"({"action":"poll"})","application/json");status(viewerLogin,200);check(Json::parse(viewerLogin->body)["user"]["login"]=="http_viewer","Viewer HTTP login failed");
+            status(client.Post("/api/public/rating",Json{{"track",track},{"stars",4}}.dump(),"application/json"),200);
+            check(Json::parse(client.Get("/api/history")->body)["entries"][0]["rating"]["mine"]==4,"Viewer HTTP history missing own vote");
+            status(client.Get("/api/admin/ratings/"+track+"/viewers"),401);status(client.Get("/api/state"),401);
+            status(client.Post("/api/public/twitch",R"({"action":"logout"})","application/json"),200);status(client.Post("/api/public/rating",Json{{"track",track},{"stars",4}}.dump(),"application/json"),401);client.set_default_headers({});
+            status(client.Get("/automations"),303);status(client.Get("/api/admin/automations"),401);status(client.Post("/api/admin/automations",R"({"action":"reset"})","application/json"),401);
             const httplib::Headers external_link={{"Sec-Fetch-Site","cross-site"},{"Sec-Fetch-Mode","navigate"},{"Sec-Fetch-Dest","document"}};
             status(client.Get("/history",external_link),200);status(client.Get("/login",external_link),200);status(client.Get("/api/state",external_link),403);
             status(client.Post("/api/admin/users","{}","application/json"),401);
@@ -90,6 +118,14 @@ int main(int argc,char** argv){
             auto cookie=sign_in->get_header_value("Set-Cookie");check(cookie.find("HttpOnly")!=std::string::npos&&cookie.find("SameSite=Strict")!=std::string::npos,"Session cookie flags missing");cookie=cookie.substr(0,cookie.find(';'));client.set_default_headers({{"Cookie",cookie}});
             status(client.Get("/api/state"),200);status(client.Get("/api/admin/users"),200);status(client.Post("/api/auth/logout","{}","text/plain"),415);
             status(client.Get("/api/admin/users",{{"Origin","http://evil.example"}}),403);
+            status(client.Get("/api/admin/twitch"),200);
+            status(client.Get("/api/admin/ratings/"+track+"/viewers"),200);
+            check(Json::parse(client.Get("/api/history")->body)["canViewRatings"].get<bool>(),"Admin history lacks ratings link");
+            status(client.Post("/api/public/rating",R"({"track":"fake","stars":5})","application/json"),401);
+            status(client.Get("/automations"),200);status(client.Get("/api/admin/automations"),200);status(client.Post("/api/admin/automations",R"({"action":"reset"})","application/json"),200);
+            status(client.Post("/api/admin/twitch",R"({"action":"reset"})","application/json"),200);
+            status(client.Post("/api/admin/twitch",{{"Origin","http://evil.example"}},R"({"action":"reset"})","application/json"),403);
+            status(client.Post("/api/admin/twitch",R"({"action":"save","settings":{}})","application/json"),400);
             status(client.Post("/api/auth/logout","{}","application/json"),200);status(client.Get("/api/state"),401);
             const auto forced=portal.edit_user(admin_id,{{"action","save"},{"id",op_id},{"username","renamed"},{"role","operator"},{"password",operator_password}});
             const auto op_login=client.Post("/api/auth/login",Json{{"username","renamed"},{"password",operator_password}}.dump(),"application/json");status(op_login,200);cookie=op_login->get_header_value("Set-Cookie");cookie=cookie.substr(0,cookie.find(';'));client.set_default_headers({{"Cookie",cookie}});
@@ -98,6 +134,12 @@ int main(int argc,char** argv){
             status(client.Post("/api/auth/password",Json{{"currentPassword",operator_password},{"password",operator_password+"!!"}}.dump(),"application/json"),200);
             auto op_login2=client.Post("/api/auth/login",Json{{"username","renamed"},{"password",operator_password+"!!"}}.dump(),"application/json");status(op_login2,200);cookie=op_login2->get_header_value("Set-Cookie");client.set_default_headers({{"Cookie",cookie.substr(0,cookie.find(';'))}});
             status(client.Get("/api/scenes"),200);status(client.Get("/api/admin/ratings"),403);status(client.Get("/api/admin/users"),403);status(client.Get("/api/network"),403);
+            status(client.Get("/api/admin/audio"),403);status(client.Post("/api/admin/audio",R"({"action":"stop"})","application/json"),403);
+            status(client.Get("/api/admin/twitch"),403);status(client.Post("/api/admin/twitch",R"({"action":"reset"})","application/json"),403);
+            status(client.Get("/api/admin/ratings/"+track+"/viewers"),403);
+            check(!Json::parse(client.Get("/api/history")->body)["canViewRatings"].get<bool>(),"Operator history exposed admin link");
+            status(client.Get("/automations"),403);status(client.Get("/api/admin/automations"),403);status(client.Post("/api/admin/automations",R"({"action":"reset"})","application/json"),403);
+            status(client.Post("/api/audio/source",R"({"deviceId":""})","application/json"),403);
             status(client.Get("/api/presets"),200);
             const auto op_preset=client.Post("/api/presets",Json{{"action","save"},{"preset",{{"name","Operator deck"},{"type","deck"},{"options",{{"deck",3},{"timeline",true}}}}}}.dump(),"application/json");status(op_preset,200);
             const auto op_saved=Json::parse(op_preset->body);
@@ -113,7 +155,7 @@ int main(int argc,char** argv){
             for(int i=0;i<10;++i)fails(401,[&]{portal.login("nonexistent","incorrect","rate-test");});fails(429,[&]{portal.login("nonexistent","incorrect","rate-test");});
         }
         {
-            Portal restored(root);check(restored.identity(session).is_null(),"Sessions persisted across restart");check(restored.ratings()[0]["average"]==4&&restored.ratings()[0]["count"]==2,"Ratings lost on restart");check(restored.scene(scene_id)["name"]=="Test scene","Scene lost on restart");check(restored.broadcast_access(scene_key,"/api/scene",scene_id),"Scene key lost");check(restored.initial_password().empty(),"Bootstrap returned");
+            Portal restored(root);check(restored.identity(session).is_null(),"Sessions persisted across restart");check(restored.ratings()[0]["average"]==4&&restored.ratings()[0]["count"]==3,"Ratings lost on restart");check(restored.scene(scene_id)["name"]=="Test scene","Scene lost on restart");check(restored.broadcast_access(scene_key,"/api/scene",scene_id),"Scene key lost");check(restored.initial_password().empty(),"Bootstrap returned");
             check(restored.presets().size()==1&&restored.presets()[0]["id"]==preset_id&&restored.presets()[0]["revision"]==2,"Presets lost on restart");
             std::ifstream input(root/"portal.json",std::ios::binary);const std::string file((std::istreambuf_iterator<char>(input)),{});check(file.find(password)==std::string::npos&&file.find(operator_password)==std::string::npos,"Plaintext password persisted");
         }
@@ -124,6 +166,8 @@ int main(int argc,char** argv){
         Json upgraded;{std::ifstream input(root/"portal.json");input>>upgraded;}check(upgraded.erase("presets")==1&&upgraded==legacy,"Migration changed existing data");
         auto invalid_store=legacy;invalid_store["presets"]=Json::array();{std::ofstream output(root/"portal.json");output<<invalid_store.dump();}
         fails(500,[&]{Portal invalid(root);});Json preserved;{std::ifstream input(root/"portal.json");input>>preserved;}check(preserved==invalid_store,"Invalid store was reset");
+        creative_portal_checks(root/"creative");
+        audio_settings_checks(root/"audio");
         check(std::filesystem::weakly_canonical(root).parent_path()==std::filesystem::weakly_canonical(std::filesystem::temp_directory_path()),"Unexpected cleanup path");std::filesystem::remove_all(root);
         std::cout<<"Portal persistence, migration, component presets, password lifecycle, roles, ratings, scene capabilities, conflicts and HTTP access passed.\n";return 0;
     }catch(const std::exception& error){std::cerr<<error.what()<<'\n';return 1;}

@@ -22,7 +22,7 @@
 - ProLink uses direct DBServer metadata requests. Do not restore the legacy DeviceSQL `export.pdb` fallback without resolving the OneLibrary ID mismatch and indirect Crate Digger auto-start; see `Main.configureMetadata()` and its regression test.
 - Unknown metadata stays unknown. Current and original BPM are distinct. MASTER history is an observation of tempo-master state, not proof of audible playback.
 - Domain configuration must preserve access through localhost/127.0.0.1, including with a specific LAN interface. Generated deck/master/waveform/scene URLs use `http://127.0.0.1:<port>`; embedded previews/API calls stay on their current origin.
-- Preserve server-side authentication, roles, mandatory first password change, Host/Origin checks, remote-control policy and scoped OBS read keys. Full History and its audience ratings remain public; account/admin APIs do not.
+- Preserve server-side authentication, roles, mandatory first password change, Host/Origin checks, remote-control policy and scoped OBS read keys. Full History and rating aggregates remain public to read; new votes require a separately validated Twitch viewer session. Viewer names and account/admin APIs remain admin-only. Twitch viewer login never grants DeckStatus operator/admin rights.
 - Preserve persistent users, ratings, presets, scenes and keys. Scene layers are independent copies of inserted presets. Playing history is session-local. Loading a preset or scene must not start audio capture.
 
 ## Working safely with this application

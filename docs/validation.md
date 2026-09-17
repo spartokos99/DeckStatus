@@ -2,6 +2,73 @@
 
 This is a historical record. Test counts, behavior and protocol versions describe the revision tested in each entry; later entries may supersede them. Live Rekordbox validation remains limited to the author's **7.2.18.0 Windows x64 installation**. ProLink hardware has not been live-tested.
 
+## DeckStatus 2.1.0 release validation — 2026-09-17
+
+- Full `build.ps1` passed: all ten native CTest cases, including the configured read-only artwork database case, plus Java device-model, Unicode/Windows-pipe and disabled DeviceSQL-auto-start tests. Pinned dependencies/runtime archives verified. EXE and bridge DLL report 2.1.0 / 2.1.0.0; the EXE contains all nine icon sizes.
+- Passed browser suites: master/deck overlays, waveform, dashboard/history, ProLink, network settings, real-EXE portal, creative renderers, creative portal, Admin audio, Twitch/layers, viewer ratings, runtime audio actions and scene transparency. Network/startup smoke and the HTTPS portal variant also passed (16 browser/smoke runs in total).
+- The master animation test now explicitly selects normal motion before separately testing reduced motion; the host Windows preference previously made its animation assertion fail while the app behaved correctly. Navigation and waveform tests now reflect the Automations entry and Admin-owned capture controls. The shared browser harness waits for a readable, complete DevTools port file to handle a transient Windows startup lock.
+- Source/package candidates, JavaScript syntax, translation-key parity and local documentation links checked. README headings/structure are preserved. Release notes describe upgrade persistence and Twitch login changes. Unrelated IDE files are excluded from the release commit.
+- These checks do not extend hardware compatibility. Only the author's Rekordbox 7.2.18.0 installation has been live-tested; no production DJ attachment/discovery, physical audio capture, real Twitch account or OBS Studio session was started for release validation.
+
+The earlier entries below describe development snapshots now included in 2.1.0.
+
+## Twitch viewer ratings — 2026-09-17 (development)
+
+- Release build and targeted CTest cases `twitch_automation`, `portal_access`, `network_access` and `http_server` passed. A deterministic viewer transport checks device-code timing, zero requested scopes, client/account identity validation, token revocation, session isolation, logout, Client ID changes and secret redaction. No real Twitch account or OAuth token was used.
+- The native HTTP portal fixture completes viewer sign-in with a fake Twitch transport, verifies HttpOnly/SameSite cookie handling, casts a vote, reads its own rating and rejects voting after logout. Viewer sessions cannot access portal metadata or admin details. Anonymous, operator and administrator tests cover the ratings-detail endpoint and history-link permissions; even administrators need a separate Twitch viewer session to vote.
+- Persistence tests cover one vote per Twitch ID across browser/name changes, individual viewer details, legacy anonymous counts and aggregate preservation across restart. Public aggregate/history responses never contain other voters' names; usernames are not accepted in vote submissions.
+- `browser_viewer_ratings_test.cjs` passed: sign-in code, completion, vote/update, logout, unconfigured state, permission-aware ratings link, modal/keyboard close, safe text, legacy labels, EN/DE and mobile. Actual-EXE portal tests passed locally and behind the isolated HTTPS proxy; anonymous voting now correctly returns 401. Dashboard/history and automation/layer browser regressions passed.
+- README.md remains unchanged. No DJ attachment/discovery, physical audio capture, OBS Studio or real Twitch connection was started. Production Twitch device authorization with the empty scope list remains subject to live-account validation.
+
+## Multiple automation actions and separate editor — 2026-09-17 (unreleased)
+
+- Native Release build passed without compiler warnings. Targeted CTest cases `twitch_automation`, `portal_access`, `network_access` and `http_server` passed. Coverage includes legacy migration and failed-save preservation, action order and dry-run simulation, independent expiry, shared cooldown, continuing after a missing target, action-count limits, split saves/conflicts, administrator-only routes and remote-control policy.
+- The deterministic Twitch transport delivered both chat actions from one rule while retaining the two-second send interval. It checks that automation saves preserve the Client ID and connection saves preserve rules. No live chat messages were sent.
+- `browser_twitch_layers_test.cjs` passed for separate connection/automation pages, multiple actions, reordering, duplication/removal, individual durations, save/reload, draft retention, dry-run output, EN/DE, mobile layout and remote read-only controls. Admin audio and actual-EXE portal browser regressions also passed.
+- Locale keys, JavaScript syntax and diff checks passed. README.md remains unchanged. No production DJ connection, physical capture or real Twitch account was used. Live Twitch/OBS validation remains outstanding.
+
+## Timed audio-reactivity actions — 2026-09-17 (unreleased)
+
+- Native Release build passed. Targeted CTest cases `twitch_automation`, `portal_access` and `http_server` passed. The action tests cover all six component types, saved true/false/absent flags, dry runs, opposite-action timer replacement, expiry, indefinite duration, reset, scoped audio read access and persisted rules. Saved designs are not rewritten.
+- `browser_twitch_layers_test.cjs` passed with both new actions: duration controls, hidden irrelevant value fields, save/reload and English/German labels. `browser_scene_audio_actions_test.cjs` verifies actual transforms turning on, off and back on in the rendered scene for all six component types, using synthetic samples and zero capture mutations.
+- Translation parity, JavaScript syntax, local documentation links and diff checks passed. README.md is unchanged. No real Twitch account, OBS Studio, DJ hardware or audio device was started for this change.
+
+## Twitch automation and scene layer controls — 2026-09-16 (unreleased)
+
+- The native Release build and all ten CTest cases passed, including the new `twitch_automation` case. The existing portal/network tests cover anonymous/operator rejection, CSRF/Origin checks and remote-control gates on the integration endpoint. Existing native DJ/audio checks remain synthetic/isolated as before.
+- The Twitch fixture validates rule matching, roles, command boundaries, duplicate deliveries, cooldowns, timer extension/expiry, scene-revision invalidation, runtime reset, UTF-8 truncation and literal template substitution. It also exercises device authorization, token validation/refresh, reward listing, all five EventSub subscriptions, chat output/echo suppression, account unlink, DPAPI storage, API secret redaction, persistence and failed-save preservation through a deterministic injected transport. It never contacts Twitch or sends an actual chat message.
+- `browser_twitch_layers_test.cjs` passed: layer selection/order/visibility and save, hidden iframe deferral, Twitch rule CRUD, 60-second defaults, device-code UI, dry-run results, preserved drafts during polling, German/English labels, mobile layout and remote read-only controls.
+- The actual-EXE portal and creative-component browser suites, admin audio browser suite and composited scene transparency regression passed. Default audio remains stopped in these fixtures; no Rekordbox attachment, ProLink discovery or physical capture was started incidentally.
+- The production WinHTTP TLS/WebSocket transport and live Twitch channel permissions have not been validated with a real account. OBS Studio was not launched. Java/ProLink code and pinned runtime are unchanged. README.md remains identical to the owner's GitHub commit `df71604`; no new release or push was requested.
+
+## Scene iframe transparency — 2026-09-16 (unreleased)
+
+- Reproduced opaque Chromium iframe backgrounds in the rendered `/scene` page: child overlays use `color-scheme: dark`, while their iframe elements inherited the scene's different scheme. Transparent CSS alone did not prevent the browser's opaque default canvas.
+- Scene iframe elements now explicitly use the same dark colour scheme and a transparent CSS background. This also works when an editor's surrounding theme differs; configured card/canvas backgrounds remain unchanged.
+- `browser_scene_transparency_test.cjs` failed on the old renderer with alpha 255 in an empty master-overlay region. It passes after the fix by checking actual composited PNG pixels: transparent master/deck/waveform regions under light/dark preferences, opaque intended card fill, a coloured scene showing through, and the shared editor renderer. Tests use synthetic metadata and stopped audio.
+- The native executable is unchanged; updated web assets are copied into the local build. Actual OBS Studio was not launched for this check. README.md remains identical to the owner's GitHub commit.
+
+## Admin audio settings and startup policy — 2026-09-16 (unreleased)
+
+- Fetched and fast-forwarded the owner's GitHub README commit `df71604`; README.md remains identical to that commit. The previous local README edits were backed up under ignored build output.
+- The native Release build and all nine CTest cases passed. New callback-based lifecycle tests verify defaults off, persistence, opt-in startup, manual stop retaining the policy/device, missing endpoints without fallback, and failed-save preservation. Operator and anonymous requests to audio administration are rejected; the compatibility source mutation is also admin-only.
+- The synthetic admin browser suite passed: separate Save/Start/Stop, draft preservation during polling, retained settings on reload, missing-device selection, remote-control restrictions, EN/DE, mobile layout and outage recovery. The updated waveform suite passed with no source controls or capture commands on that page.
+- The real-EXE portal browser suite passed locally, including saving an enumerated endpoint without opening it and retaining the selection with capture stopped after restart. Creative-component preset/upload/scene/browser checks also passed against the updated EXE.
+- `audio_startup_smoke.cjs` passed against an isolated real EXE: a deliberately nonexistent saved endpoint with autostart enabled produced the expected error without fallback; disabling autostart persisted and the next restart stayed stopped without an error. Successful capture activation is covered using a fake backend, not a newly opened physical audio device.
+- The HTTPS portal regression encountered a test initialization race at the first password form. The harness now awaits the authentication module before submission. After temporary approval-review capacity errors cleared, the HTTPS suite passed, including the admin audio remote-control denial, original Host/Origin handling, Secure cookies and local OBS links.
+- The audio-admin preview ZIP contains 437 verified files. Its freshly extracted copy passed portable smoke in demo/idle-ProLink modes and the missing-device audio-startup regression. No private runtime store or network configuration is packaged.
+- No production injection, discovery or physical audio capture was started. The Java helper was unchanged and not rebuilt.
+
+## Creative components — 2026-09-16 (unreleased)
+
+- Native Release build with `build.ps1 -SkipProLink` passed all nine CTest cases. The Java helper was unchanged and was not rebuilt for this feature.
+- Extended `portal_access` coverage checks media deduplication/original bytes, invalid formats/Base64, image dimensions and decoded-size limits, missing/in-use references, reaction-option validation, visible-layer read scopes, failed-write preservation, restart persistence and additive migration without replacing existing data or keys.
+- All six existing browser suites passed: master/deck, waveform, dashboard/history, ProLink/navigation, network and real-EXE portal.
+- `browser_creative_test.cjs` passed with synthetic samples: RMS/frequency bands, attack/release, stale and stalled buffers, scale/position/rotation/opacity, fog output, flash rising edges/cooldown/decay, safe literal text, UTF-8 truncation and retained legacy iframe instances. Disabled reactions send no sample polls; renderers send no capture commands.
+- `browser_creative_portal_test.cjs` passed against an isolated real demo EXE: first-login restrictions, text/image/FX preset save/load, an original two-frame GIF larger than the ordinary API body limit, unchanged GIF bytes, scoped anonymous image/scene rendering, media-list protection, in-use deletion rejection, normal request-size enforcement, full-canvas FX placement, EN/DE, mobile layout and persistence through an EXE restart. Capture remained stopped.
+- Commons result filtering, plain-text attribution and credential omission were checked using a deterministic mocked API response. Live Commons search/download availability, licence suitability of individual results, OBS Studio/CEF rendering and sustained live-audio performance were not independently validated.
+- Settings, scene and synthetic fog screenshots were visually inspected. English documentation describes setup, limits, key scopes and explicit audio capture. No production injection, DJ-device discovery or audio capture was started. No new release/version was published.
+
 ## Build and automated tests — September 14, 2026
 
 Windows x64, MSVC 19.51 / Visual Studio 2026, C++20, Release build with the static C++ runtime. All five CTest cases passed:

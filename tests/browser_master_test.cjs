@@ -30,7 +30,7 @@ routes.set('/overlay/settings', 'master-settings.html');
 routes.set('/', 'index.html');
 for(const asset of ['auth.js','broadcast.js','component-presets.js','component-presets.css'])routes.set('/'+asset,asset);
 const fixture = http.createServer((request, response) => {
-  if(request.url==='/api/app'){response.setHeader('Content-Type','application/json');response.end(JSON.stringify({version:'2.0.2',mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));return;}
+  if(request.url==='/api/app'){response.setHeader('Content-Type','application/json');response.end(JSON.stringify({version:'2.1.0',mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));return;}
   const url = new URL(request.url, 'http://localhost');
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
@@ -87,6 +87,9 @@ async function until(fn, message, timeout = 6000) {
       return result.result.value;
     };
     await call('Page.enable'); await call('Runtime.enable');
+    // Keep animation checks independent of the Windows accessibility preference.
+    // Reduced motion is explicitly exercised later in this suite.
+    await call('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
     await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1120, deviceScaleFactor: 1, mobile: false });
     const navigate = async route => {
       const url = new URL(route, base);
@@ -152,7 +155,7 @@ async function until(fn, message, timeout = 6000) {
     await evaluate('window.scalingCard = document.querySelector(".track[data-current=true]")');
     history = [current, ...history]; current = track(20, 120, 'Skalierter Übergang');
     await until(() => evaluate('document.querySelector(".track[data-current=true]")?.dataset.entryId === "20"'), 'Scaled transition not started');
-    assert.ok(await evaluate('window.scalingCard.getAnimations().length > 0'), 'Master did not animate into smaller history card');
+    assert.ok(await evaluate('window.scalingCard.getAnimations().length > 0'), 'Master did not animate into smaller history card: '+JSON.stringify(await evaluate('({reduced:matchMedia("(prefers-reduced-motion: reduce)").matches,connected:window.scalingCard.isConnected,id:window.scalingCard.dataset.entryId,animations:document.getAnimations().map(a=>({state:a.playState,time:a.currentTime,duration:a.effect.getTiming().duration}))})')));
     const intermediate = await evaluate('window.scalingCard.querySelector(".card").getBoundingClientRect().width');
     assert.ok(intermediate > 720 * .4 && intermediate <= 720.5, 'Scaling transition jumped directly to its final width');
     await delay(700);

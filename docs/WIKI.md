@@ -2,9 +2,11 @@
 
 **GitHub Wiki import:** create a page named **Home** in your repository's Wiki, select Markdown and paste this entire file. The wiki Git repository was unavailable when this guide was prepared.
 
-This guide describes **DeckStatus v2.0.2**. Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
+This guide describes **DeckStatus v2.1.0**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
 
 ## Running DeckStatus
+
+Version 2.1.0 also includes [Twitch automation and improved scene layers](twitch.md). Link accounts under **Admin → Twitch** and create rules with multiple actions under **Stream → Automations**. It works with both DJ source modes and does not require a public inbound connection.
 
 Extract the full Windows x64 package into a writable directory. Keep the EXE, bridge DLL, `web` and `prolink` folders together.
 
@@ -32,16 +34,18 @@ The web interface uses local HTML/CSS/JavaScript without a CDN. A shared master-
 | Action | Anonymous | Operator | Administrator |
 |---|---|---|---|
 | Full History / observed-track covers | Yes | Yes | Yes |
-| Rate tracks | Browser cookie | Browser cookie | Browser cookie |
+| Rate tracks | Twitch viewer login | Twitch viewer login | Twitch viewer login |
 | Dashboard / metadata / overlay settings | No | Yes | Yes |
 | Create, edit and delete shared scenes | No | Yes | Yes |
 | Save, update and delete shared component presets | No | Yes | Yes |
+| Upload/delete shared images and GIFs | No | Yes | Yes |
 | Persistent rating aggregates | No | No | Yes |
 | Manage users / reset passwords | No | No | Yes |
 | Regenerate standalone OBS keys | No | No | Yes |
 | Read network configuration | No | No | Yes |
 | Change network configuration | No | No | On the DeckStatus PC |
-| Audio / ProLink controls | No | Subject to network policy | Subject to network policy |
+| ProLink controls | No | Subject to network policy | Subject to network policy |
+| Audio settings / capture controls | No | No | Subject to network policy |
 
 Pending-password accounts can inspect their identity, change their password, sign out and use public resources. Server-side permission checks protect direct API requests too.
 
@@ -51,31 +55,31 @@ Passwords contain 12–256 UTF-8 bytes. Windows CNG PBKDF2-HMAC-SHA-256 uses 600
 
 Session cookies are random, HttpOnly and SameSite=Strict. They expire after 12 hours or on logout, password change, user edit or EXE restart. Sessions are held in memory. Login/password requests have bounded per-minute limits.
 
-The built-in listener is HTTP. Use a trusted network for direct access and the proxy-to-DeckStatus connection. For public HTTPS, configure a domain under Connections → Network and terminate TLS in a reverse proxy such as Caddy. Session and voter cookies use `Secure` for that domain; direct IP/localhost access retains HTTP cookies. Only the configured domain and matching HTTPS Origin are accepted. DeckStatus does not manage DNS or certificates. See the [Caddy setup](network.md#https-and-caddy).
+The built-in listener is HTTP. Use a trusted network for direct access and the proxy-to-DeckStatus connection. For public HTTPS, configure a domain under Connections → Network and terminate TLS in a reverse proxy such as Caddy. Session and Twitch viewer cookies use `Secure` for that domain; direct IP/localhost access retains HTTP cookies. Only the configured domain and matching HTTPS Origin are accepted. DeckStatus does not manage DNS or certificates. See the [Caddy setup](network.md#https-and-caddy).
 
 ## Public Full History and ratings
 
 Share `/history` on the address viewers can reach. No account is needed. History is newest-first, with up to 100 rows per page. It records MASTER observations, not verified audible playback. Restarting the EXE starts a fresh history session.
 
-Each viewer receives a signed, HttpOnly cookie. One cookie identity has one vote per track; clicking another star replaces it. Logged-in viewers use that same browser identity, not an additional account vote.
+To vote, viewers sign in with Twitch using the code shown on Full History. DeckStatus uses the Public Twitch Client ID configured in Admin → Twitch, independently of whether automations are enabled or a streamer account is linked. The browser receives an opaque HttpOnly session cookie; OAuth tokens remain in server memory. A DeckStatus administrator login alone does not allow voting.
 
 Votes survive sessions and restarts. The rating ID is a SHA-256 hash of the title/artist/album JSON tuple after ASCII case folding and whitespace normalization. Deck, session ID, pitch and BPM do not participate. Identical tuples share ratings; changed metadata or album editions can create separate records. A non-empty title is required.
 
-Stored votes contain hashed browser identities, not raw IP addresses. IPs are used only by temporary rate limits. Cleared cookies, another browser or a fresh profile allow another vote: this is audience feedback, not verified-person voting.
+New votes are keyed by a hash of the verified Twitch account ID and include the username visible to administrators. Signing into the same Twitch account in another browser updates its existing vote. Older anonymous votes remain in aggregates and are labelled as having no Twitch identity; they are never attributed retroactively. IPs are used only by temporary rate limits. This verifies Twitch accounts, not unique people.
 
-Admin → Track ratings displays average, count and the five-star distribution, with search/sorting. Browser identities are never returned to the admin UI.
+Admin → Track ratings displays average, count and the five-star distribution, with search/sorting. Click a vote count to open a modal with Twitch usernames and individual stars. Full History includes a direct link to this page only for a DeckStatus administrator who has completed the required password change. Public APIs never list other viewers' usernames. See [Twitch viewer sign-in](twitch.md#viewer-sign-in-and-ratings) for session and setup details.
 
 ## OBS keys
 
 Protected settings generate URLs with a random `key` query parameter. OBS can load them without interactive login; unkeyed overlays still work in authenticated browsers.
 
-Separate standalone keys authorize deck, master or waveform renderers and their required read API/cover routes. They grant no account, network or source-control access. Admin → Broadcast links regenerates them, invalidating existing standalone OBS URLs.
+Separate standalone keys authorize deck, master, waveform, text, image or FX renderers and their required read API/cover routes. They grant no account, network or source-control access. Admin → Broadcast links regenerates them, invalidating existing standalone OBS URLs.
 
 Keep these URLs private. Referrer headers are suppressed; keys are forwarded only to the same origin. Renderer URLs come from known DeckStatus paths. Regenerate old unkeyed OBS URLs after upgrading.
 
 ## Navigation and component presets
 
-**Start** contains the deck monitor and JSON API. **Stream** contains Scene editor, Full History and the **Scene Components** dropdown for Deck overlays, Master overlay and Waveform. Connections holds the source/network setup pages; Admin is a standalone link. Inactive mode/permission links remain visible and disabled. Anonymous Full History uses its public header.
+**Start** contains the deck monitor and JSON API. **Stream** contains Scene editor, Full History and the **Scene Components** dropdown for Deck overlays, Master overlay, Waveform, Static text, Images & GIFs and Audio FX. Connections holds the source/network setup pages; Admin is a standalone link. Inactive mode/permission links remain visible and disabled. Anonymous Full History uses its public header.
 
 1. Open Stream → Scene Components and choose a component type.
 2. Configure its fields, dimensions, appearance and timing/signal settings. Built-in styles remain available as starting points.
@@ -86,18 +90,24 @@ The library lives on the DeckStatus server, shared by operators and administrato
 
 Updates/deletes require the current revision. A concurrent edit returns HTTP 409; reload the list before retrying. Reloading the list does not replace your current overlay settings. Existing browser-local designs remain available and can be saved as named presets.
 
+## Shared audio input
+
+**Admin → Audio input** owns the shared Windows input used by waveforms and scene reactions. Select an input/loopback device and Save, then Start / switch source. Waveform settings now configure only its design. Saving a selection does not start/switch capture.
+
+The device ID/name and **Start audio capture automatically when DeckStatus starts** persist in `portal.json`. The flag defaults to off. Enabled autostart runs once at application startup, before login, using exactly the saved device. Missing devices are reported without fallback. Stop ends the current capture while retaining the selection and policy for the next launch. Remote administrators need Allow remote controls. See [the audio guide](audio-waveform.md) for API details and limitations.
+
 ## Scene editor
 
 1. Open Stream → Scene editor.
 2. Create a scene and choose a standard monitor resolution or custom dimensions.
 3. Choose a saved preset and click **Add to scene**. Use **Reload saved** if a preset was created in another tab. Alternatively, expand the default-component controls.
 4. Drag to position and drag the selected corner to resize. Arrow keys move one pixel; Shift moves ten. Numeric fields set exact geometry.
-5. Adjust opacity, visibility, stacking, presets, fonts, colours and fields.
+5. Adjust opacity, rotation, visibility, stacking, presets, fonts, colours and fields. Selected layers also support audio-driven scale, position, rotation and opacity; see [Creative scene components](scene-components.md).
 6. Save and copy the scene URL into one OBS Browser Source. Match OBS width/height to the scene dimensions.
 
-Limits: canvas 320–7680 px wide and 180–4320 px high, 32 layers per scene, 100 scenes. Layers extending outside the canvas are clipped. Layer size scales a renderer; source width controls its internal layout. Backgrounds may be transparent or solid.
+Limits: canvas 320–7680 px wide and 180–4320 px high, 32 layers per scene, 100 scenes. Layers extending outside the canvas are clipped. Layer size scales track/waveform renderers; source width controls their internal layout. Text, image and FX content renders directly at the layer dimensions. Backgrounds may be transparent or solid.
 
-The saved scene reloads once per second. Geometry/opacity updates retain existing iframes; changing renderer options reloads that iframe. Unsaved edits remain local until Save. Scenes do not start audio capture.
+The saved scene reloads once per second. Geometry/opacity updates retain existing iframes and image elements; changing track/waveform renderer options reloads that iframe. Unsaved edits remain local until Save. Scenes do not start audio capture.
 
 Inserting a preset copies its name and options into an independent layer and sizes the layer from the saved component dimensions. Changing/deleting the preset leaves existing layers intact; editing a scene layer does not update its original preset. To use a revised preset, insert it again and replace the old layer. Multiple instances of the same preset are allowed.
 
@@ -133,12 +143,14 @@ The helper uses a monitoring identity and normal metadata handshakes, not passiv
 
 | Location | Purpose |
 |---|---|
-| `DeckStatus.data/portal.json` | Accounts, hashes, votes, presets, scenes and keys |
+| `DeckStatus.data/portal.json` | Accounts, hashes, votes, presets, scenes, media, audio settings and keys |
 | `DeckStatus.data/portal.lock` | Exclusive store ownership |
 | `DeckStatus.network.json` | Listener, port and remote-control setting |
 | Browser local storage | Last-used component settings and UI language |
 
 Use `--data-dir PATH` to choose another data directory. Two instances cannot share one store. Saves use flushed temporary files and atomic replacement. Failed saves retain the old state; invalid data stops startup instead of resetting accounts. Maximum store size is 64 MiB.
+
+Creative-component upgrades add an empty `media` collection and text/image/FX read keys while preserving existing keys. Media stores original file bytes as bounded Base64; see the [media limits and API](scene-components.md#api-and-storage).
 
 Existing version-1 stores without a `presets` property are upgraded with an empty library. Accounts, hashes, ratings, scenes and keys are preserved. Presets are stored by ID as `{id,revision,name,type,options}`; no external URLs, OBS keys or audio-device IDs are accepted in their options.
 
@@ -176,17 +188,24 @@ Mutations need `Content-Type: application/json`. Retain cookies and use same-ori
 | `GET /api/master` | Current master and recent overlay history |
 | `GET /api/history?limit=100&before=...` | Public running-session history and ratings |
 | `GET /api/history/covers/{trackId}` | Public observed-track artwork |
-| `POST /api/public/rating` | `{track:ratingId,stars:1..5}` with voter cookie |
+| `GET /api/public/twitch` | Current viewer identity / pending authorization; no tokens |
+| `POST /api/public/twitch` | `{action:"start"|"poll"|"logout"}`; separate viewer session cookie |
+| `POST /api/public/rating` | `{track:ratingId,stars:1..5}` with validated Twitch viewer session |
 | `GET /api/admin/ratings` | Admin persistent aggregates |
+| `GET /api/admin/ratings/:trackId/viewers` | Admin-only usernames, individual stars and legacy anonymous count |
 | `GET/POST /api/admin/users` | Admin user list/save/delete |
 | `GET/POST /api/scenes` | Signed-in list/save/delete/rotate |
 | `GET/POST /api/presets` | Signed-in component library/list/save/delete |
+| `GET/POST /api/media` | Signed-in media library/upload/delete |
+| `GET /api/media/{id}` | Original image/GIF through session or scoped read key |
 | `GET /api/scene?scene=ID&key=KEY` | Document via session or scene key |
 | `GET /api/broadcast` | Signed-in standalone keys |
 | `POST /api/admin/broadcast` | Admin `{}` regenerates keys |
 | `GET/POST /api/network` | Admin; POST also requires local peer |
 | `GET /api/prolink/devices`, `POST /api/prolink/control` | Mode and remote gates apply |
-| `GET /api/audio/devices`, `/api/audio/state`, `POST /api/audio/source` | Remote gate on POST |
+| `GET /api/audio/devices`, `/api/audio/state` | Signed-in device list / scoped sample reads |
+| `GET/POST /api/admin/audio` | Admin saved device, autostart, live state and start/stop; remote gate on POST |
+| `POST /api/audio/source` | Admin compatibility start/switch/stop; remote gate applies |
 | `GET /api/health` | Signed-in; 200 connected/demo, otherwise 503 |
 
 Other than public routes above, APIs require a session or a matching read capability. Keys never authorize mutations.
@@ -197,7 +216,7 @@ Scene save: `{action:"save",id:"optional ID",revision:0,scene:{name,width,height
 
 Preset save: `{action:"save",id:"optional ID",revision:0,preset:{name,type,options}}`. New presets receive an ID and revision 1; updates require their current revision and cannot change type. Delete: `{action:"delete",id,revision}`. GET returns `{presets:[...]}`; a successful save returns the saved preset. Anonymous users and OBS keys cannot access this library.
 
-Items: `{id,type,x,y,width,height,opacity,visible,options}`, with an optional `name` copied from the preset, where type is `deck`, `master` or `waveform`. Array order defines stacking back to front.
+Items: `{id,type,x,y,width,height,opacity,visible,options}`, with optional `name` and `rotation` (degrees), where type is `deck`, `master`, `waveform`, `text`, `image` or `fx`. Array order defines stacking back to front.
 
 `bpm` is pitch-adjusted; `originalBpm` comes from metadata. Unknown fields are null. Timelines use milliseconds and can include negative preroll. Master entries add `entryId`, `startedAt`, `endedAt` and `isMaster`.
 
@@ -213,12 +232,16 @@ node tests/browser_dashboard_history_test.cjs
 node tests/browser_prolink_test.cjs
 node tests/browser_network_test.cjs
 node tests/browser_portal_test.cjs
+node tests/browser_creative_test.cjs
+node tests/browser_creative_portal_test.cjs
+node tests/browser_admin_audio_test.cjs
+node tests/audio_startup_smoke.cjs
 node tests/network_smoke.cjs
 ~~~
 
 `build.ps1` runs native CTest checks and builds/tests Java. `-SkipProLink` omits Java, not suitable for a complete ProLink distribution. Downloads are pinned in `prolink/dependencies.lock.json`.
 
-Native portal tests cover password lifecycle, sessions, roles, last-admin protection, failed-save preservation, persistent ratings/presets/scenes, legacy-store migration, preset validation/conflicts, key scope/rotation and real HTTP boundaries. Browser portal tests launch the actual EXE with isolated demo data and test login/users, public voting, all three preset types, independent scene copies, drag/save/mobile/EN-DE, anonymous OBS iframes, conflicts and restart persistence. Navigation tests include the grouped dropdown, keyboard/Escape, outside-click closing, mobile layout and mode gates.
+Native portal tests cover password lifecycle, sessions, roles, last-admin protection, failed-save preservation, persistent ratings/presets/scenes, legacy-store migration, preset validation/conflicts, key scope/rotation and real HTTP boundaries. Browser portal tests launch the actual EXE with isolated demo data and test login/users, public history and anonymous-vote rejection, all three preset types, independent scene copies, drag/save/mobile/EN-DE, anonymous OBS iframes, conflicts and restart persistence. Navigation tests include the grouped dropdown, keyboard/Escape, outside-click closing, mobile layout and mode gates.
 
 Network smoke uses authenticated demo and idle ProLink instances. Production injection, DJ device connection and audio capture remain off. Optional portable helper discovery requires a separate explicit opt-in.
 
@@ -236,7 +259,7 @@ Local LAN-address checks do not verify another PC's firewall or OBS installation
 - **Save failure:** check folder rights/disk space; prior data remains intact.
 - **LAN failure:** restart after saving and check IP, port and firewall.
 - **ProLink ports busy:** stop competing Link clients.
-- **No waveform:** explicitly start an audio input/loopback; scenes do not start capture.
+- **No waveform:** check Admin → Audio input and start the saved device. Review missing-device/autostart errors there; opening a scene does not start capture.
 
 ## References
 
