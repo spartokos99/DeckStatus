@@ -1,6 +1,8 @@
 param(
     [string]$Executable = (Join-Path $PSScriptRoot '..\build\Release\DeckStatus.exe'),
-    [string]$ExpectedVersion = '2.1.0'
+    [string]$ExpectedVersion = [regex]::Match(
+        (Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot '..\CMakeLists.txt')),
+        'project\(DeckStatus VERSION ([0-9]+\.[0-9]+\.[0-9]+)').Groups[1].Value
 )
 $ErrorActionPreference = 'Stop'
 $target = (Resolve-Path -LiteralPath $Executable).Path

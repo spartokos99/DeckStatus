@@ -1,6 +1,83 @@
-.auth-shell{max-width:520px;margin:8vh auto;padding:24px}.auth-brand{display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit;font-size:22px;margin-bottom:30px}.auth-brand img{width:44px;height:44px}.auth-shell .panel{padding:28px}.portal-form label{display:block;font-size:13px;margin:18px 0 8px}.portal-form input,.portal-form select,.portal-search{width:100%;padding:11px;border:1px solid #36504b;border-radius:8px;background:#0b191c;color:#e1eee9}.portal-form button{margin-top:22px}.portal-message{min-height:24px;font-size:13px;line-height:1.6;color:#f7c692}.portal-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.portal-actions button{width:auto}.portal-tabs{display:flex;gap:10px;margin:24px 0;flex-wrap:wrap}.portal-tabs [aria-selected=true]{background:#284b3e;color:#c9ffe4}.portal-columns{display:grid;grid-template-columns:minmax(240px,1fr) minmax(260px,1fr);gap:24px}.portal-list{display:grid;gap:12px;margin-top:20px}.portal-user{display:flex;align-items:center;justify-content:space-between;padding:14px;background:#0c191d;border-radius:8px;gap:12px}.portal-user small{display:block;color:#91aaa2;margin-top:6px}.portal-user button{width:auto}.portal-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:20px}.portal-table th,.portal-table td{text-align:left;border-bottom:1px solid #283e3b;padding:14px 10px}.portal-table small{display:block;color:#a4bcb2}.rating-distribution{display:flex;gap:8px;font-size:11px;color:#aac7b8;margin-top:6px}.rating-stars{display:flex;gap:2px}.rating-stars button{background:transparent;border:0;color:#576d66;padding:4px;font-size:23px;line-height:1;width:auto;cursor:pointer}.rating-stars button[data-active=true]{color:#c0ecd3}.rating-stars button:hover{color:#ffdc88}.rating-average{display:block;font-size:11px;color:#9bb5a9;white-space:nowrap;margin-top:4px}.history-rating{min-width:156px}.portal-muted{color:#97afa5;font-size:13px;line-height:1.7}.nav-account{font-size:12px}.nav-tools button{width:auto;padding:8px;font-size:12px}.portal-tabs button{width:auto}.auth-shell h1{font-size:28px;letter-spacing:-.8px}.auth-shell [data-language]{margin-bottom:12px}.portal-table-wrap{overflow:auto}button:disabled{cursor:default;opacity:.5}
-@media(max-width:800px){.portal-columns{grid-template-columns:1fr}.auth-shell{margin:20px auto}.nav-tools{flex-wrap:wrap}}
-.portal-actions .portal-search{width:auto;flex:1 1 240px}#rating-sort{width:auto;max-width:250px}
+/* Accounts, admin panel, ratings and the Twitch/automation panes. */
+.auth-shell { max-width: 480px; margin: 9vh auto; padding: var(--s5); }
+.auth-brand { display: flex; gap: var(--s3); align-items: center; text-decoration: none; color: inherit; font-size: 20px; margin-bottom: var(--s6); }
+.auth-brand img { width: 40px; height: 40px; }
+.auth-shell .panel { padding: var(--s5); }
+.auth-shell h1 { font-size: 25px; letter-spacing: -.7px; }
+.auth-shell [data-language] { margin-bottom: var(--s3); }
 
-#admin-audio-level{width:100%;height:10px;margin:14px 0}[data-pane=audio]{max-width:850px}[data-pane=audio] p{margin:10px 0}#admin-audio-auto{width:auto}
-.viewer-login [hidden]{display:none!important}.viewer-login{border:1px solid #3c514d;border-radius:12px;padding:18px;margin:16px 0}.viewer-login p{line-height:1.6}.viewer-login code{font-size:20px;letter-spacing:2px}.viewer-login a{color:#b9a0ff}#rating-viewers-dialog{color:#e5f2ed;background:#10211e;border:1px solid #789186;border-radius:14px;padding:24px;width:min(560px,90vw);max-height:80vh;overflow:auto}#rating-viewers-dialog::backdrop{background:#0009}#rating-viewers-list{list-style:none;padding:0}#rating-viewers-list li{padding:12px;border-bottom:1px solid #3c514d;overflow-wrap:anywhere}
+.portal-form label { display: block; font-size: var(--fs-md); margin: var(--s4) 0 6px; color: #d7e4de; }
+.portal-form label output { float: right; color: var(--accent); font-weight: 400; }
+.portal-form button { margin-top: var(--s4); }
+.portal-search { width: 100%; }
+.portal-message { min-height: 22px; font-size: var(--fs-md); line-height: 1.6; color: var(--warn); }
+.portal-muted { color: var(--text-muted); font-size: var(--fs-md); line-height: 1.65; }
+.portal-actions { display: flex; gap: var(--s2); flex-wrap: wrap; align-items: center; }
+.portal-actions button { width: auto; }
+
+.portal-tabs { display: flex; gap: var(--s2); margin: var(--s5) 0 var(--s4); flex-wrap: wrap; }
+.portal-tabs button { width: auto; background: var(--surface); border-color: var(--line); color: var(--text-muted); }
+.portal-tabs button:hover { color: var(--text); }
+.portal-tabs [aria-selected=true] { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent-text); }
+
+.portal-columns { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr); gap: var(--s5); }
+.portal-list { display: grid; gap: var(--s2); margin-top: var(--s4); }
+.portal-user { display: flex; align-items: center; justify-content: space-between; padding: var(--s3); background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius); gap: var(--s3); }
+.portal-user small { display: block; color: var(--text-dim); margin-top: 5px; }
+.portal-user button { width: auto; }
+
+.portal-table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-lg); margin-top: var(--s4); }
+.portal-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
+.portal-table th { text-align: left; background: var(--surface-raised); color: var(--text-muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: .8px; padding: var(--s3) var(--s2); white-space: nowrap; }
+.portal-table td { text-align: left; border-top: 1px solid var(--line); padding: var(--s3) var(--s2); }
+.portal-table small { display: block; color: var(--text-dim); margin-top: 3px; }
+
+.rating-distribution { display: flex; gap: var(--s2); font-size: var(--fs-xs); color: var(--text-dim); margin-top: 5px; }
+.rating-stars { display: flex; gap: 2px; }
+.rating-stars button { background: transparent; border: 0; color: #52685f; padding: 3px; font-size: 21px; line-height: 1; width: auto; cursor: pointer; }
+.rating-stars button[data-active=true] { color: var(--accent); }
+.rating-stars button:hover { color: #ffdc88; }
+.rating-average { display: block; font-size: var(--fs-xs); color: var(--text-dim); white-space: nowrap; margin-top: 3px; }
+.history-rating { min-width: 150px; }
+
+/* Twitch connection and automation panes */
+.twitch-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); }
+.twitch-card { padding: var(--s4); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-raised); margin: var(--s3) 0; }
+.twitch-card h3 { margin-top: 0; }
+.twitch-card > p { margin: var(--s3) 0; }
+.twitch-card > a { display: inline-block; margin-bottom: var(--s3); }
+.twitch-card code { color: #dbcaff; }
+.twitch-help { font-size: var(--fs-base); color: var(--text-muted); line-height: 1.65; }
+.twitch-account { display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; padding: var(--s3) 0; border-bottom: 1px solid var(--line); }
+.twitch-account strong { flex: 1; }
+.twitch-account button, .twitch-rule button { margin-top: 0; font-size: var(--fs-md); }
+.twitch-code { font-size: 19px; letter-spacing: 3px; padding: var(--s3); border: 1px solid #a88ce5; border-radius: var(--radius); }
+.twitch-pending { display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap; margin: var(--s2) 0; }
+.twitch-status { display: inline-block; padding: 5px var(--s3); border-radius: var(--pill); background: #2a2140; color: #dbcaff; font-size: var(--fs-md); }
+
+.twitch-rules { display: grid; gap: 6px; margin: var(--s4) 0; }
+.twitch-rule { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-raised); }
+.twitch-rule[data-selected=true] { border-color: #c4a8ff; background: #241f36; }
+.twitch-rule[data-disabled=true] { opacity: .55; }
+.twitch-rule > button:first-child { flex: 1; text-align: left; background: transparent; border: 0; min-width: 0; }
+.twitch-rule strong, .twitch-rule small { display: block; overflow-wrap: anywhere; }
+.twitch-rule small { color: var(--text-dim); margin-top: 4px; }
+
+.twitch-rule-form { display: grid; gap: var(--s2); }
+.twitch-rule-form label { margin: var(--s3) 0 0; }
+.twitch-rule-form input, .twitch-rule-form select, .twitch-rule-form textarea { margin-top: 5px; }
+.twitch-rule-form textarea { min-height: 80px; }
+.twitch-rule-form button { margin-top: var(--s2); }
+.twitch-rule-form [hidden] { display: none; }
+.twitch-log { max-height: 210px; overflow: auto; font-size: var(--fs-md); white-space: pre-wrap; overflow-wrap: anywhere; }
+.twitch-test-results { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-md); }
+
+[data-pane=twitch] input[type=checkbox], [data-pane=automations] input[type=checkbox] { width: auto; margin-right: var(--s2); }
+#automation-action-fields { border: 1px solid var(--line); border-radius: var(--radius); padding: var(--s3); min-width: 0; margin-top: var(--s3); }
+#automation-actions .twitch-rule { flex-wrap: wrap; border-color: #5d4b80; }
+#automation-actions .twitch-rule > button:first-child { flex-basis: 100%; }
+#automation-actions .twitch-rule > button:not(:first-child) { padding: 5px var(--s2); margin: 0; }
+#automation-actions .twitch-rule[data-selected=true] { background: #2a2338; border-color: #d6b6ff; }
+[data-pane=automations] > .portal-actions { position: sticky; top: 0; background: var(--surface); padding: var(--s2) 0; z-index: 2; }
+
+@media (max-width: 900px) { .portal-columns, .twitch-grid { grid-template-columns: 1fr; } }

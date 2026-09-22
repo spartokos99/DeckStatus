@@ -1,6 +1,7 @@
 import {api} from './auth.js';
 import {appReady} from './navigation.js';
 import {t,translate,locale} from './i18n.js';
+import { poll as startPolling } from './poll.js';
 await appReady;
 const $=id=>document.getElementById(id),pane=document.querySelector('[data-pane=automations]'),endpoint='/api/admin/automations';
 let state,config,scenes=[],selected='',actionIndex=0,draft=false,busy=false,disposed=false;
@@ -63,4 +64,4 @@ $('twitch-test').addEventListener('click',()=>run(async()=>{if(draft)throw Error
 function localize(){translate();document.title=t('navAutomations')+' · DeckStatus';for(const [name,values,prefix] of [['trigger',triggers,'Trigger'],['action',types,'Action'],['role',['everyone','moderator','broadcaster'],'Role'],['test-role',['everyone','moderator','broadcaster'],'Role']]){const node=$('twitch-'+name),value=node.value;node.replaceChildren(...values.map(v=>new Option(label(prefix,v),v)));node.value=value||values[0];}if(config){const index=actionIndex;selectRule(selected);if(rule())selectAction(index);}renderStatus();}
 window.addEventListener('languagechange',localize);window.addEventListener('beforeunload',event=>{if(draft){event.preventDefault();event.returnValue='';}});window.addEventListener('pagehide',()=>disposed=true);
 localize();await run(async()=>{scenes=(await api('/api/scenes')).scenes;await load();});
-async function poll(){if(disposed)return;if(!busy)try{await load();}catch(error){$('twitch-message').textContent=error.message;}if(!disposed)setTimeout(poll,2000);}setTimeout(poll,2000);
+startPolling(async()=>{if(busy)return;try{await load();}catch(error){$('twitch-message').textContent=error.message;throw error;}},{interval:2000,timeout:0,immediate:false});

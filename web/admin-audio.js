@@ -1,8 +1,10 @@
 import {api} from './auth.js';
 import {appReady} from './navigation.js';
 import {t,translate} from './i18n.js';
+import { poll as startPolling } from './poll.js';
 const app=await appReady,$=id=>document.getElementById('admin-audio-'+id);
-let settings={deviceId:'',deviceName:'',autoStart:false},devices=[],snapshot={},ready=false,busy=false,canControl=false,disposed=false,timer,generation=0,deviceError='',message='';
+const pane=document.querySelector('[data-pane=audio]');
+let settings={deviceId:'',deviceName:'',autoStart:false},devices=[],snapshot={},ready=false,busy=false,canControl=false,generation=0,deviceError='',message='';
 const draft=()=>({deviceId:$('device').value,autoStart:$('auto').checked});
 const dirty=()=>draft().deviceId!==settings.deviceId||draft().autoStart!==settings.autoStart;
 function render(){
@@ -30,7 +32,12 @@ async function command(action){if(busy||!canControl)return;busy=true;generation+
 for(const id of ['device','auto'])$(id).addEventListener('change',()=>{message='';render();});
 for(const action of ['save','start','stop'])$(action).addEventListener('click',()=>command(action));
 $('refresh').addEventListener('click',refreshDevices);
-async function poll(){const current=generation;try{const value=await api('/api/admin/audio');if(!busy&&current===generation){apply(value);if(message==='waveServerUnavailable')message='';}}catch{canControl=false;message='waveServerUnavailable';render();}if(!disposed)timer=setTimeout(poll,500);}
-window.addEventListener('pagehide',()=>{disposed=true;clearTimeout(timer);});
+// Device state is only live while the Audio tab is actually open.
+async function refresh(){
+ if(pane?.hidden)return;
+ const current=generation;
+ try{const value=await api('/api/admin/audio');if(!busy&&current===generation){apply(value);if(message==='waveServerUnavailable')message='';}}
+ catch(error){canControl=false;message='waveServerUnavailable';render();throw error;}
+}
 window.addEventListener('languagechange',()=>{translate();renderDevices();});
-render();if(app?.capabilities?.admin){await refreshDevices();await poll();}
+render();if(app?.capabilities?.admin){await refreshDevices();await refresh().catch(()=>{});startPolling(refresh,{interval:500,timeout:0,immediate:false});}

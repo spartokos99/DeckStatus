@@ -4,6 +4,7 @@ import { t, getLanguage, locale } from './i18n.js';
 import {broadcastUrl,loadBroadcastKeys,obsUrl} from './broadcast.js';
 import {appReady} from './navigation.js';
 import {setupPresets} from './component-presets.js';
+import { poll as startPolling } from './poll.js';
 const broadcastKeys=await loadBroadcastKeys();
 const app=await appReady;
 const mode = location.pathname.startsWith('/master-overlay') ? 'master' : 'deck';
@@ -84,14 +85,18 @@ byId('copy').addEventListener('click', async () => {
   catch (_) { byId('url').select(); byId('feedback').textContent = t('copyFallback'); }
 });
 window.addEventListener('languagechange', () => { byId('feedback').textContent = ''; syncControls(); apply(); });
-async function poll() {
+syncControls(); apply();
+// The status line only matters while the page is on screen.
+startPolling(async signal => {
+  let failure;
   try {
-    const response = await fetch(mode === 'master' ? '/api/master' : '/api/state', { cache: 'no-store', signal: AbortSignal.timeout(2500) });
-    if (!response.ok) throw new Error(); state = await response.json();
-  } catch (_) { state = { status: 'disconnected' }; }
-  labels(); setTimeout(poll, 1000);
-}
-syncControls(); apply(); poll();
+    const response = await fetch(mode === 'master' ? '/api/master' : '/api/state', { cache: 'no-store', signal });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    state = await response.json();
+  } catch (error) { state = { status: 'disconnected' }; failure = error; }
+  labels();
+  if (failure) throw failure;
+}, { interval: 1000, timeout: 2500 });
 setupPresets({type:mode,read:()=>({...options,deck}),apply:value=>{
   options=normalize({...value,lang:getLanguage()});
   if(mode==='deck'){deck=options.deck;byId('deck').value=deck;save('deckstatus.deck.selected',deck);}

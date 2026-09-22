@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.2.0 · 2026-09-22
+
+- Add a server-wide **master hold time**: a new deck must stay the source's tempo master for a configurable period before DeckStatus publishes the handover. Brief changes no longer flip the master overlay, deck badges or session history.
+- Configure it under **Admin → Master detection**, 0–30 seconds, default 4 seconds; 0 restores the previous immediate switch. Administrators only, subject to the existing remote-control policy.
+- Apply the filter once, between the source and every consumer, so `/api/state`, the overlays, the dashboard and Full History always report the same confirmed master in both Rekordbox and ProLink mode.
+- Delay only a change away from an already confirmed master. The first master after a start or a reconnect, a different track on the confirmed master deck, and a replacement for a deck that lost its track are all published without delay. Disconnected or stale states still publish no master. This filters tempo-master observations; it does not detect audible playback.
+- Persist the value in `portal.json` as `masterSettings.holdMs`; it is read at startup and applies to the running server as soon as it is saved. Existing stores use the default until it is changed.
+
+- Refresh the application interface: a shared `web/theme.css` defines the colour, spacing, radius and type tokens that every page now uses, so the dashboard, settings, admin, history and scene editor share one visual language instead of eleven hand-written palettes. Layouts are denser and fit more on a laptop screen.
+- Leave every renderer untouched. Overlay, waveform, scene and component documents keep their own styling, so saved presets, scenes and OBS browser sources look exactly as before.
+- Load only the language actually being displayed. Renderer documents now fetch one translation file instead of two; application pages prefetch the second in the background so switching stays instant.
+- Add `web/poll.js`: refresh loops pause while a tab is hidden, back off after failures and can no longer overlap. Device state on the Admin page is only requested while the Audio tab is open, and the ProLink/Rekordbox pages no longer stack requests behind a slow reply.
+- Serve public scripts, styles, icons and translations with a validator, so a repeat visit revalidates with a 304 instead of transferring the file again. HTML documents remain uncacheable.
+- Rebuild the dashboard only where values actually changed and keep the OBS links out of the 2 Hz sample loop.
+- Merge `twitch.css` into `portal.css` and `network-settings.css` into `connection.css`; most pages now load fewer stylesheets than before despite the added theme layer.
+- Store uploaded images and GIFs as content-addressed files in `DeckStatus.data/media/`, migrating inline media automatically. Saving ratings, scenes or presets no longer rewrites image bytes.
+- Allow concurrent portal readers and perform password hashing and media file I/O outside the store lock, reducing contention for API and overlay requests.
+- Require an explicit access level for every HTTP route, preserving public history, Twitch-only voting, administrator permissions and scoped OBS keys.
+- Derive native/API/resource versions and test expectations from `CMakeLists.txt` as the single version source.
+
+### Upgrade and compatibility
+
+- Stop DeckStatus and back up **DeckStatus.data** and **DeckStatus.network.json** before replacing application files with the complete ZIP. Accounts, ratings, presets, scenes, media and OBS keys are preserved.
+- On first start, inline images/GIFs from older stores migrate into **DeckStatus.data/media/**. Back up and transfer the entire data directory, not only `portal.json`. Older builds cannot read the migrated media store; to downgrade, restore the complete pre-upgrade backup while DeckStatus is stopped.
+- The master hold time defaults to **4 seconds** in both source modes. Set it to 0 under **Admin → Master detection** for immediate handovers. The first master after startup or reconnect still appears immediately.
+- Saved overlay designs, presets, scenes and OBS browser source URLs are unchanged. The renderer documents were deliberately left untouched, so what your viewers see is identical apart from the delayed master switch.
+- The application pages look different: one shared theme, denser layout. No saved setting controls this, and nothing needs to be reconfigured.
+- Browsers may hold the previous stylesheets after the upgrade, because static assets are now revalidated rather than never stored. Reload once with Ctrl+F5 if a settings page looks broken.
+- Default mode is still Rekordbox. Only the author's **Rekordbox 7.2.18.0 Windows x64** installation has been live-tested. ProLink hardware, production Twitch account authorization and OBS Studio integration remain unverified in live use. The master hold filter has only been exercised against synthetic state, never against an actual tempo-master handover on hardware. See [validation](docs/validation.md).
+
 ## 2.1.0 · 2026-09-17
 
 - Require Twitch viewer sign-in for new track ratings, with one vote per Twitch account and track across browsers. Preserve older anonymous votes.

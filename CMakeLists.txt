@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(DeckStatus VERSION 2.1.0 LANGUAGES CXX)
+project(DeckStatus VERSION 2.2.0 LANGUAGES CXX)
 
 if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
   message(FATAL_ERROR "Windows x64 mit MSVC wird benoetigt. Konfiguration mit -A x64 starten.")
@@ -9,6 +9,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 add_compile_options(/W4 /utf-8 /permissive- /EHsc)
 add_compile_definitions(UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX _WIN32_WINNT=0x0A00)
+
+# One version for code, resources and tests.
+configure_file("${CMAKE_SOURCE_DIR}/src/version.h.in" "${CMAKE_BINARY_DIR}/generated/deckstatus_version.h" @ONLY)
+include_directories("${CMAKE_BINARY_DIR}/generated")
 
 add_library(DeckStatusBridge SHARED src/deckstatus_bridge.cpp src/deckstatus_protocol.h src/deckstatus.rc)
 target_link_libraries(DeckStatusBridge PRIVATE version)
@@ -23,7 +27,7 @@ target_link_libraries(deckstatus_prolink PUBLIC crypt32)
 add_library(deckstatus_network STATIC src/network.cpp src/network.h)
 target_include_directories(deckstatus_network PUBLIC vendor)
 target_link_libraries(deckstatus_network PUBLIC iphlpapi ws2_32)
-add_library(deckstatus_portal STATIC src/portal.cpp src/portal.h src/portal_http.h src/twitch.cpp src/twitch.h src/automation.h)
+add_library(deckstatus_portal STATIC src/portal.cpp src/portal.h src/portal_http.h src/master_gate.h src/twitch.cpp src/twitch.h src/automation.h)
 target_include_directories(deckstatus_portal PUBLIC vendor)
 target_link_libraries(deckstatus_portal PUBLIC bcrypt crypt32 winhttp)
 add_executable(DeckStatus src/deckstatus.cpp src/injector.cpp src/server.cpp src/artwork.cpp src/deckstatus.rc assets/DeckStatus.ico)

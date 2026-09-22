@@ -56,7 +56,7 @@ void exercise_server(NetworkConfig& config, const std::filesystem::path& web, bo
     require(Json::parse(local.Get("/api/app")->body)["obsBaseUrl"]=="http://127.0.0.1:"+std::to_string(port),"OBS base is not localhost");
     status(client.Get("/api/network"),200);
     require(Json::parse(client.Get("/api/network")->body)["canConfigure"]==true,"Local setup disabled");
-    for(const auto* route:{"/network/settings","/network-settings.js","/network-settings.css","/overlay?deck=1","/master-overlay","/waveform","/api/state"})status(client.Get(route),200);
+    for(const auto* route:{"/network/settings","/network-settings.js","/theme.css","/connection.css","/overlay?deck=1","/master-overlay","/waveform","/api/state"})status(client.Get(route),200);
     status(client.Get("/api/state",{{"Host","evil.example:"+std::to_string(port)}}),403);
     status(client.Get("/api/state",{{"Host","127.0.0.3:"+std::to_string(port)}}),403);
     status(client.Get("/api/state",{{"Host",host},{"Host",host}}),403);

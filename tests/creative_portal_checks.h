@@ -49,10 +49,36 @@ void creative_portal_checks(const std::filesystem::path& root) {
         fails(500,[&]{p.edit_media({{"action","delete"},{"id",other}});});CloseHandle(held);check(p.media()==before,"Failed media write changed memory");
     }
     {
+        // Images live beside the store, addressed by content hash, so saving a vote or a
+        // scene never rewrites them and the store itself stays small.
+        std::ifstream stored(root/"portal.json",std::ios::binary);const std::string content((std::istreambuf_iterator<char>(stored)),{});
+        check(content.find(gif)==std::string::npos&&content.find(png)==std::string::npos,"Image bytes persisted inside the store");
+        check(std::filesystem::exists(root/"media"/asset)&&std::filesystem::exists(root/"media"/other),"Media files missing beside the store");
+    }
+    {
         Portal p(root);check(p.media().size()==2&&p.media_file(asset).first=="image/gif","Media lost on restart");
         check(p.scene(scene_id)["items"][0]["rotation"]==15,"Layer rotation lost");
         check(p.overlay_keys(false)["master"]==old_key,"Existing OBS key changed");
         p.edit_media({{"action","delete"},{"id",other}});check(p.media().size()==1,"Unused media not deleted");
+    }
+    // A 2.1.0 store carries the image Base64-encoded inside portal.json.
+    {
+        Json inlined;{std::ifstream file(root/"portal.json");file>>inlined;}
+        inlined["media"][asset]["data"]=gif;
+        {std::ofstream file(root/"portal.json");file<<inlined.dump();}
+        std::filesystem::remove(root/"media"/asset);
+        Portal p(root);
+        check(p.media().size()==1&&!p.media()[0].contains("data"),"Inline media not migrated");
+        check(p.media_file(asset).second.starts_with("GIF89a")&&std::filesystem::exists(root/"media"/asset),"Migrated media file missing");
+        Json migrated;{std::ifstream file(root/"portal.json");file>>migrated;}
+        check(!migrated["media"][asset].contains("data"),"Store still carries the image bytes");
+    }
+    {
+        // An interrupted upload or a failed save can leave an unreferenced file behind.
+        const std::string orphan(64,'b');
+        {std::ofstream file(root/"media"/orphan,std::ios::binary);file<<"not referenced";}
+        {Portal p(root);}
+        check(!std::filesystem::exists(root/"media"/orphan)&&std::filesystem::exists(root/"media"/asset),"Unreferenced media file kept or referenced file removed");
     }
     // A v2.0.2 store has neither the media collection nor creative renderer keys.
     Json legacy;{std::ifstream file(root/"portal.json");file>>legacy;}

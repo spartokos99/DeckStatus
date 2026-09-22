@@ -1,10 +1,11 @@
 #include <winver.h>
+#include "deckstatus_version.h"
 #ifndef DECKSTATUS_BRIDGE
 101 ICON "DeckStatus.ico"
 #endif
 1 VERSIONINFO
-FILEVERSION 2,1,0,0
-PRODUCTVERSION 2,1,0,0
+FILEVERSION DECKSTATUS_VERSION_RC
+PRODUCTVERSION DECKSTATUS_VERSION_RC
 FILEOS VOS_NT_WINDOWS32
 #ifdef DECKSTATUS_BRIDGE
 FILETYPE VFT_DLL
@@ -17,8 +18,8 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "ProductName", "DeckStatus\0"
-            VALUE "ProductVersion", "2.1.0\0"
-            VALUE "FileVersion", "2.1.0.0\0"
+            VALUE "ProductVersion", DECKSTATUS_PRODUCT_VERSION_SZ
+            VALUE "FileVersion", DECKSTATUS_FILE_VERSION_SZ
 #ifdef DECKSTATUS_BRIDGE
             VALUE "FileDescription", "DeckStatus - Rekordbox data bridge\0"
             VALUE "InternalName", "DeckStatusBridge\0"

@@ -1,7 +1,8 @@
 import {t,translate,diagnostic} from './i18n.js';
 import {appReady} from './navigation.js';
+import { poll as startPolling } from './poll.js';
 const $=id=>document.getElementById(id);
-let state=null,busy=false,initialized=false,failed=false,disposed=false,timer,feedback='';
+let state=null,busy=false,initialized=false,failed=false,disposed=false,feedback='';
 function message(key=''){feedback=key;$('network-feedback').textContent=key?t(key):'';}
 function accessChanged(){
   const local=$('network-access').value==='local';
@@ -67,6 +68,6 @@ $('network-save').addEventListener('click',async()=>{
   finally{busy=false;render();}
 });
 window.addEventListener('languagechange',()=>{translate();adapters();render();document.title=t('navNetwork')+' · DeckStatus';});
-window.addEventListener('pagehide',()=>{disposed=true;clearTimeout(timer);});
-async function poll(){if(!busy)await load();if(!disposed)timer=setTimeout(poll,5000);}
-await appReady;translate();document.title=t('navNetwork')+' · DeckStatus';await poll();
+window.addEventListener('pagehide',()=>{disposed=true;});
+await appReady;translate();document.title=t('navNetwork')+' · DeckStatus';await load();
+startPolling(async()=>{if(!busy)await load();},{interval:5000,timeout:0,immediate:false});

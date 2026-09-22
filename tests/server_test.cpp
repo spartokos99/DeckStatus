@@ -166,6 +166,22 @@ int main(int argc, char** argv) {
             require(language->get_header_value("Content-Type").starts_with("application/json"), "Language MIME missing");
             require(Json::parse(language->body).contains("timeline"), "Language dictionary incomplete");
         }
+        // Public assets revalidate instead of being resent; documents stay uncacheable.
+        const auto sheet = client.Get("/settings.css");
+        const auto validator = sheet->get_header_value("ETag");
+        require(!validator.empty(), "Asset validator missing");
+        // The default header is pre-seeded into every response and set_header appends,
+        // so a missed erase would silently ship two conflicting policies.
+        require(sheet->get_header_value_count("Cache-Control") == std::size_t{1}, "Asset sent more than one cache policy");
+        require(sheet->get_header_value("Cache-Control") == "no-cache", "Asset cache policy not replaced");
+        const auto revalidated = client.Get("/settings.css", {{"If-None-Match", validator}});
+        expect_status(revalidated, 304, "Matching validator did not revalidate");
+        require(revalidated->body.empty(), "Not Modified carried a body");
+        require(client.Get("/locales/en.json")->get_header_value("ETag") != validator, "Assets share one validator");
+        expect_status(client.Get("/settings.css", {{"If-None-Match", "\"stale\""}}), 200, "Stale validator served Not Modified");
+        const auto document = client.Get("/");
+        require(document->get_header_value("ETag").empty(), "Access-controlled document became cacheable");
+        require(document->get_header_value("Cache-Control") == "no-store", "Document cache policy changed");
         expect_status(client.Get("/locales/fr.json"), 404, "Unlisted language route accepted");
         expect_status(client.Get("/overlayXcss"), 404, "Asset dot treated as regex wildcard");
         auto master_state = state;

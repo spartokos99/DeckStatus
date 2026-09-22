@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict');
-const {withBrowser}=require('./browser_fixture.cjs');
+const {withBrowser,appVersion}=require('./browser_fixture.cjs');
 let mode='rekordbox',phase='stopped',devices=[],players=[],posts=[],failed=false;
 const source=[
  {number:1,name:'CDJ-3000',address:'192.0.2.11',kind:'player',supported:true,selectable:true},
@@ -12,7 +12,7 @@ const source=[
 ];
 withBrowser((req,res,url)=>{
  if(!url.pathname.startsWith('/api/'))return false;res.setHeader('Content-Type','application/json');
- if(url.pathname==='/api/app')res.end(JSON.stringify({version:'2.1.0',mode,canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink',networkSettings:true}}));
+ if(url.pathname==='/api/app')res.end(JSON.stringify({version:appVersion,mode,canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink',networkSettings:true}}));
  else if(url.pathname==='/api/prolink/devices'){
   if(failed){res.statusCode=503;res.end('{}');return true;}
   res.end(JSON.stringify({status:phase,message:phase==='connected'?'prolinkConnected':'prolinkStopped',runtimeAvailable:true,devices:devices.map(d=>({...d,selected:players.includes(d.number),playing:phase==='connected'&&d.number===1,synced:phase==='connected',onAir:phase==='connected'&&d.number===1,master:d.number===1,firmware:'test fixture',bpm:128})),players,localAddress:phase==='connected'?'192.0.2.100':'',networkInterface:'Ethernet · synthetic fixture',virtualPlayer:phase==='connected'?7:null}));

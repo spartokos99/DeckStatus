@@ -1,6 +1,7 @@
 // Small dependency-free Chromium harness for synthetic UI tests.
 const fs=require('node:fs'), path=require('node:path'), http=require('node:http');
 const {spawn}=require('node:child_process');
+const appVersion=require('../tools/version.cjs');
 const root=path.resolve(__dirname,'..');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function until(fn,message,timeout=8000){const start=Date.now();while(Date.now()-start<timeout){if(await fn())return;await delay(40);}throw Error(message);}
@@ -11,7 +12,7 @@ async function withBrowser(handler,test){
     res.setHeader('Cache-Control','no-store');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
     const url=new URL(req.url,'http://localhost');if(handler(req,res,url))return;
-    if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({version:'2.1.0',mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));}
+    if(url.pathname==='/api/app'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({version:appVersion,mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));}
     const routes={'/waveform':'waveform.html','/waveform/settings':'waveform-settings.html','/':'index.html','/history':'history.html','/overlay':'overlay.html','/master-overlay':'master-overlay.html','/overlay/settings':'master-settings.html','/master-overlay/settings':'master-settings.html'};
     routes['/prolink/settings']='prolink-settings.html';routes['/rekordbox/settings']='rekordbox-settings.html';
     routes['/network/settings']='network-settings.html';
@@ -43,4 +44,4 @@ async function withBrowser(handler,test){
     if(exceptions.length)throw Error(JSON.stringify(exceptions));await call('Browser.close');
   }finally{socket?.close();browser?.kill();fixture.closeAllConnections();await new Promise(resolve=>fixture.close(resolve));}
 }
-module.exports={withBrowser};
+module.exports={withBrowser,appVersion};

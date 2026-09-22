@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 namespace deckstatus {
+class MasterGate;
 class MasterHistory;
 class NetworkConfig;
 class Portal;
@@ -20,6 +21,8 @@ struct ServerFeatures {
     std::function<nlohmann::json(const nlohmann::json&)> prolink_control;
     NetworkConfig* network = nullptr;
     Portal* portal = nullptr;
+    // Shared master hold filter; without it the reported tempo master is published as is.
+    MasterGate* master_gate = nullptr;
     // Optional protocol fixture; production leaves this empty.
     std::shared_ptr<TwitchTransport> twitch_transport;
 };

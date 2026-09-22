@@ -28,6 +28,7 @@
 
 - 🎛️ **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
 - 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles. Customise fields, colours, fonts, dimensions, alignment and smooth transitions.
+- ⏱️ **Stable master detection:** filter brief tempo-master handovers with a shared hold time for overlays, the dashboard and Full History. Configure 0–30 seconds under Admin → Master detection (default: 4 seconds).
 - 💾 **Saved presets:** save, load, update and delete overlays. The library persists on the server and is shared with signed-in users.
 - 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder, hide/show and style independent layers; save to update the same OBS source.
 - 🎶 **Public Full History:** viewers browse played tracks at `/history` without an account. Rating tracks from 1–5 stars requires a separate Twitch sign-in.
@@ -74,11 +75,13 @@ No real ProLink hardware has been tested; see the [device and metadata limitatio
 
 Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks without Rekordbox or DJ hardware.
 
-For upgrades, stop DeckStatus and preserve **DeckStatus.data** and **DeckStatus.network.json** before replacing application files. Existing users, presets, scenes and ratings remain valid.
+For upgrades, stop DeckStatus and back up **DeckStatus.data** and **DeckStatus.network.json** before replacing application files. Existing users, presets, scenes, ratings and OBS links remain valid. Version 2.2.0 automatically moves uploaded images/GIFs into **DeckStatus.data/media**; keep the entire data directory together. Restore the pre-upgrade backup if you need to downgrade.
+
+Master handovers now wait **4 seconds** by default; the first master after startup or reconnect appears immediately. Set **Admin → Master detection** to **0** for immediate handovers.
 
 Configure Twitch under **Admin → Twitch** and edit rules under **Stream → Automations**. Viewer sign-in uses the same Public Twitch Client ID. Live Twitch account/OBS validation is still pending; see the [Twitch setup guide](docs/twitch.md).
 
-Download the complete Windows package from [DeckStatus v2.1.0](https://github.com/spartokos99/DeckStatus/releases/tag/v2.1.0).
+Download the complete Windows package from [DeckStatus v2.2.0](https://github.com/spartokos99/DeckStatus/releases/tag/v2.2.0).
 
 ## 🛠️ Build and test
 
@@ -94,6 +97,7 @@ node tests/browser_network_test.cjs
 node tests/browser_portal_test.cjs
 node tests/browser_creative_test.cjs
 node tests/browser_admin_audio_test.cjs
+node tests/browser_admin_master_test.cjs
 node tests/browser_twitch_layers_test.cjs
 node tests/browser_viewer_ratings_test.cjs
 node tests/network_smoke.cjs

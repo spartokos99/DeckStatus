@@ -23,7 +23,7 @@ The **Images & GIFs** page contains the shared media library. Upload PNG, JPEG, 
 - Shared library: at most **100 files / 32 MiB of Base64-encoded data** (approximately 24 MiB of original files).
 - Identical file bytes reuse one asset. Names are labels, not filesystem paths.
 - A saved scene or preset that references an asset prevents its deletion. Remove those references first. Standalone image URLs are not tracked as references.
-- Operators and administrators share this library. It persists in the private `DeckStatus.data/portal.json` store; back it up with accounts, presets and scenes while DeckStatus is stopped.
+- Operators and administrators share this library. The metadata persists in the private `DeckStatus.data/portal.json` store and each file in `DeckStatus.data/media/`, named by its content hash; back up the whole data directory with accounts, presets and scenes while DeckStatus is stopped.
 
 Expand **Search Wikimedia Commons** to search public images or filter for GIFs. Searching is optional and needs internet access, but no API key. Only clicking Search contacts Commons; imported files are copied into the local library, so playback does not depend on the external service. Author/licence credits and a source-page link are retained in the library. Check the source's licence and add any required attribution to your stream, for example with a text component. Search results and external service availability can vary.
 

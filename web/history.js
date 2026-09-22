@@ -1,9 +1,10 @@
 import { t, translate, locale } from './i18n.js';
 import {api} from './auth.js';
+import { poll as startPolling } from './poll.js';
 const $ = id => document.getElementById(id);
 const rows = new Map(), cursors = [null];
-let page = 0, state = { entries: [], total: 0, status: 'starting' }, busy = false, timer, disposed = false;
-let viewerState={available:false,user:null,pending:null},viewerBusy=false,viewerTimer,voting=false;
+let page = 0, state = { entries: [], total: 0, status: 'starting' }, busy = false, disposed = false;
+let viewerState={available:false,user:null,pending:null},viewerBusy=false,voting=false;
 function renderViewer(){
   $('viewer-status').textContent=viewerState.user?t('viewerSignedIn',{user:viewerState.user.login}):t(viewerState.available?'viewerRequired':'viewerUnavailable');
   $('viewer-login').hidden=!!viewerState.user||!!viewerState.pending;$('viewer-login').disabled=viewerBusy||!viewerState.available;
@@ -12,7 +13,6 @@ function renderViewer(){
   $('history-ratings-link').hidden=!state.canViewRatings;
 }
 async function viewerRequest(action){if(viewerBusy)return;viewerBusy=true;renderViewer();try{viewerState=await api('/api/public/twitch',action?{action}:undefined);$('viewer-error').textContent='';if(action==='logout')state.viewer=null;await load();}catch(error){$('viewer-error').textContent=error.message;if(action==='poll'){viewerState.pending=null;viewerState.user=null;}}finally{viewerBusy=false;render();}}
-async function pollViewer(){if(disposed)return;await viewerRequest(viewerState.pending?'poll':undefined);if(!disposed)viewerTimer=setTimeout(pollViewer,5000);}
 $('viewer-login').addEventListener('click',()=>viewerRequest('start'));$('viewer-logout').addEventListener('click',()=>viewerRequest('logout'));
 const text = value => typeof value === 'string' && value.trim() ? value : '—';
 const tempo = value => Number.isFinite(value) && value > 0 ? value.toLocaleString(locale(), { maximumFractionDigits: 2 }) : '—';
@@ -75,7 +75,7 @@ function render() {
 }
 async function load() {
   if (busy || disposed) return;
-  clearTimeout(timer); busy = true; render();
+  busy = true; render();
   try {
     const query = new URLSearchParams({ limit: '100' });
     if (cursors[page]) query.set('before', cursors[page]);
@@ -85,12 +85,15 @@ async function load() {
     if (!Array.isArray(result.entries) || !Number.isSafeInteger(result.total) || result.total < 0) throw Error('Invalid history');
     state = result;
   } catch { state = { ...state, status: 'disconnected' }; }
-  finally { busy = false; render(); if (!disposed && page === 0) timer = setTimeout(load, 1000); }
+  finally { busy = false; render(); }
 }
 $('older').addEventListener('click', () => { if (busy || !state.nextBefore) return; cursors[++page] = state.nextBefore; load(); });
 $('newer').addEventListener('click', () => { if (busy || !page) return; --page; load(); });
 $('refresh').addEventListener('click', () => { if (busy) return; page = 0; cursors.splice(1); load(); });
 window.addEventListener('languagechange', render);
-window.addEventListener('pagehide', () => { disposed = true; clearTimeout(timer);clearTimeout(viewerTimer); });
+window.addEventListener('pagehide', () => { disposed = true; });
 const ratingHeading=document.createElement('th');ratingHeading.scope='col';ratingHeading.dataset.i18n='ratingYourVote';document.querySelector('thead tr').append(ratingHeading);
-translate(); load();pollViewer();
+translate(); load();
+// Only the newest page follows the session live; older pages stay where the reader left them.
+startPolling(() => page === 0 && !busy ? load() : undefined, { interval: 1000, timeout: 0, immediate: false });
+startPolling(() => viewerRequest(viewerState.pending ? 'poll' : undefined), { interval: 5000, timeout: 0 });

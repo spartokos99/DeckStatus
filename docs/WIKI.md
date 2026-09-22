@@ -2,11 +2,11 @@
 
 **GitHub Wiki import:** create a page named **Home** in your repository's Wiki, select Markdown and paste this entire file. The wiki Git repository was unavailable when this guide was prepared.
 
-This guide describes **DeckStatus v2.1.0**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
+This guide describes **DeckStatus v2.2.0**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
 
 ## Running DeckStatus
 
-Version 2.1.0 also includes [Twitch automation and improved scene layers](twitch.md). Link accounts under **Admin → Twitch** and create rules with multiple actions under **Stream → Automations**. It works with both DJ source modes and does not require a public inbound connection.
+[Twitch automation and improved scene layers](twitch.md) are included. Link accounts under **Admin → Twitch** and create rules with multiple actions under **Stream → Automations**. It works with both DJ source modes and does not require a public inbound connection. Version 2.2.0 adds a refreshed application interface and a shared master hold time under **Admin → Master detection** (4 seconds by default).
 
 Extract the full Windows x64 package into a writable directory. Keep the EXE, bridge DLL, `web` and `prolink` folders together.
 
@@ -27,7 +27,7 @@ ProLink targets CDJ-3000, CDJ-3000X and XDJ-AZ player endpoints, plus DJM-A9 and
 
 The native C++ EXE serves HTTP, accounts, persistence and Windows audio. In Rekordbox mode its companion DLL reads supported deck state and collection metadata enriches tracks/artwork. In ProLink mode an owned Java helper uses Beat Link 8.0.0 with direct DBServer queries and communicates over bounded JSON pipes. The legacy Crate Digger metadata fallback is disabled.
 
-The web interface uses local HTML/CSS/JavaScript without a CDN. A shared master-history model serves both modes. A separate persistent store holds users, ratings, presets and scenes. The audio waveform is a visualization of an explicitly selected Windows source, not a track's analysed Rekordbox waveform.
+The web interface uses local HTML/CSS/JavaScript without a CDN. `web/theme.css` holds the shared design tokens and base styles for application pages; renderer documents keep their overlay styling. The displayed language loads first; application pages then prefetch the other language, while renderers load only their selected language. Shared polling pauses while a tab is hidden, and public scripts, styles and translations revalidate with an ETag. A shared master-history model serves both modes. A separate persistent store holds users, ratings, presets and scenes. The audio waveform visualizes an explicitly selected Windows source, not a track's analysed Rekordbox waveform.
 
 ## Users and permissions
 
@@ -96,6 +96,14 @@ Updates/deletes require the current revision. A concurrent edit returns HTTP 409
 
 The device ID/name and **Start audio capture automatically when DeckStatus starts** persist in `portal.json`. The flag defaults to off. Enabled autostart runs once at application startup, before login, using exactly the saved device. Missing devices are reported without fallback. Stop ends the current capture while retaining the selection and policy for the next launch. Remote administrators need Allow remote controls. See [the audio guide](audio-waveform.md) for API details and limitations.
 
+## Master hold time
+
+Brief tempo-master changes reported by Rekordbox or PRO DJ LINK can flip an overlay during track preparation. **Admin → Master detection** sets how long a new deck must hold the role before DeckStatus publishes the handover. The default is 4 seconds; the range is 0 to 30 seconds and 0 restores the immediate switch.
+
+The filter sits between the source and every consumer, so the state API, deck and master overlays, the dashboard badge and Full History use the same confirmed master. While a new candidate is pending, the previously confirmed deck stays master and a handover shorter than the hold does not reach session history. The wait only applies when there is already a confirmed master with a loaded track. The first master after startup or reconnect, a different track on the confirmed deck, and a replacement for a deck that lost its track are published immediately. Disconnected, stale or unsupported states publish no master at all.
+
+The value lives in `portal.json` as `masterSettings.holdMs`, is read at startup and applies to the running server as soon as it is saved. Changing it requires an administrator plus the usual remote-control policy; it is a single server-wide value, so it is not part of an overlay's OBS URL or of a saved preset. It filters observations of tempo-master state and remains no proof of audible playback.
+
 ## Scene editor
 
 1. Open Stream → Scene editor.
@@ -143,14 +151,15 @@ The helper uses a monitoring identity and normal metadata handshakes, not passiv
 
 | Location | Purpose |
 |---|---|
-| `DeckStatus.data/portal.json` | Accounts, hashes, votes, presets, scenes, media, audio settings and keys |
+| `DeckStatus.data/portal.json` | Accounts, hashes, votes, presets, scenes, media metadata, audio settings and keys |
+| `DeckStatus.data/media/` | Uploaded images and GIFs, one file per asset named by its SHA-256 |
 | `DeckStatus.data/portal.lock` | Exclusive store ownership |
 | `DeckStatus.network.json` | Listener, port and remote-control setting |
 | Browser local storage | Last-used component settings and UI language |
 
 Use `--data-dir PATH` to choose another data directory. Two instances cannot share one store. Saves use flushed temporary files and atomic replacement. Failed saves retain the old state; invalid data stops startup instead of resetting accounts. Maximum store size is 64 MiB.
 
-Creative-component upgrades add an empty `media` collection and text/image/FX read keys while preserving existing keys. Media stores original file bytes as bounded Base64; see the [media limits and API](scene-components.md#api-and-storage).
+Creative-component upgrades add an empty `media` collection and text/image/FX read keys while preserving existing keys. Uploaded files are stored beside the store in `media/`, named by their content hash, so saving a vote, preset or scene never rewrites image data. A store written by DeckStatus 2.1.0 or older keeps the images Base64-encoded inside `portal.json`; the first start moves them into `media/` and removes them from the JSON, after which an older build no longer finds them. Back up the entire data directory before upgrading and restore that complete backup to downgrade; copying only `portal.json` is no longer sufficient. Unreferenced files in `media/` are removed at startup. See the [media limits and API](scene-components.md#api-and-storage).
 
 Existing version-1 stores without a `presets` property are upgraded with an empty library. Accounts, hashes, ratings, scenes and keys are preserved. Presets are stored by ID as `{id,revision,name,type,options}`; no external URLs, OBS keys or audio-device IDs are accepted in their options.
 
@@ -193,6 +202,7 @@ Mutations need `Content-Type: application/json`. Retain cookies and use same-ori
 | `POST /api/public/rating` | `{track:ratingId,stars:1..5}` with validated Twitch viewer session |
 | `GET /api/admin/ratings` | Admin persistent aggregates |
 | `GET /api/admin/ratings/:trackId/viewers` | Admin-only usernames, individual stars and legacy anonymous count |
+| `GET/POST /api/admin/master` | Admin server-wide master hold time; `{holdMs:0..30000}` |
 | `GET/POST /api/admin/users` | Admin user list/save/delete |
 | `GET/POST /api/scenes` | Signed-in list/save/delete/rotate |
 | `GET/POST /api/presets` | Signed-in component library/list/save/delete |
@@ -209,6 +219,8 @@ Mutations need `Content-Type: application/json`. Retain cookies and use same-ori
 | `GET /api/health` | Signed-in; 200 connected/demo, otherwise 503 |
 
 Other than public routes above, APIs require a session or a matching read capability. Keys never authorize mutations.
+
+Each route declares its access level explicitly through `Access` in `src/portal_http.h`; registration has no default permission. Portal reads share a lock, while password derivation and media file I/O run outside it. Authentication rechecks the password record before completing a login or password change.
 
 User save: `{action:"save",id:"optional ID",username:"name",role:"admin"|"operator",password:"new/reset or empty"}`. Delete: `{action:"delete",id:"ID"}`.
 
@@ -227,6 +239,7 @@ Requires Windows x64, Visual Studio C++ desktop tools/CMake, JDK 21+ for the hel
 ~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1
 node tests/browser_master_test.cjs
+node tests/browser_admin_master_test.cjs
 node tests/browser_waveform_test.cjs
 node tests/browser_dashboard_history_test.cjs
 node tests/browser_prolink_test.cjs
@@ -240,6 +253,8 @@ node tests/network_smoke.cjs
 ~~~
 
 `build.ps1` runs native CTest checks and builds/tests Java. `-SkipProLink` omits Java, not suitable for a complete ProLink distribution. Downloads are pinned in `prolink/dependencies.lock.json`.
+
+`CMakeLists.txt` is the single product-version source. Configuration generates `deckstatus_version.h` for the native API and EXE/DLL resources; `tools/version.cjs` reads the same declaration for JavaScript tests and screenshot tooling. Reconfigure and rebuild after changing the version.
 
 Native portal tests cover password lifecycle, sessions, roles, last-admin protection, failed-save preservation, persistent ratings/presets/scenes, legacy-store migration, preset validation/conflicts, key scope/rotation and real HTTP boundaries. Browser portal tests launch the actual EXE with isolated demo data and test login/users, public history and anonymous-vote rejection, all three preset types, independent scene copies, drag/save/mobile/EN-DE, anonymous OBS iframes, conflicts and restart persistence. Navigation tests include the grouped dropdown, keyboard/Escape, outside-click closing, mobile layout and mode gates.
 

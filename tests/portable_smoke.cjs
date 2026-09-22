@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict'),path=require('node:path'),net=require('node:net');
 const {spawn}=require('node:child_process');
 const {isolatedStore,authenticate}=require('./exe_auth.cjs');
+const appVersion=require('../tools/version.cjs');
 const root=path.resolve(process.argv[2]||'build/Release');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function port(){const server=net.createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const value=server.address().port;await new Promise(resolve=>server.close(resolve));return value;}
@@ -18,7 +19,7 @@ async function run(args,test){
 }
 (async()=>{
  for(const language of ['en','de'])await run(['--demo','--lang',language],async(request)=>{
-  const app=(await request('/api/app')).data;assert.equal(app.mode,'rekordbox');assert.equal(app.version,'2.1.0');
+  const app=(await request('/api/app')).data;assert.equal(app.mode,'rekordbox');assert.equal(app.version,appVersion);
   assert.equal((await request('/automations')).status,200);assert.equal((await request('/automations.js')).status,200);
   assert.deepEqual((await request('/api/admin/automations')).data.settings,{enabled:false,rules:[],revision:0});
   assert.deepEqual((await request('/api/public/twitch')).data,{available:false,user:null,pending:null});

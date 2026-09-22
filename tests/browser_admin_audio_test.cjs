@@ -9,6 +9,7 @@ withBrowser((req,res,url)=>{
  if(url.pathname==='/api/app')res.end(JSON.stringify({mode:'rekordbox',canControl,capabilities:{admin:true,scenes:true,audioWaveform:true},user:{username:'admin'}}));
  else if(url.pathname==='/api/admin/users')res.end('{"users":[]}');
  else if(url.pathname==='/api/admin/ratings')res.end('{"tracks":[]}');
+ else if(url.pathname==='/api/admin/master')res.end('{"holdMs":4000,"defaultHoldMs":4000,"maxHoldMs":30000,"available":true,"canControl":true}');
  else if(url.pathname==='/api/audio/devices')res.end(JSON.stringify({devices:missing?[]:devices,error:null}));
  else if(url.pathname==='/api/admin/audio'){
   if(failure){res.statusCode=503;res.end('{}');return true;}

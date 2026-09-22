@@ -1,7 +1,56 @@
-.connection-main{display:block!important}.connection-main .intro{margin:0;padding:34px 0 26px}.connection-main .intro p{max-width:850px}
-.connection-panel{border:1px solid #2a4145;border-radius:14px;padding:24px;background:#111f24}.connection-panel h2,.connection-section h2{font-size:17px;margin:0 0 12px;letter-spacing:-.3px}
-.connection-main p{line-height:1.7;color:#a9bfbc;font-size:13px}.connection-main .hint{font-size:12px;color:#8fa9a6}.connection-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px}.connection-toolbar p{margin:0}.connection-actions{display:flex;gap:8px;flex-wrap:wrap}
-.connection-actions button{width:auto;font-size:12px}.connection-main button:disabled{opacity:.4;cursor:not-allowed}.connection-details{display:grid;grid-template-columns:140px minmax(0,1fr);gap:8px 16px;font-size:12px;margin:20px 0 0}.connection-details:empty{display:none}.connection-details dt{color:#83a29c}.connection-details dd{margin:0;color:#d2e7df;overflow-wrap:anywhere}
-.connection-section{margin:30px 0}.device-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.device-card{border:1px solid #2b4148;border-radius:13px;padding:21px;background:#121f28;min-width:0}.device-card[data-selected=true]{border-color:#548c79;background:#152a28}.device-card h3{font-size:16px;margin:0 0 5px}.device-card .device-address{font-family:ui-monospace,monospace;font-size:12px;color:#91aab7;margin:0 0 16px}.device-card label{display:flex;gap:10px;align-items:center;font-size:13px}.device-card input{width:auto;accent-color:#a8eccf}.device-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}.device-badge{padding:5px 8px;border-radius:5px;font-size:10px;background:#22343d;color:#afc4cf}.device-badge[data-active=true]{background:#234337;color:#a8eccf}
-.connection-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.connection-empty{border:1px dashed #35484c;border-radius:12px;padding:32px;text-align:center}.connection-notice,#connection-error{border:1px solid #725738;border-radius:10px;background:#2b251c;color:#eed19d!important;padding:15px 18px}
-.connection-main [hidden]{display:none!important}@media(max-width:750px){.device-grid,.connection-info-grid{grid-template-columns:1fr}.connection-toolbar{align-items:flex-start;flex-direction:column}.connection-panel{padding:20px}.connection-details{grid-template-columns:110px minmax(0,1fr)}}
+/* Source connection pages (Rekordbox, ProLink) and network settings. */
+.connection-main { display: block !important; }
+.connection-main .intro { margin: 0; }
+.connection-main p { line-height: 1.65; color: var(--text-muted); font-size: var(--fs-base); }
+.connection-main .hint { font-size: var(--fs-md); color: var(--text-dim); }
+.connection-main [hidden] { display: none !important; }
+.connection-main button:disabled { opacity: .45; cursor: not-allowed; }
+
+.connection-panel { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--s5); background: var(--surface); }
+.connection-panel h2, .connection-section h2 { font-size: var(--fs-lg); margin: 0 0 var(--s2); letter-spacing: -.2px; }
+.connection-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); }
+.connection-toolbar p { margin: 0; }
+.connection-actions { display: flex; gap: var(--s2); flex-wrap: wrap; }
+.connection-actions button { width: auto; }
+.connection-details { display: grid; grid-template-columns: 136px minmax(0, 1fr); gap: 6px var(--s4); font-size: var(--fs-md); margin: var(--s4) 0 0; }
+.connection-details:empty { display: none; }
+.connection-details dt { color: var(--text-dim); }
+.connection-details dd { margin: 0; color: #d2e7df; overflow-wrap: anywhere; }
+.connection-section { margin: var(--s5) 0; }
+.connection-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); }
+.connection-empty { border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); padding: var(--s6); text-align: center; }
+.connection-notice, #connection-error { border: 1px solid var(--warn-line); border-radius: var(--radius); background: var(--warn-bg); color: var(--warn) !important; padding: var(--s3) var(--s4); }
+
+.device-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+.device-card { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--s4); background: var(--surface-raised); min-width: 0; }
+.device-card[data-selected=true] { border-color: var(--accent-line); background: var(--accent-bg); }
+.device-card h3 { font-size: var(--fs-lg); margin: 0 0 4px; }
+.device-card .device-address { font-family: var(--mono); font-size: var(--fs-md); color: var(--text-dim); margin: 0 0 var(--s3); }
+.device-card label { display: flex; gap: var(--s2); align-items: center; font-size: var(--fs-base); }
+.device-card input { width: auto; }
+.device-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: var(--s3); }
+.device-badge { padding: 4px 7px; border-radius: var(--radius-sm); font-size: var(--fs-xs); background: var(--surface-sunken); color: var(--text-muted); }
+.device-badge[data-active=true] { background: var(--accent-bg); color: var(--accent); }
+
+/* Network settings */
+.network-grid { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(0, 1.2fr); gap: var(--s5); }
+.network-grid > * { min-width: 0; }
+.network-grid .setting, .network-grid .connection-details { margin-bottom: var(--s4); }
+#network-fields { border: 0; margin: var(--s4) 0 0; padding: 0; min-width: 0; }
+#network-fields:disabled { opacity: .65; }
+.network-check { display: flex; gap: var(--s2); align-items: flex-start; font-size: var(--fs-base); line-height: 1.55; }
+.network-check input { width: auto; margin-top: 3px; }
+.network-url { display: flex; gap: var(--s2); margin: var(--s3) 0; }
+.network-url input { flex: 1; font-family: var(--mono); font-size: var(--fs-md); }
+.network-url button { width: auto; flex: none; font-size: var(--fs-md); }
+.network-address-title { margin-top: var(--s5) !important; }
+.network-connect-help { margin-top: var(--s4); }
+#network-feedback { color: var(--accent); min-height: 1.5em; }
+
+@media (max-width: 800px) { .network-grid { grid-template-columns: 1fr; } }
+@media (max-width: 750px) {
+  .device-grid, .connection-info-grid { grid-template-columns: 1fr; }
+  .connection-toolbar { align-items: flex-start; flex-direction: column; }
+  .connection-panel { padding: var(--s4); }
+  .connection-details { grid-template-columns: 108px minmax(0, 1fr); }
+}

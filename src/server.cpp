@@ -6,7 +6,9 @@
 #include "portal_http.h"
 #include "language.h"
 #include <map>
+#include "master_gate.h"
 #include "master_history.h"
+#include "deckstatus_version.h"
 
 #include <httplib/httplib.h>
 
@@ -15,6 +17,7 @@
 #include <charconv>
 #include <cctype>
 #include <cstdint>
+#include <functional>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -119,7 +122,21 @@ int run_server(const std::string& host, int port,
     if (stop.load()) return 0;
 
     // Fixed allowlist only: request paths never reach the filesystem.
-    struct Asset { std::string body; std::string mime; };
+    struct Asset { std::string body; std::string mime; std::string etag; Access access; };
+    // Documents are grouped by who may open them; every other asset is a public
+    // script, style, icon or translation that carries no application data.
+    const auto asset_access = [](const std::string& url, const std::string& mime) {
+        if (!mime.starts_with("text/html")) return Access::Public;
+        static const std::set<std::string> public_pages = {"/login", "/history"};
+        static const std::set<std::string> renderers = {"/overlay", "/overlay.html", "/master-overlay",
+            "/waveform", "/scene", "/component/text", "/component/image", "/component/fx"};
+        static const std::set<std::string> admin_pages = {"/admin", "/automations", "/network/settings"};
+        if (public_pages.contains(url)) return Access::Public;
+        if (renderers.contains(url)) return Access::KeyedPage;
+        if (admin_pages.contains(url)) return Access::AdminPage;
+        if (url == "/account/password") return Access::PasswordPage;
+        return Access::Page;
+    };
     std::map<std::string, Asset> assets;
     for (const auto& [url, file] : std::initializer_list<std::pair<const char*, const char*>>{
         {"/", "index.html"}, {"/index.html", "index.html"},
@@ -130,6 +147,7 @@ int run_server(const std::string& host, int port,
         {"/deck-overlay.js", "deck-overlay.js"}, {"/overlay-shared.js", "overlay-shared.js"},
         {"/overlay.css", "overlay.css"}, {"/settings.css", "settings.css"},
         {"/settings.js", "settings.js"}, {"/i18n.js", "i18n.js"}, {"/storage.js", "storage.js"},
+        {"/theme.css", "theme.css"}, {"/poll.js", "poll.js"},
         {"/waveform", "waveform.html"}, {"/waveform/settings", "waveform-settings.html"},
         {"/waveform.js", "waveform.js"}, {"/waveform-options.js", "waveform-options.js"},
         {"/waveform-renderer.js", "waveform-renderer.js"}, {"/waveform-settings.js", "waveform-settings.js"},
@@ -138,7 +156,7 @@ int run_server(const std::string& host, int port,
         {"/navigation.js", "navigation.js"}, {"/navigation.css", "navigation.css"},
         {"/prolink/settings", "prolink-settings.html"}, {"/prolink-settings.js", "prolink-settings.js"},
         {"/connection.css", "connection.css"}, {"/rekordbox/settings", "rekordbox-settings.html"}, {"/rekordbox-settings.js", "rekordbox-settings.js"},
-        {"/network/settings", "network-settings.html"}, {"/network-settings.js", "network-settings.js"}, {"/network-settings.css", "network-settings.css"},
+        {"/network/settings", "network-settings.html"}, {"/network-settings.js", "network-settings.js"},
         {"/login", "login.html"}, {"/account/password", "password.html"}, {"/auth.js", "auth.js"}, {"/portal.css", "portal.css"},
         {"/admin", "admin.html"}, {"/admin.js", "admin.js"}, {"/broadcast.js", "broadcast.js"},
         {"/scenes", "scene-editor.html"}, {"/scene-editor.js", "scene-editor.js"}, {"/scene-editor.css", "scene-editor.css"},
@@ -149,16 +167,22 @@ int run_server(const std::string& host, int port,
         {"/creative-settings.js", "creative-settings.js"}, {"/creative.js", "creative.js"}, {"/creative-options.js", "creative-options.js"},
         {"/creative-renderer.js", "creative-renderer.js"}, {"/audio-reactivity.js", "audio-reactivity.js"}, {"/creative.css", "creative.css"},
         {"/media-library.js", "media-library.js"},
-        {"/admin-audio.js", "admin-audio.js"},
-        {"/admin-twitch.js", "admin-twitch.js"}, {"/twitch.css", "twitch.css"},
+        {"/admin-audio.js", "admin-audio.js"}, {"/admin-master.js", "admin-master.js"},
+        {"/admin-twitch.js", "admin-twitch.js"},
         {"/automations", "automations.html"}, {"/automations.js", "automations.js"},
         {"/locales/en.json", "locales/en.json"}, {"/locales/de.json", "locales/de.json"}
     }) {
         const auto body = read_page(web_root / file);
         if (body.empty()) { std::cerr << tr("Web assets missing in: ") << web_root << '\n'; return 1; }
         const auto extension = std::filesystem::path(file).extension();
-        assets.emplace(url, Asset{body, extension == ".js" ? "text/javascript; charset=utf-8" :
-            extension == ".svg" ? "image/svg+xml" : extension == ".css" ? "text/css; charset=utf-8" : extension == ".json" ? "application/json; charset=utf-8" : "text/html; charset=utf-8"});
+        const std::string mime = extension == ".js" ? "text/javascript; charset=utf-8" :
+            extension == ".svg" ? "image/svg+xml" : extension == ".css" ? "text/css; charset=utf-8" : extension == ".json" ? "application/json; charset=utf-8" : "text/html; charset=utf-8";
+        // Documents stay uncacheable. Public scripts, styles, icons and translations get a
+        // validator so a repeat visit costs a 304 instead of the whole file; the embedded
+        // bodies never change while the process runs.
+        const std::string etag = mime.starts_with("text/html") ? std::string{}
+            : '"' + std::to_string(std::hash<std::string>{}(body)) + '-' + std::to_string(body.size()) + '"';
+        assets.emplace(url, Asset{body, mime, etag, asset_access(url, mime)});
     }
 
     AudioCapture audio;
@@ -275,77 +299,75 @@ int run_server(const std::string& host, int port,
             response.set_header("Allow", "GET, HEAD");
             json_response(response, {{"error", "Method is not allowed"}}, 405);
         };
-        server.authorize = [portal, &twitch, &assets, validate_request](const httplib::Request& request, auto& response) {
+        server.authorize = [portal, &twitch, validate_request](const httplib::Request& request, auto& response, Access access) {
             if (validate_request(request, response) == httplib::Server::HandlerResponse::Handled) return false;
             if(request.body.size()>65536&&request.path!="/api/media")throw PortalError(413,"portalCapacity");
             if (!portal) return true; // Isolated native fixtures may omit the application store.
-            const auto& path = request.path;
+            if (access == Access::Public) return true;
             const bool read = request.method == "GET" || request.method == "HEAD";
-            const auto asset = assets.find(path);
-            if (read && asset != assets.end() && !asset->second.mime.starts_with("text/html")) return true;
-            if (read && (path == "/login" || path == "/history" || path == "/api/history" || path.starts_with("/api/history/covers/") || path == "/api/auth/me" || path == "/api/public/twitch")) return true;
-            if (request.method == "POST" && (path == "/api/auth/login" || path == "/api/auth/logout" || path == "/api/public/rating" || path == "/api/public/twitch")) return true;
-            if (read && raw_parameter_count(request,"key") == 1 && raw_parameter_count(request,"scene") <= 1 && portal->broadcast_access(request.get_param_value("key"),path,request.get_param_value("scene"))) return true;
-            if (read && raw_parameter_count(request,"key") == 1 && raw_parameter_count(request,"scene") == 1 && twitch.broadcast_access(request.get_param_value("key"),path,request.get_param_value("scene"))) return true;
+            // A scoped read key opens only the renderer routes that carry its own content.
+            if (keyed_access(access) && read && raw_parameter_count(request,"key") == 1 && raw_parameter_count(request,"scene") <= 1 &&
+                (portal->broadcast_access(request.get_param_value("key"),request.path,request.get_param_value("scene")) ||
+                 (raw_parameter_count(request,"scene") == 1 && twitch.broadcast_access(request.get_param_value("key"),request.path,request.get_param_value("scene"))))) return true;
             const auto user = portal->identity(portal_session(request));
             if (user.is_null()) {
-                if (read && asset != assets.end()) { response.set_redirect("/login",303); return false; }
+                if (page_access(access)) { response.set_redirect("/login",303); return false; }
                 throw PortalError(401,"authRequired");
             }
-            if (user["mustChangePassword"].get<bool>() && path != "/account/password" && path != "/api/auth/password") {
-                if (read && asset != assets.end()) { response.set_redirect("/account/password",303); return false; }
+            if (user["mustChangePassword"].get<bool>() && !password_access(access)) {
+                if (page_access(access)) { response.set_redirect("/account/password",303); return false; }
                 throw PortalError(403,"authPasswordRequired");
             }
-            if ((path == "/admin" || path == "/automations" || path.starts_with("/api/admin/") || path == "/api/audio/source" || path == "/network/settings" || path == "/api/network") && user["role"] != "admin") throw PortalError(403,"authAdminRequired");
+            if (admin_access(access) && user["role"] != "admin") throw PortalError(403,"authAdminRequired");
             return true;
         };
         if (portal) {
-            server.Get("/api/auth/me",[portal](const auto& request,auto& response){json_response(response,{{"user",portal->identity(portal_session(request))}});});
-            server.Post("/api/auth/login",[portal](const auto& request,auto& response){
+            server.Get("/api/auth/me", Access::Public, [portal](const auto& request,auto& response){json_response(response,{{"user",portal->identity(portal_session(request))}});});
+            server.Post("/api/auth/login", Access::Public, [portal](const auto& request,auto& response){
                 const auto body=portal_body(request);if(!body.contains("username")||!body["username"].is_string()||!body.contains("password")||!body["password"].is_string())throw PortalError(400,"portalInvalid");
                 auto result=portal->login(body["username"],body["password"],request.remote_addr);portal->logout(portal_session(request));session_cookie(response,result["session"]);result.erase("session");json_response(response,result);
             });
-            server.Post("/api/auth/logout",[portal](const auto& request,auto& response){portal_body(request);portal->logout(portal_session(request));session_cookie(response,"");json_response(response,{{"ok",true}});});
-            server.Post("/api/auth/password",[portal](const auto& request,auto& response){portal->change_password(portal_session(request),portal_body(request));session_cookie(response,"");json_response(response,{{"ok",true}});});
-            server.Get("/api/admin/users",[portal](const auto&,auto& response){json_response(response,{{"users",portal->users()}});});
-            server.Post("/api/admin/users",[portal](const auto& request,auto& response){const auto user=portal->identity(portal_session(request));json_response(response,{{"users",portal->edit_user(user["id"],portal_body(request))}});});
-            server.Get("/api/admin/ratings",[portal](const auto&,auto& response){json_response(response,{{"tracks",portal->ratings()}});});
-            server.Get(R"(/api/admin/ratings/([a-f0-9]{64})/viewers)",[portal](const auto& request,auto& response){json_response(response,portal->rating_viewers(request.matches[1].str()));});
-            server.Get("/api/public/twitch",[&twitch](const auto& request,auto& response){json_response(response,twitch.viewer_status(portal_cookie(request,"deckstatus_viewer")));});
-            server.Post("/api/public/twitch",[&twitch](const auto& request,auto& response){
+            server.Post("/api/auth/logout", Access::Public, [portal](const auto& request,auto& response){portal_body(request);portal->logout(portal_session(request));session_cookie(response,"");json_response(response,{{"ok",true}});});
+            server.Post("/api/auth/password", Access::Password, [portal](const auto& request,auto& response){portal->change_password(portal_session(request),portal_body(request));session_cookie(response,"");json_response(response,{{"ok",true}});});
+            server.Get("/api/admin/users", Access::Admin, [portal](const auto&,auto& response){json_response(response,{{"users",portal->users()}});});
+            server.Post("/api/admin/users", Access::Admin, [portal](const auto& request,auto& response){const auto user=portal->identity(portal_session(request));json_response(response,{{"users",portal->edit_user(user["id"],portal_body(request))}});});
+            server.Get("/api/admin/ratings", Access::Admin, [portal](const auto&,auto& response){json_response(response,{{"tracks",portal->ratings()}});});
+            server.Get(R"(/api/admin/ratings/([a-f0-9]{64})/viewers)", Access::Admin, [portal](const auto& request,auto& response){json_response(response,portal->rating_viewers(request.matches[1].str()));});
+            server.Get("/api/public/twitch", Access::Public, [&twitch](const auto& request,auto& response){json_response(response,twitch.viewer_status(portal_cookie(request,"deckstatus_viewer")));});
+            server.Post("/api/public/twitch", Access::Public, [&twitch](const auto& request,auto& response){
                 const auto cmd=portal_body(request);auto result=twitch.viewer_command(portal_cookie(request,"deckstatus_viewer"),request.remote_addr,cmd);
                 if(result.contains("session")){response.set_header("Set-Cookie","deckstatus_viewer="+result["session"].template get<std::string>()+"; Path=/; HttpOnly; SameSite=Strict; Max-Age=3600");result.erase("session");}
                 if(cmd.value("action",std::string{})=="logout")response.set_header("Set-Cookie","deckstatus_viewer=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");json_response(response,result);
             });
-            server.Get("/api/broadcast",[portal](const auto&,auto& response){json_response(response,portal->overlay_keys(false));});
-            server.Post("/api/admin/broadcast",[portal](const auto& request,auto& response){portal_body(request);json_response(response,portal->overlay_keys(true));});
-            server.Get("/api/scenes",[portal](const auto&,auto& response){json_response(response,{{"scenes",portal->scenes()}});});
-            server.Get("/api/presets",[portal](const auto&,auto& response){json_response(response,{{"presets",portal->presets()}});});
-            server.Post("/api/presets",[portal](const auto& request,auto& response){json_response(response,portal->edit_preset(portal_body(request)));});
-            server.Get("/api/media",[portal](const auto&,auto& response){json_response(response,{{"media",portal->media()}});});
-            server.Post("/api/media",[portal](const auto& request,auto& response){json_response(response,portal->edit_media(portal_body(request)));});
-            server.Get("/api/media/([a-f0-9]{64})",[portal](const auto& request,auto& response){const auto [mime,bytes]=portal->media_file(request.matches[1].str());response.set_content(bytes,mime);});
-            server.Post("/api/scenes",[portal](const auto& request,auto& response){json_response(response,portal->edit_scene(portal_body(request)));});
-            server.Get("/api/scene",[portal,&twitch](const httplib::Request& request,auto& response){if(raw_parameter_count(request,"scene")!=1)throw PortalError(400,"sceneInvalid");json_response(response,twitch.render(portal->scene(request.get_param_value("scene"))));});
-            server.Post("/api/public/rating",[portal,&twitch](const auto& request,auto& response){
+            server.Get("/api/broadcast", Access::User, [portal](const auto&,auto& response){json_response(response,portal->overlay_keys(false));});
+            server.Post("/api/admin/broadcast", Access::Admin, [portal](const auto& request,auto& response){portal_body(request);json_response(response,portal->overlay_keys(true));});
+            server.Get("/api/scenes", Access::User, [portal](const auto&,auto& response){json_response(response,{{"scenes",portal->scenes()}});});
+            server.Get("/api/presets", Access::User, [portal](const auto&,auto& response){json_response(response,{{"presets",portal->presets()}});});
+            server.Post("/api/presets", Access::User, [portal](const auto& request,auto& response){json_response(response,portal->edit_preset(portal_body(request)));});
+            server.Get("/api/media", Access::User, [portal](const auto&,auto& response){json_response(response,{{"media",portal->media()}});});
+            server.Post("/api/media", Access::User, [portal](const auto& request,auto& response){json_response(response,portal->edit_media(portal_body(request)));});
+            server.Get("/api/media/([a-f0-9]{64})", Access::Keyed, [portal](const auto& request,auto& response){const auto [mime,bytes]=portal->media_file(request.matches[1].str());response.set_content(bytes,mime);});
+            server.Post("/api/scenes", Access::User, [portal](const auto& request,auto& response){json_response(response,portal->edit_scene(portal_body(request)));});
+            server.Get("/api/scene", Access::Keyed, [portal,&twitch](const httplib::Request& request,auto& response){if(raw_parameter_count(request,"scene")!=1)throw PortalError(400,"sceneInvalid");json_response(response,twitch.render(portal->scene(request.get_param_value("scene"))));});
+            server.Post("/api/public/rating", Access::Public, [portal,&twitch](const auto& request,auto& response){
                 const auto viewer=twitch.viewer_identity(portal_cookie(request,"deckstatus_viewer"),true);
                 json_response(response,portal->rate_twitch(viewer,request.remote_addr,portal_body(request)));
             });
         }
-        server.Get("/api/audio/devices", [&](const auto&, auto& response) { json_response(response, audio.devices()); });
-        server.Get("/api/audio/state", [&](const auto&, auto& response) { json_response(response, audio.state()); });
+        server.Get("/api/audio/devices", Access::User, [&](const auto&, auto& response) { json_response(response, audio.devices()); });
+        server.Get("/api/audio/state", Access::Keyed, [&](const auto&, auto& response) { json_response(response, audio.state()); });
         const bool remote_control = network && network->active().allow_remote_control;
         const auto can_control = [remote_control, public_request](const httplib::Request& request) {
             if (public_request(request)) return remote_control;
             return local_network_peer(request.remote_addr, request.local_addr) || may_control_network(request.remote_addr, remote_control);
         };
         const auto audio_description=[&audio_control,can_control](const auto& request){auto result=audio_control.describe();result["canControl"]=can_control(request);return result;};
-        server.Get("/api/admin/twitch",[&twitch,can_control](const auto& request,auto& response){auto result=twitch.describe();result["canControl"]=can_control(request);json_response(response,result);});
-        server.Get("/api/admin/automations",[&twitch,can_control](const auto& request,auto& response){auto result=twitch.automation_description();result["canControl"]=can_control(request);json_response(response,result);});
-        server.Post("/api/admin/automations",[&twitch,can_control](const auto& request,auto& response){if(!can_control(request))throw PortalError(403,"networkReadOnly");auto result=twitch.automation_command(portal_body(request));result["canControl"]=true;json_response(response,result);});
-        server.Post("/api/admin/twitch",[&twitch,can_control](const auto& request,auto& response){if(!can_control(request))throw PortalError(403,"networkReadOnly");auto result=twitch.command(portal_body(request));result["canControl"]=true;json_response(response,result);});
-        server.Get("/api/admin/audio",[audio_description](const auto& request,auto& response){json_response(response,audio_description(request));});
-        server.Post("/api/admin/audio",[&audio_control,can_control,audio_description](const auto& request,auto& response){
+        server.Get("/api/admin/twitch", Access::Admin, [&twitch,can_control](const auto& request,auto& response){auto result=twitch.describe();result["canControl"]=can_control(request);json_response(response,result);});
+        server.Get("/api/admin/automations", Access::Admin, [&twitch,can_control](const auto& request,auto& response){auto result=twitch.automation_description();result["canControl"]=can_control(request);json_response(response,result);});
+        server.Post("/api/admin/automations", Access::Admin, [&twitch,can_control](const auto& request,auto& response){if(!can_control(request))throw PortalError(403,"networkReadOnly");auto result=twitch.automation_command(portal_body(request));result["canControl"]=true;json_response(response,result);});
+        server.Post("/api/admin/twitch", Access::Admin, [&twitch,can_control](const auto& request,auto& response){if(!can_control(request))throw PortalError(403,"networkReadOnly");auto result=twitch.command(portal_body(request));result["canControl"]=true;json_response(response,result);});
+        server.Get("/api/admin/audio", Access::Admin, [audio_description](const auto& request,auto& response){json_response(response,audio_description(request));});
+        server.Post("/api/admin/audio", Access::Admin, [&audio_control,can_control,audio_description](const auto& request,auto& response){
             if(!can_control(request))throw PortalError(403,"networkReadOnly");
             const auto body=portal_body(request);
             if(!body.is_object()||!body.contains("action")||!body["action"].is_string())throw PortalError(400,"audioSettingsInvalid");
@@ -356,7 +378,7 @@ int run_server(const std::string& host, int port,
             else throw PortalError(400,"audioSettingsInvalid");
             json_response(response,audio_description(request));
         });
-        server.Post("/api/audio/source", [&audio, &audio_control, can_control](const auto& request, auto& response) {
+        server.Post("/api/audio/source", Access::Admin, [&audio, &audio_control, can_control](const auto& request, auto& response) {
             if (!can_control(request)) { json_response(response, {{"error", "networkReadOnly"}}, 403); return; }
             const auto type = lower_ascii(request.get_header_value("Content-Type"));
             if (type != "application/json" && type != "application/json; charset=utf-8") {
@@ -369,11 +391,31 @@ int run_server(const std::string& host, int port,
             audio_control.select(body["deviceId"].template get<std::string>());
             json_response(response, audio.state());
         });
+        // The hold filter is server-wide: every overlay, the dashboard and Full History
+        // observe the same confirmed master, so it is configured once in Admin.
+        auto* master_gate = features ? features->master_gate : nullptr;
+        const auto master_description=[master_gate,can_control](const httplib::Request& request){
+            Json result=master_gate?master_gate->describe():Json{{"holdMs",MasterGate::default_hold_ms},{"defaultHoldMs",MasterGate::default_hold_ms},{"maxHoldMs",MasterGate::max_hold_ms}};
+            result["available"]=master_gate!=nullptr;result["canControl"]=can_control(request);return result;
+        };
+        server.Get("/api/admin/master", Access::Admin, [master_description](const auto& request,auto& response){json_response(response,master_description(request));});
+        server.Post("/api/admin/master", Access::Admin, [master_gate,portal,can_control,master_description](const auto& request,auto& response){
+            if(!can_control(request))throw PortalError(403,"networkReadOnly");
+            if(!master_gate)throw PortalError(503,"masterSettingsUnavailable");
+            const auto body=portal_body(request);
+            if(body.size()!=1||!body.contains("holdMs")||!body["holdMs"].is_number_integer())throw PortalError(400,"masterSettingsInvalid");
+            const auto hold=body["holdMs"].template get<std::int64_t>();
+            if(!MasterGate::valid_hold(hold))throw PortalError(400,"masterSettingsInvalid");
+            // Persist first: a rejected write must not leave the running gate ahead of the store.
+            if(portal)portal->save_master_settings({{"holdMs",hold}});
+            master_gate->set_hold_ms(hold);
+            json_response(response,master_description(request));
+        });
         const bool prolink = features && features->mode == "prolink";
-        server.Get("/api/app", [prolink, network, portal, can_control, port](const auto& request, auto& response) {
+        server.Get("/api/app", Access::User, [prolink, network, portal, can_control, port](const auto& request, auto& response) {
             const auto user=portal?portal->identity(portal_session(request)):Json(nullptr);
             const bool admin=!portal||(!user.is_null()&&user["role"]=="admin");
-            json_response(response, {{"version", "2.1.0"}, {"mode", prolink ? "prolink" : "rekordbox"},
+            json_response(response, {{"version", DECKSTATUS_VERSION}, {"mode", prolink ? "prolink" : "rekordbox"},
                 {"obsBaseUrl", network_url("127.0.0.1", port)},
                 {"user",user},
                 {"canControl", can_control(request)},
@@ -382,15 +424,15 @@ int run_server(const std::string& host, int port,
                     {"audioWaveform", true}, {"rekordboxSetup", !prolink}, {"prolinkSetup", prolink},
                     {"playbackStatus", prolink}, {"onAir", prolink}, {"mixerControls", false}, {"trackWaveform", false}}}});
         });
-        server.Get("/api/prolink/devices", [features, prolink](const auto&, auto& response) {
+        server.Get("/api/prolink/devices", Access::User, [features, prolink](const auto&, auto& response) {
             if (!prolink || !features->prolink_setup) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
             json_response(response, features->prolink_setup());
         });
-        server.Get("/api/rekordbox/status", [prolink, &snapshot](const auto&, auto& response) {
+        server.Get("/api/rekordbox/status", Access::User, [prolink, &snapshot](const auto&, auto& response) {
             if (prolink) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
             json_response(response, snapshot());
         });
-        server.Post("/api/prolink/control", [features, prolink, can_control](const auto& request, auto& response) {
+        server.Post("/api/prolink/control", Access::User, [features, prolink, can_control](const auto& request, auto& response) {
             if (!prolink || !features->prolink_control) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
             if (!can_control(request)) { json_response(response, {{"error", "networkReadOnly"}}, 403); return; }
             const auto type = lower_ascii(request.get_header_value("Content-Type"));
@@ -402,11 +444,11 @@ int run_server(const std::string& host, int port,
             const auto result = features->prolink_control(body);
             json_response(response, result, result.contains("error") ? 400 : 202);
         });
-        server.Get("/api/network", [network, local_request](const auto& request, auto& response) {
+        server.Get("/api/network", Access::Admin, [network, local_request](const auto& request, auto& response) {
             if (!network) { json_response(response, {{"error", "networkUnavailable"}}, 503); return; }
             json_response(response, network->describe(local_request(request)));
         });
-        server.Post("/api/network", [features, local_request](const auto& request, auto& response) {
+        server.Post("/api/network", Access::Admin, [features, local_request](const auto& request, auto& response) {
             if (!local_request(request)) { json_response(response, {{"error", "networkLocalOnly"}}, 403); return; }
             if (!features || !features->network) { json_response(response, {{"error", "networkUnavailable"}}, 503); return; }
             const auto type = lower_ascii(request.get_header_value("Content-Type"));
@@ -419,11 +461,11 @@ int run_server(const std::string& host, int port,
                 json_response(response, {{"error", message}}, message == "networkInvalidSettings" || message == "networkInvalidDomain" ? 400 : 500);
             }
         });
-        server.Post(R"(/.*)", reject_method);
-        server.Put(R"(/.*)", reject_method);
-        server.Patch(R"(/.*)", reject_method);
-        server.Delete(R"(/.*)", reject_method);
-        server.Options(R"(/.*)", reject_method);
+        server.Post(R"(/.*)", Access::User, reject_method);
+        server.Put(R"(/.*)", Access::User, reject_method);
+        server.Patch(R"(/.*)", Access::User, reject_method);
+        server.Delete(R"(/.*)", Access::User, reject_method);
+        server.Options(R"(/.*)", Access::User, reject_method);
         server.set_error_handler([](const auto&, auto& response) {
             if (response.body.empty()) {
                 json_response(response, {{"error", response.status == 404 ? "Not found" : "Request failed"}},
@@ -435,17 +477,24 @@ int run_server(const std::string& host, int port,
         for (const auto& [url, asset] : assets) {
             std::string pattern;
             for (char c : url) { if (c == '.') pattern += '\\'; pattern += c; }
-            server.Get(pattern, [asset,url](const auto&, auto& response) {
+            server.Get(pattern, asset.access, [asset,url](const httplib::Request& request, httplib::Response& response) {
                 if(url=="/components/image")response.set_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://upload.wikimedia.org; connect-src 'self' https://commons.wikimedia.org https://upload.wikimedia.org; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; form-action 'none'");
+                if (!asset.etag.empty()) {
+                    // Replace, not append: the default headers are already in the response.
+                    response.headers.erase("Cache-Control");
+                    response.set_header("Cache-Control", "no-cache");
+                    response.set_header("ETag", asset.etag);
+                    if (request.get_header_value("If-None-Match") == asset.etag) { response.status = 304; return; }
+                }
                 response.set_content(asset.body, asset.mime);
             });
         }
-        server.Get("/api/state", [&snapshot](const auto&, auto& response) { json_response(response, snapshot()); });
-        server.Get("/api/master", [master](const auto&, auto& response) {
+        server.Get("/api/state", Access::Keyed, [&snapshot](const auto&, auto& response) { json_response(response, snapshot()); });
+        server.Get("/api/master", Access::Keyed, [master](const auto&, auto& response) {
             if (!master) { json_response(response, {{"error", "Master feed is not available"}}, 503); return; }
             json_response(response, master->snapshot());
         });
-        server.Get("/api/history", [master,portal,&twitch](const httplib::Request& request, auto& response) {
+        server.Get("/api/history", Access::Public, [master,portal,&twitch](const httplib::Request& request, auto& response) {
             if (!master) { json_response(response, {{"error", "History is not available"}}, 503); return; }
             std::uint64_t before = 0, page_size = 100;
             for (const auto* name : {"before", "limit"}) {
@@ -462,24 +511,28 @@ int run_server(const std::string& host, int port,
             if(portal){const auto viewer=twitch.viewer_identity(portal_cookie(request,"deckstatus_viewer"));result=portal->public_history(std::move(result),viewer.is_null()?std::string{}:"twitch:"+viewer["id"].get<std::string>());result["viewer"]=viewer;const auto admin=portal->identity(portal_session(request));result["canViewRatings"]=!admin.is_null()&&admin["role"]=="admin"&&!admin["mustChangePassword"].get<bool>();}
             json_response(response,result);
         });
-        server.Get(R"(/api/(master|history)/covers/([1-9][0-9]{0,9}))", [master](const httplib::Request& request, auto& response) {
-            const auto input = request.matches[2].str();
-            std::uint32_t id{};
-            const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), id);
-            if (!master || error != std::errc{} || end != input.data() + input.size()) {
-                json_response(response, {{"error", "Master cover is not available"}}, 404); return;
-            }
-            auto [mime, bytes] = request.matches[1].str() == "history" ? master->history_cover(id) : master->cover(id);
-            if (bytes.empty()) { json_response(response, {{"error", "Master cover is not available"}}, 404); return; }
-            if (mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" && mime != "image/gif" && mime != "image/bmp") {
-                json_response(response, {{"error", "Cover format is not supported"}}, 415); return;
-            }
-            response.set_content(std::move(bytes), mime);
-        });
-        server.Get("/api/decks", [&snapshot](const auto&, auto& response) {
+        const auto cover_route = [master](bool history) {
+            return [master,history](const httplib::Request& request, httplib::Response& response) {
+                const auto input = request.matches[1].str();
+                std::uint32_t id{};
+                const auto [end, error] = std::from_chars(input.data(), input.data() + input.size(), id);
+                if (!master || error != std::errc{} || end != input.data() + input.size()) {
+                    json_response(response, {{"error", "Cover is not available"}}, 404); return;
+                }
+                auto [mime, bytes] = history ? master->history_cover(id) : master->cover(id);
+                if (bytes.empty()) { json_response(response, {{"error", "Cover is not available"}}, 404); return; }
+                if (mime != "image/jpeg" && mime != "image/png" && mime != "image/webp" && mime != "image/gif" && mime != "image/bmp") {
+                    json_response(response, {{"error", "Cover format is not supported"}}, 415); return;
+                }
+                response.set_content(std::move(bytes), mime);
+            };
+        };
+        server.Get(R"(/api/master/covers/([1-9][0-9]{0,9}))", Access::Keyed, cover_route(false));
+        server.Get(R"(/api/history/covers/([1-9][0-9]{0,9}))", Access::Public, cover_route(true));
+        server.Get("/api/decks", Access::User, [&snapshot](const auto&, auto& response) {
             json_response(response, decks_from(snapshot()));
         });
-        server.Get(R"(/api/decks/([1-4]))", [&snapshot](const httplib::Request& request,
+        server.Get(R"(/api/decks/([1-4]))", Access::User, [&snapshot](const httplib::Request& request,
                                                        httplib::Response& response) {
             const int deck_id = request.matches[1].str()[0] - '0';
             for (const auto& deck : decks_from(snapshot())) {
@@ -490,7 +543,7 @@ int run_server(const std::string& host, int port,
             }
             json_response(response, {{"error", "Deck is not available"}}, 404);
         });
-        server.Get(R"(/api/decks/([1-4])/cover)", [&cover, &snapshot](const httplib::Request& request,
+        server.Get(R"(/api/decks/([1-4])/cover)", Access::Keyed, [&cover, &snapshot](const httplib::Request& request,
                                                          httplib::Response& response) {
             const int deck_id = request.matches[1].str()[0] - '0';
             const auto before = loaded_track(snapshot(), deck_id);
@@ -531,7 +584,7 @@ int run_server(const std::string& host, int port,
             }
             response.set_content(std::move(bytes), mime_type);
         });
-        server.Get("/api/health", [&snapshot](const auto&, auto& response) {
+        server.Get("/api/health", Access::User, [&snapshot](const auto&, auto& response) {
             const auto state = snapshot();
             const auto status = state.value("status", std::string("disconnected"));
             const bool healthy = status == "connected" || status == "demo";

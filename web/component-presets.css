@@ -1,6 +1,11 @@
-.component-presets{padding:20px;border:1px solid #34574b;border-radius:12px;background:#12251f;margin-bottom:24px;min-width:0}
-.component-presets h2{margin:0 0 8px}.component-presets .preset-help{font-size:12px;margin-bottom:14px}
-.component-presets label{display:block;font-size:12px;color:#c5ded1;margin:12px 0 7px}
-.component-presets input,.component-presets select{width:100%;min-width:0;background:#0b161a;color:#eef4f1;border:1px solid #354a4b;border-radius:7px;padding:9px 12px;font-size:12px}
-.preset-row{display:flex;gap:8px;align-items:center}.preset-row select{flex:1}.preset-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-.component-presets button{white-space:nowrap}.component-presets button:disabled{opacity:.4;cursor:default}.component-presets [role=status]{font-size:12px;min-height:18px;margin-top:8px}
+/* Shared saved-preset library, embedded in the component settings pages. */
+.component-presets { padding: var(--s4); border: 1px solid var(--accent-line); border-radius: var(--radius-lg); background: var(--accent-bg); margin-bottom: var(--s4); min-width: 0; }
+.component-presets h2 { margin: 0 0 6px; }
+.component-presets .preset-help { font-size: var(--fs-md); margin-bottom: var(--s3); }
+.component-presets label { display: block; font-size: var(--fs-md); color: #c5ded1; margin: var(--s3) 0 5px; }
+.component-presets input, .component-presets select { font-size: var(--fs-md); }
+.preset-row { display: flex; gap: var(--s2); align-items: center; }
+.preset-row select { flex: 1; }
+.preset-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }
+.component-presets button { white-space: nowrap; }
+.component-presets [role=status] { font-size: var(--fs-md); min-height: 17px; margin-top: var(--s2); }

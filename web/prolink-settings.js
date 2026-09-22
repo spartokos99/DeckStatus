@@ -1,5 +1,6 @@
 import { t, diagnostic, translate, locale } from './i18n.js';
 import { appReady } from './navigation.js';
+import { poll as startPolling } from './poll.js';
 let active = false, busy = false, last = null, canControl = false;
 const selected = new Set();
 const byId = id => document.getElementById(id);
@@ -68,4 +69,6 @@ function mode(app){
 }
 window.addEventListener('appmodechange',event=>mode(event.detail));
 window.addEventListener('languagechange',()=>{translate();if(last)render(last);});
-mode(await appReady);setInterval(poll,1000);
+mode(await appReady);
+// setInterval could stack requests on a slow reply; this waits for each run to finish.
+startPolling(poll,{interval:1000,timeout:0,immediate:false});

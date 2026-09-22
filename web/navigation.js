@@ -1,5 +1,6 @@
 import { t, translate, setLanguage } from './i18n.js';
 import {api} from './auth.js';
+import { poll as startPolling } from './poll.js';
 
 const header = document.querySelector('header');
 const groups = [
@@ -89,4 +90,5 @@ export async function refreshApp() {
   return app;
 }
 export const appReady = refreshApp();
-setInterval(refreshApp,5000);
+// Paused while the tab is hidden: a background settings page needs no heartbeat.
+startPolling(()=>refreshApp(),{interval:5000,timeout:0,immediate:false});

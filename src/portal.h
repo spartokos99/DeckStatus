@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <map>
 #include <mutex>
+#include <shared_mutex>
 #include <stdexcept>
 #include <string>
 
@@ -13,6 +14,8 @@ struct PortalError : std::runtime_error {
     PortalError(int code, const char* key) : std::runtime_error(key), status(code) {}
 };
 // Persistent users, ratings, component presets and scenes. Sessions expire on restart.
+// Uploaded media lives in a "media" directory beside the store, addressed by content
+// hash, so saving a vote or a scene never rewrites megabytes of image data.
 class Portal {
 public:
     using Json = nlohmann::json;
@@ -32,6 +35,9 @@ public:
     Json media() const;
     Json audio_settings() const;
     Json save_audio_settings(const Json& settings);
+    // Server-wide master hold time in milliseconds; see src/master_gate.h.
+    Json master_settings() const;
+    Json save_master_settings(const Json& settings);
     // Native integration only: secrets are DPAPI-encrypted at rest, never HTTP output.
     Json twitch_settings() const;
     void save_twitch_settings(const Json& settings);
@@ -54,15 +60,22 @@ public:
 private:
     struct Session { std::string user; std::chrono::steady_clock::time_point expires; };
     struct Attempts { int count = 0; std::chrono::steady_clock::time_point until; };
-    std::filesystem::path file_;
+    std::filesystem::path file_, media_dir_;
     void* lock_file_ = nullptr;
     Json data_, catalog_ = Json::object();
-    mutable std::mutex mutex_;
+    mutable std::shared_mutex mutex_;
     std::map<std::string, Session> sessions_;
     std::map<std::string, Attempts> attempts_;
-    void commit(const Json& next);
+    // Readers share the lock; every writer holds it exclusively. Expensive work
+    // (key derivation, media file I/O) happens before or after the critical section.
+    void commit(Json&& next);
     void invalidate(const std::string& user);
     void throttle(const std::string& key, int limit);
-    Json user_identity(const std::string& session);
+    Json user_identity(const std::string& session) const;
+    std::filesystem::path asset_path(const std::string& id) const;
+    std::string read_asset(const std::string& id) const;
+    void write_asset(const std::string& id, const std::string& bytes) const;
+    void remove_asset(const std::string& id) const;
+    void prune_assets() const;
 };
 }

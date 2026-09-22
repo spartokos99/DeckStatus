@@ -2,6 +2,7 @@
 #include "language.h"
 #include "artwork.h"
 #include "server.h"
+#include "master_gate.h"
 #include "master_history.h"
 #include "prolink.h"
 #include "network.h"
@@ -243,6 +244,10 @@ int wmain(int argc, wchar_t** argv) {
         features.network = &network;
         deckstatus::Portal portal(data_directory);
         features.portal = &portal;
+        // One hold filter for both sources: overlays, dashboard and history observe
+        // the same confirmed master, and Admin changes it for the whole server.
+        deckstatus::MasterGate master_gate(portal.master_settings().value("holdMs", deckstatus::MasterGate::default_hold_ms));
+        features.master_gate = &master_gate;
         const auto initial_password = portal.initial_password();
         if (!initial_password.empty()) std::cout << deckstatus::tr("authInitialConsole") << '\n' << deckstatus::tr("authTemporaryConsole") << initial_password << '\n' << deckstatus::tr("authChangeConsole") << '\n' << std::flush;
         if (prolink_mode) {
@@ -254,14 +259,16 @@ int wmain(int argc, wchar_t** argv) {
             features.prolink_control = [&](const nlohmann::json& command) { return link.control(command); };
             std::jthread sampler([&](std::stop_token token) {
                 while (!token.stop_requested() && !stopping) {
-                    const auto state = link.snapshot();
+                    auto state = link.snapshot();
+                    master_gate.apply(state);
                     history.update(state);
                     for (const auto& deck : state["decks"]) history.enrich(deck);
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
             });
             std::cout << deckstatus::tr("prolinkStartup") << '\n';
-            return deckstatus::run_server(host, port, directory / "web", [&] { return link.snapshot(); },
+            return deckstatus::run_server(host, port, directory / "web",
+                [&] { auto state = link.snapshot(); master_gate.apply(state); return state; },
                 [&](int id) -> std::pair<std::string, std::string> {
                     const auto state = link.snapshot();
                     for (const auto& deck : state["decks"]) if (deck["id"] == id && deck.value("loaded", false))
@@ -312,7 +319,9 @@ int wmain(int argc, wchar_t** argv) {
                     }
                 }
                 // Capture even with no browser connected. No SQL or disk I/O on this thread.
-                master_history.update(serialize(next, next_alive, demo, ""));
+                auto sampled = serialize(next, next_alive, demo, "");
+                master_gate.apply(sampled);
+                master_history.update(sampled);
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
         });
@@ -377,7 +386,9 @@ int wmain(int argc, wchar_t** argv) {
                     }
                 }
             }
-            return serialize(copy, connected, demo, artwork ? artwork->diagnostic() : "Demo-Cover");
+            auto state = serialize(copy, connected, demo, artwork ? artwork->diagnostic() : "Demo-Cover");
+            master_gate.apply(state);
+            return state;
         };
         auto cover = [&](int deck) -> std::pair<std::string, std::string> {
             if (deck < 1 || deck > 4) return {};

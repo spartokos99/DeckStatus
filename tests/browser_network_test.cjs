@@ -1,11 +1,11 @@
 const assert=require('node:assert/strict');
-const {withBrowser}=require('./browser_fixture.cjs');
+const {withBrowser,appVersion}=require('./browser_fixture.cjs');
 let active={bind:'127.0.0.1',port:18740,allowRemoteControl:false},saved={...active},canConfigure=true,canControl=true,mode='rekordbox',fail=false,reads=0;
 const posts=[];
 const network=()=>({active,saved,canConfigure,restartRequired:JSON.stringify(active)!==JSON.stringify(saved),commandLineOverrides:false,interfaces:[{address:'192.0.2.10',name:'Ethernet · synthetic fixture'},{address:'192.0.2.20',name:'<img src=x onerror=alert(1)>'}],urls:['http://127.0.0.1:'+active.port,...(active.publicDomain?['https://'+active.publicDomain]:[]),...(active.bind==='127.0.0.1'?[]:['http://192.0.2.10:'+active.port])]});
 withBrowser((req,res,url)=>{
  if(!url.pathname.startsWith('/api/'))return false;res.setHeader('Content-Type','application/json');
- if(url.pathname==='/api/app')res.end(JSON.stringify({version:'2.1.0',mode,canControl,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,networkSettings:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink'}}));
+ if(url.pathname==='/api/app')res.end(JSON.stringify({version:appVersion,mode,canControl,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,networkSettings:true,rekordboxSetup:mode==='rekordbox',prolinkSetup:mode==='prolink'}}));
  else if(req.method==='POST'){
   let body='';req.on('data',data=>body+=data);req.on('end',()=>{posts.push({path:url.pathname,body:JSON.parse(body)});if(url.pathname==='/api/network')saved=JSON.parse(body);res.end(JSON.stringify(network()));});
  }else if(url.pathname==='/api/network'){reads++;if(fail){res.statusCode=503;res.end('{}');}else res.end(JSON.stringify(network()));}
