@@ -56,3 +56,5 @@
   .nav-group .nav-links { align-items: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { .app-header .nav-link, .app-header .nav-components summary, .nav-chevron { transition: none; } }
+
+.update-indicator{color:var(--accent);text-decoration:none;border:1px solid currentColor}.update-indicator[hidden]{display:none}

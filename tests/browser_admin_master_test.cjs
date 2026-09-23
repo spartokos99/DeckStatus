@@ -47,6 +47,7 @@ withBrowser((req,res,url)=>{
  // Zero is the documented opt-out and must read as such, not as "0 s".
  await drag(0);assert.equal(await evaluate($('value')+'.textContent'),'Off (immediate)');
  await evaluate($('save')+'.click()');await until(()=>holdMs===0,'Opt-out was not saved');
+ await ready(); // Wait for the response to re-enable controls before clicking Reset.
  await evaluate($('reset')+'.click()');
  assert.equal(await evaluate($('hold')+'.value'),'4','Default button did not restore 4 seconds');
  assert.equal(await evaluate($('reset')+'.disabled'),true,'Default button stayed active at the default');

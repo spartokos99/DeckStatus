@@ -9,6 +9,11 @@
 
 .design-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
 .design-grid .setting { margin-bottom: var(--s2); }
+.track-extras details { border-top: 1px solid var(--line); padding: 10px 0; }
+.track-extras summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+.track-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: var(--fs-md); }
+.track-control > span { min-width: 0; }
+.track-control input:not([type="checkbox"]), .track-control select { width: 48%; min-width: 0; }
 
 .preview-column { position: sticky; top: var(--s4); min-width: 0; }
 .preview-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-bottom: var(--s2); }

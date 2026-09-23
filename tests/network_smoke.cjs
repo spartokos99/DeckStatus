@@ -11,9 +11,9 @@ async function run(args,port,test){
  const child=spawn(exe,[...args,'--network-config',config,'--data-dir',store.data],{cwd:root,windowsHide:true,stdio:['ignore','pipe','pipe']});
  let log='',error,cookie='';child.stdout.on('data',data=>log+=data);child.stderr.on('data',data=>log+=data);child.on('error',value=>error=value);
  const closed=new Promise(resolve=>child.on('close',resolve));
- const request=async(route,body,host='127.0.0.1')=>{
+ const request=async(route,body,host='127.0.0.1',publicHost='')=>{
   const base='http://'+host+':'+port;
-  const response=await fetch(base+route,{signal:AbortSignal.timeout(4000),headers:{Cookie:cookie,...(body?{'Content-Type':'application/json','Origin':base}:{})},...(body?{method:'POST',body:JSON.stringify(body)}:{})});
+  const response=await fetch(base+route,{signal:AbortSignal.timeout(4000),headers:{Cookie:cookie,...(publicHost?{Host:publicHost}:{}),...(body?{'Content-Type':'application/json','Origin':publicHost?'https://'+publicHost:base}:{})},...(body?{method:'POST',body:JSON.stringify(body)}:{})});
   const set=response.headers.getSetCookie().find(value=>value.startsWith('deckstatus_session='));if(set)cookie=set.split(';')[0];
   return {status:response.status,data:await response.json()};
  };
@@ -29,7 +29,7 @@ async function run(args,port,test){
    const settings=(await request('/api/network')).data;assert.equal(settings.active.bind,'127.0.0.1');assert.equal(settings.active.allowRemoteControl,false);
    assert.equal(fs.existsSync(config),false,'Starting wrote configuration');
    assert.equal((await request('/api/app')).data.mode,'rekordbox');
-   const saved=await request('/api/network',{bind:'0.0.0.0',port:next,allowRemoteControl:false});assert.equal(saved.status,200);assert.equal(saved.data.restartRequired,true);
+   const saved=await request('/api/network',{bind:'0.0.0.0',port:next,allowRemoteControl:false,publicDomain:'deckstatus.example'});assert.equal(saved.status,200);assert.equal(saved.data.restartRequired,true);
    assert.equal(saved.data.active.bind,'127.0.0.1');assert.equal(saved.data.active.port,initial);
   });
   await run(['--mode','prolink'],next,async request=>{
@@ -38,6 +38,9 @@ async function run(args,port,test){
    assert.equal((await request('/api/audio/state')).data.status,'stopped');
    const address=Object.values(os.networkInterfaces()).flat().find(item=>item.family==='IPv4'&&!item.internal)?.address;
    if(address){const state=await request('/api/state',null,address);assert.equal(state.status,200);assert.equal(state.data.mode,'prolink');console.log('Actual host LAN address accepted by wildcard listener.');}
+   // A same-machine LAN request is local; a configured domain request is always remote.
+   assert.equal((await request('/api/prolink/settings',null,'127.0.0.1','deckstatus.example')).status,200);
+   assert.equal((await request('/api/prolink/settings',{autoConnect:false,devices:[]},'127.0.0.1','deckstatus.example')).status,403,'Remote read-only connection settings allowed writes');
   });
   const overridden=await freePort();
   const address=Object.values(os.networkInterfaces()).flat().find(item=>item.family==='IPv4'&&!item.internal)?.address;

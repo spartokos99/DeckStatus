@@ -20,6 +20,9 @@ int main(int argc, char** argv) {
              Json{{"action", "connect"}, {"players", {1.5}}}, Json{{"action", "connect"}, {"players", {1, 2, 3, 4, 5}}}})
             require(!deckstatus::valid_prolink_command(value), "Invalid command accepted");
         require(deckstatus::valid_prolink_command({{"action", "connect"}, {"players", {1, 2, 5, 6}}}), "Valid player mapping rejected");
+        require(deckstatus::valid_prolink_command({{"action","connect"},{"mapping",Json::array({{{"player",3},{"deck",1}},{{"player",1},{"deck",4}}})}}),"Explicit deck assignment rejected");
+        require(!deckstatus::valid_prolink_command({{"action","connect"},{"mapping",Json::array({{{"player",3},{"deck",1}},{{"player",1},{"deck",1}}})}}),"Duplicate deck assignment accepted");
+        require(!deckstatus::valid_prolink_command({{"action","connect"},{"mapping",Json::array({{{"player",1},{"deck",5}}})}}),"Out-of-range deck accepted");
         const auto root = std::filesystem::absolute(std::filesystem::path(argv[1])).parent_path() / ("prolink-fixture-" + std::to_string(GetCurrentProcessId()));
         std::filesystem::create_directories(root / "prolink/runtime/bin");
         deckstatus::ProLink missing(root);
@@ -50,7 +53,7 @@ int main(int argc, char** argv) {
             require(WaitForSingleObject(helper, 1000) == WAIT_OBJECT_0, "Crashed helper still running");
             CloseHandle(helper); helper = nullptr;
             link.control({{"action", "discover"}});
-            until([&] { return link.setup()["status"] == "stopped"; }, "Helper restart failed");
+            until([&] { return link.setup()["status"] == "discovering"; }, "Helper restart failed");
             helper = OpenProcess(SYNCHRONIZE, FALSE, link.setup()["helperPid"].get<DWORD>());
             link.control({{"action", "connect"}, {"players", {1}}});
             until([&] { return link.snapshot()["status"] == "connected"; }, "Restarted helper did not connect");
@@ -58,6 +61,15 @@ int main(int argc, char** argv) {
         }
         require(helper && WaitForSingleObject(helper, 1000) == WAIT_OBJECT_0, "Owned helper survived backend destruction");
         CloseHandle(helper);
+        {
+            deckstatus::ProLink automatic(root);
+            automatic.configure({{"autoConnect",true},{"devices",Json::array({{{"player",1},{"deck",4},{"name","CDJ-3000"}}})}},true);
+            until([&]{automatic.maintain();return automatic.setup().value("status","")=="connected";},"Saved devices did not connect when discovered",400);
+            require(automatic.snapshot()["decks"][3]["loaded"]==true,"Automatic connection ignored saved deck assignment");
+            automatic.control({{"action","disconnect"}});
+            until([&]{return automatic.setup().value("status","")=="stopped";},"Automatic fixture did not stop");
+            automatic.maintain();require(automatic.setup()["status"]=="stopped","Manual disconnect restarted automatic connection");
+        }
         std::cout << "ProLink commands, runtime detection, IPC/artwork, stale/exit/restart identities and owned-process cleanup passed.\n";
         return 0;
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }

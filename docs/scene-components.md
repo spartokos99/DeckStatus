@@ -1,6 +1,6 @@
 # Creative scene components
 
-These additions are included in DeckStatus 2.1.0. They work in both Rekordbox and ProLink modes and use the same accounts, preset library and OBS scene links as existing overlays.
+Creative components were introduced in DeckStatus 2.1.0. The extended deck/master controls and linked preset updates below are included in **2.3.0**. They work in both Rekordbox and ProLink modes and use the same accounts, preset library and OBS scene links as existing overlays.
 
 ## Build a scene
 
@@ -9,7 +9,21 @@ These additions are included in DeckStatus 2.1.0. They work in both Rekordbox an
 3. In **Stream → Scene editor**, reload the preset list and add your preset. Position, resize, rotate and reorder the layer. **Fill scene** fits it to the canvas; new FX layers already cover the entire scene.
 4. Save the scene. Its existing OBS Browser Source updates without replacing its URL. Set OBS dimensions to the scene's dimensions.
 
-The editor can also add blank components. **Save as new** in the selected layer's properties creates a reusable preset from that layer's settings. Layers remain independent copies of presets. Choose layers from the layer list when a full-size FX layer covers the canvas.
+The editor can also add blank components. **Save as new** in the selected layer's properties creates a reusable preset from that layer's settings. Inserted presets remain linked: updating a preset updates all its scene layers while preserving placement, size, rotation, opacity and visibility. Choose **Independent layer** to customize a detached copy, or select another source preset without deleting the layer. Deleting a preset keeps its layers as detached copies. Choose layers from the layer list when a full-size FX layer covers the canvas.
+
+## Deck and master overlays
+
+Both settings pages offer title, artist, album, label, key, **BPM** (original analysed tempo), **BPM (Current)** (live tempo) and cover as separate fields. Round BPM to whole numbers if preferred. **Hide missing information** removes absent metadata, covers and unavailable timelines; a missing title retains an informative fallback. With this option off, a simple disc is shown for absent/failed covers. Legacy URLs with one BPM switch still display both values.
+
+Use the compact expandable sections for the additional controls:
+
+- **Track information:** integer BPM, missing-data behaviour and an independent field set for previous master tracks. Timeline remains current-track-only.
+- **Cover:** left, above or right of the text; square or round; optional turntable rotation for round covers. Fit cover to content height applies to left/right covers.
+- **Layout & long text:** left/centre/right content alignment, spacing between metadata rows and ellipsis, Sliding text or Expand container. Track spacing and history size/alignment stay separate.
+- **Individual text styles:** choose a field, then override foreground/background, font and top/bottom margins; reset it to the shared design when needed. Ten local system-font choices need no CDN. Version 2.3.2 additionally supports font size (8–200 px), normal/italic/oblique style and weight (100–900) per field. Empty overrides inherit the shared design; installed fonts determine which weights/styles have native faces.
+- **Scene deck selection (2.3.2):** choose Deck 1–4 in a deck layer's properties, including layers linked to a preset. The choice belongs to that scene layer and survives subsequent preset updates; the remaining linked design stays controlled by its preset.
+
+Sliding text animates only when it actually overflows and does not restart on every BPM update. Reduced-motion preferences disable scrolling and cover rotation. Expand container grows to fit text; an OBS source or scene boundary can still clip it, so reserve sufficient source dimensions. In a scene it can extend beyond the original layer width up to the canvas edge. Preset updates preserve the layer dimensions, so increase its height when adding more rows/history.
 
 ## Text
 

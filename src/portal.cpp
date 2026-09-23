@@ -1,4 +1,6 @@
 #include "portal.h"
+#include "track_options.h"
+#include "prolink_selection.h"
 #include "master_gate.h"
 #include "scene_components.h"
 #include <Windows.h>
@@ -101,19 +103,16 @@ double number(const Json& value,const char* key,double low,double high) {
 Json valid_preset(const Json& value) {
     const auto name=text(value,"name",80),kind=text(value,"type",12);
     if(canonical(name).empty()||!components::type(kind))throw PortalError(400,"presetInvalid");
-    if(!value.contains("options")||!value["options"].is_object()||value["options"].size()>50)throw PortalError(400,"presetInvalid");
+    if(!value.contains("options")||!value["options"].is_object()||value["options"].size()>80)throw PortalError(400,"presetInvalid");
     static const std::set<std::string> track={"deck","history","fields","duration","width","historyScale","align","lang","timeline","font","fontSize","coverSize","padding","gap","layout","badges","background","textColor","mutedColor","accent","opacity","radius","border","shadow"};
     static const std::set<std::string> wave={"width","height","lang","background","opacity","gap","mode","color","color2","gradient","gain","smoothing","gate","lineWidth","bars","rounding","glow","trails","channel","minHz","maxHz","historySeconds","fps","grid","centerLine","hideSilent"};
-    static const std::set<std::string> fields={"title","artist","album","key","bpm","cover"};
     const auto& keys=kind=="waveform"?wave:track;
     for(auto it=value["options"].begin();it!=value["options"].end();++it) {
+        if((kind=="deck"||kind=="master")&&(track_options::extra.contains(it.key())||it.key()=="fields"||it.key()=="deck")){track_options::validate(it.key(),it.value());continue;}
         if(components::reaction_keys.contains(it.key())||(components::creative(kind)&&components::creative_keys.contains(it.key()))) {components::validate_option(it.key(),it.value());continue;}
         if(components::creative(kind))throw PortalError(400,"presetInvalid");
         if(!keys.contains(it.key())||it.value().dump().size()>256)throw PortalError(400,"presetInvalid");
-        if(it.key()=="fields") {
-            if(!it.value().is_array()||it.value().empty()||it.value().size()>6)throw PortalError(400,"presetInvalid");
-            for(const auto& field:it.value())if(!field.is_string()||!fields.contains(field.get<std::string>()))throw PortalError(400,"presetInvalid");
-        } else if(!it.value().is_string()&&!it.value().is_boolean()&&!(it.value().is_number()&&std::isfinite(it.value().get<double>())))throw PortalError(400,"presetInvalid");
+        if(!it.value().is_string()&&!it.value().is_boolean()&&!(it.value().is_number()&&std::isfinite(it.value().get<double>())))throw PortalError(400,"presetInvalid");
     }
     return {{"name",name},{"type",kind},{"options",value["options"]}};
 }
@@ -128,16 +127,18 @@ Json valid_scene(const Json& value) {
     for(const auto& item:value["items"]) {
         auto id=text(item,"id",64),kind=text(item,"type",12);
         if(!std::regex_match(id,std::regex("[a-zA-Z0-9_-]{1,64}"))||!ids.insert(id).second||!components::type(kind))throw PortalError(400,"sceneInvalid");
-        if(!item.contains("visible")||!item["visible"].is_boolean()||!item.contains("options")||!item["options"].is_object()||item["options"].size()>50)throw PortalError(400,"sceneInvalid");
+        if(!item.contains("visible")||!item["visible"].is_boolean()||!item.contains("options")||!item["options"].is_object()||item["options"].size()>80)throw PortalError(400,"sceneInvalid");
         // Options are data, never URLs/HTML/scripts. Renderers normalize this allowlist.
         static const std::set<std::string> keys={"deck","history","fields","duration","width","height","historyScale","align","lang","timeline","font","fontSize","coverSize","padding","gap","layout","badges","background","textColor","mutedColor","accent","opacity","radius","border","shadow","mode","color","color2","gradient","gain","smoothing","gate","lineWidth","bars","rounding","glow","trails","channel","minHz","maxHz","historySeconds","fps","grid","centerLine","hideSilent"};
         for(auto it=item["options"].begin();it!=item["options"].end();++it){
+            if((kind=="deck"||kind=="master")&&(track_options::extra.contains(it.key())||it.key()=="fields"||it.key()=="deck")){track_options::validate(it.key(),it.value());continue;}
             if(components::reaction_keys.contains(it.key())||(components::creative(kind)&&components::creative_keys.contains(it.key()))) {components::validate_option(it.key(),it.value());continue;}
             if(components::creative(kind)||!keys.contains(it.key())||it.value().is_object()||it.value().dump().size()>256)throw PortalError(400,"sceneInvalid");
         }
         items.push_back({{"id",id},{"type",kind},{"x",number(item,"x",-7680,7680)},{"y",number(item,"y",-4320,4320)},{"width",number(item,"width",32,7680)},{"height",number(item,"height",32,4320)},{"opacity",number(item,"opacity",0,1)},{"visible",item["visible"]},{"options",item["options"]}});
         if(item.contains("name"))items.back()["name"]=text(item,"name",80);
         if(item.contains("rotation"))items.back()["rotation"]=number(item,"rotation",-360,360);
+        if(item.contains("presetId")){const auto preset=text(item,"presetId",64);if(!preset.empty()&&!token(preset))throw PortalError(400,"sceneInvalid");items.back()["presetId"]=preset;}
     }
     return {{"name",name},{"width",width},{"height",height},{"background",background},{"items",items}};
 }
@@ -177,7 +178,28 @@ Portal::Portal(const std::filesystem::path& directory) : file_(directory/"portal
         }
         if(data_.contains("audioSettings"))valid_audio_settings(data_["audioSettings"]);
         if(data_.contains("masterSettings"))valid_master_settings(data_["masterSettings"]);
+        if(data_.contains("prolinkSettings")&&!valid_prolink_settings(data_["prolinkSettings"]))throw PortalError(500,"portalDataInvalid");
         auto next=data_;bool migrated=false;
+        // Older scene layers did not record their source preset. Link only an
+        // unambiguous unchanged named copy; custom/ambiguous layers stay independent.
+        // These are the historical defaults added to inserted layers by the old editor.
+        const Json legacy_reaction_defaults={{"audioEnabled",false},{"audioBand","rms"},{"audioGain",2},{"audioThreshold",.2},{"audioAttack",50},{"audioRelease",350},{"reactScale",0},{"reactX",0},{"reactY",0},{"reactRotation",0},{"reactOpacity",0}};
+        for(auto& scene:next["scenes"]) {
+            bool changed=false;
+            for(auto& item:scene["items"]) {
+                if(item.contains("presetId"))continue;
+                std::string match;int count=0;
+                for(const auto& preset:next["presets"]) {
+                    if(item.value("name",std::string{})!=preset["name"].get<std::string>()||item["type"]!=preset["type"])continue;
+                    bool same=true;
+                    for(auto it=preset["options"].begin();it!=preset["options"].end();++it)if(!item["options"].contains(it.key())||item["options"][it.key()]!=it.value())same=false;
+                    for(auto it=item["options"].begin();it!=item["options"].end();++it)if(!preset["options"].contains(it.key())&&(!legacy_reaction_defaults.contains(it.key())||legacy_reaction_defaults[it.key()]!=it.value()))same=false;
+                    if(same){match=preset["id"];++count;}
+                }
+                item["presetId"]=count==1?match:"";changed=true;
+            }
+            if(changed){scene["revision"]=scene["revision"].get<int>()+1;migrated=true;}
+        }
         if(!next.contains("media")){next["media"]=Json::object();migrated=true;}
         if(!next["media"].is_object()||next["media"].size()>100)throw PortalError(500,"portalDataInvalid");
         std::size_t media_size=0;
@@ -314,6 +336,8 @@ Json Portal::audio_settings() const {std::shared_lock lock(mutex_);return data_.
 Json Portal::save_audio_settings(const Json& settings) {const auto value=valid_audio_settings(settings);std::unique_lock lock(mutex_);auto next=data_;next["audioSettings"]=value;commit(std::move(next));return value;}
 Json Portal::master_settings() const {std::shared_lock lock(mutex_);return data_.value("masterSettings",Json{{"holdMs",MasterGate::default_hold_ms}});}
 Json Portal::save_master_settings(const Json& settings) {const auto value=valid_master_settings(settings);std::unique_lock lock(mutex_);auto next=data_;next["masterSettings"]=value;commit(std::move(next));return value;}
+Json Portal::prolink_settings() const {std::shared_lock lock(mutex_);return data_.value("prolinkSettings",Json{{"autoConnect",true},{"devices",Json::array()}});}
+Json Portal::save_prolink_settings(const Json& settings) {if(!valid_prolink_settings(settings))throw PortalError(400,"prolinkInvalidSelection");std::unique_lock lock(mutex_);auto next=data_;next["prolinkSettings"]=settings;commit(std::move(next));return settings;}
 Json Portal::media() const {std::shared_lock lock(mutex_);Json out=Json::array();for(const auto& m:data_["media"])out.push_back(m);return out;}
 std::pair<std::string,std::string> Portal::media_file(const std::string& id) const {
     std::string mime;
@@ -357,12 +381,26 @@ Json Portal::edit_preset(const Json& command) {
     std::unique_lock lock(mutex_);const auto action=text(command,"action",16),id=command.value("id",std::string{});auto next=data_;
     if(!id.empty()&&!next["presets"].contains(id))throw PortalError(404,"portalNotFound");
     if(!id.empty()&&command.value("revision",0)!=next["presets"][id]["revision"])throw PortalError(409,"presetConflict");
-    if(action=="delete") {if(id.empty())throw PortalError(400,"presetInvalid");next["presets"].erase(id);commit(std::move(next));return {{"deleted",true}};}
+    if(action=="delete") {
+        if(id.empty())throw PortalError(400,"presetInvalid");
+        for(auto& scene:next["scenes"]){bool changed=false;for(auto& item:scene["items"])if(item.value("presetId",std::string{})==id){item["presetId"]="";changed=true;}if(changed)scene["revision"]=scene["revision"].get<int>()+1;}
+        next["presets"].erase(id);commit(std::move(next));return {{"deleted",true}};
+    }
     if(action!="save")throw PortalError(400,"presetInvalid");if(id.empty()&&next["presets"].size()>=200)throw PortalError(400,"portalCapacity");
     auto p=valid_preset(command.at("preset"));
     if(p["type"]=="image"){const auto asset=p["options"].value("assetId",std::string{});if(!asset.empty()&&!next["media"].contains(asset))throw PortalError(400,"mediaMissing");}
     if(!id.empty()&&p["type"]!=next["presets"][id]["type"])throw PortalError(400,"presetInvalid");
     const auto target=id.empty()?random_token():id;p["id"]=target;p["revision"]=id.empty()?1:next["presets"][id]["revision"].get<int>()+1;
+    for(auto& scene:next["scenes"]) {
+        bool changed=false;
+        for(auto& item:scene["items"])if(item.value("presetId",std::string{})==target) {
+            if(item["type"]!=p["type"])throw PortalError(400,"presetInvalid");
+            auto options=p["options"];
+            if(item["type"]=="deck")options["deck"]=item["options"].value("deck",1);
+            if(item["options"]!=options){item["options"]=std::move(options);changed=true;}
+        }
+        if(changed)scene["revision"]=scene["revision"].get<int>()+1;
+    }
     next["presets"][target]=p;commit(std::move(next));return p;
 }
 Json Portal::scenes() const {std::shared_lock lock(mutex_);Json out=Json::array();for(const auto& s:data_["scenes"])out.push_back(s);return out;}
@@ -375,6 +413,14 @@ Json Portal::edit_scene(const Json& command) {
     if(action=="rotate") {if(id.empty())throw PortalError(400,"sceneInvalid");auto& s=next["scenes"][id];s["key"]=random_token();s["revision"]=s["revision"].get<int>()+1;auto rotated=s;commit(std::move(next));return rotated;}
     if(action!="save")throw PortalError(400,"sceneInvalid");if(id.empty()&&next["scenes"].size()>=100)throw PortalError(400,"portalCapacity");
     auto s=valid_scene(command.at("scene"));const auto target=id.empty()?random_token():id;s["id"]=target;s["revision"]=id.empty()?1:next["scenes"][id]["revision"].get<int>()+1;s["key"]=id.empty()?random_token():next["scenes"][id]["key"].get<std::string>();
+    for(auto& item:s["items"]) {
+        const auto preset=item.value("presetId",std::string{});item["presetId"]=preset;
+        if(preset.empty())continue;
+        if(!next["presets"].contains(preset)||next["presets"][preset]["type"]!=item["type"])throw PortalError(400,"presetInvalid");
+        const auto deck=item["type"]=="deck"?item["options"].value("deck",1):1;
+        item["options"]=next["presets"][preset]["options"];
+        if(item["type"]=="deck")item["options"]["deck"]=deck;
+    }
     for(const auto& item:s["items"])if(item["type"]=="image"){const auto asset=item["options"].value("assetId",std::string{});if(!asset.empty()&&!next["media"].contains(asset))throw PortalError(400,"mediaMissing");}
     next["scenes"][target]=s;commit(std::move(next));return s;
 }

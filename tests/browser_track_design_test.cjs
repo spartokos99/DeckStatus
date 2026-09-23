@@ -1,0 +1,60 @@
+const assert=require('node:assert/strict');
+const {withBrowser}=require('./browser_fixture.cjs');
+let current={entryId:2,trackId:42,id:1,loaded:true,title:'Night Drive',artist:'Studio North',album:null,label:'Moon Records',key:null,originalBpm:126.6,bpm:129.7,coverUrl:null,positionMs:null,durationMs:null};
+const previous={...current,entryId:1,trackId:41,title:'First Light',artist:'Orbit',label:'Dawn Records'};
+const query=value=>new URLSearchParams({infoVersion:2,lang:'en',duration:0,width:500,...value}).toString();
+withBrowser((req,res,url)=>{
+ if(url.pathname==='/api/master'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'connected',current,history:[previous]}));return true;}
+ if(url.pathname==='/api/state'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({status:'connected',decks:[current]}));return true;}
+ return false;
+},async({navigate,evaluate,until,call,delay,screenshot})=>{
+ await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'no-preference'}]});
+ await navigate('/master-overlay?'+query({fields:'title,artist,album,label,key,bpm,currentBpm,cover',historyFields:'title,label',bpmInteger:1,hideMissing:1,timeline:1,contentAlign:'center'}));
+ await until(()=>evaluate('document.querySelectorAll(".track").length===2'),'Tracks missing');
+ assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-current="true"] [data-field]')].filter(n=>!n.hidden).map(n=>n.dataset.field)`),['title','artist','label','currentBpm','bpm']);
+ assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-current="false"] [data-field]')].filter(n=>!n.hidden).map(n=>n.dataset.field)`),['title','label']);
+ assert.equal(await evaluate(`document.querySelector('[data-current="true"] [data-value=originalBpm]').textContent`),'127');
+ assert.equal(await evaluate(`document.querySelector('[data-current="true"] [data-value=bpm]').textContent`),'130');
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.info')).textAlign`),'center');
+ assert.equal(await evaluate(`document.querySelector('.timeline').hidden`),true);
+ current={...current,title:null};await until(()=>evaluate(`document.querySelector('[data-current="true"] h1').textContent!=='Night Drive'`),'Missing title placeholder removed');
+ assert.equal(await evaluate(`document.querySelector('[data-current="true"] h1').hidden`),false);
+ current={...current,title:'Night Drive'};
+ await navigate('/overlay?'+query({deck:1,fields:'title,label,bpm',coverPosition:'right'}));
+ await until(()=>evaluate('document.querySelector(".track")'),'Deck missing');
+ assert.equal(await evaluate(`document.querySelector('[data-field=currentBpm]').hidden`),true);
+ assert.equal(await evaluate(`document.querySelector('[data-field=bpm]').hidden`),false);
+ // Existing one-switch URLs retain both BPM values.
+ await navigate('/overlay?deck=1&fields=title,bpm&duration=0');await until(()=>evaluate('document.querySelector(".track")'),'Legacy deck missing');
+ assert.equal(await evaluate(`document.querySelector('[data-field=currentBpm]').hidden`),false);
+ const styles={title:{font:'impact',color:'#ff8844',background:'#123456',marginTop:7,marginBottom:11,fontSize:46,fontStyle:'italic',fontWeight:800},label:{font:'verdana'},bpm:{fontSize:28,fontWeight:300,fontStyle:'oblique'}};
+ await navigate('/master-overlay?'+query({fields:'title,artist,label,cover',history:0,coverPosition:'right',coverShape:'round',coverSpin:1,coverFit:1,fieldStyles:JSON.stringify(styles)}));
+ await until(()=>evaluate(`document.querySelector('.art')?.offsetHeight===document.querySelector('.info')?.offsetHeight`),'Cover did not fit text height');
+ assert.equal(await evaluate(`document.querySelector('.art').getBoundingClientRect().left>document.querySelector('.info').getBoundingClientRect().left`),true);
+ assert.deepEqual(await evaluate(`(()=>{const s=getComputedStyle(document.querySelector('h1'));return [s.color,s.backgroundColor,s.marginTop,s.marginBottom,s.fontFamily.includes('Impact')];})()`),['rgb(255, 136, 68)','rgb(18, 52, 86)','7px','11px',true]);
+ assert.deepEqual(await evaluate(`(()=>{const s=getComputedStyle(document.querySelector('h1'));return [s.fontSize,s.fontStyle,s.fontWeight];})()`),['46px','italic','800']);
+ assert.deepEqual(await evaluate(`(()=>{const s=getComputedStyle(document.querySelector('[data-field=bpm] strong'));return [s.fontSize,s.fontStyle,s.fontWeight];})()`),['28px','oblique','300']);
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.art')).borderRadius`),'50%');
+ assert.equal(await evaluate(`document.querySelector('.art img').hidden && getComputedStyle(document.querySelector('.disc')).animationName==='cover-spin'`),true,'Fallback or spinning cover missing');
+ await screenshot('track-design-cover-right');
+ current={...current,title:'An exceptionally long track title — '+ 'Beyond the horizon '.repeat(8),artist:'Studio North and Friends '.repeat(8)};
+ await navigate('/master-overlay?'+query({history:0,width:320,fields:'title,artist',overflow:'slide',contentAlign:'right'}));
+ await until(()=>evaluate(`document.querySelector('h1')?.classList.contains('scrolling')`),'Long text did not scroll');
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('h1')).textAlign`),'left','Scrolling must start with the beginning of the title even in a right-aligned design');
+ await until(()=>evaluate(`document.querySelector('h1 span').getAnimations()[0]?.startTime!=null`),'Scroll animation did not start');
+ const start=await evaluate(`window.titleAnimation=document.querySelector('h1 span').getAnimations()[0];window.titleNode=document.querySelector('h1 span');titleAnimation.startTime`);
+ await delay(700);assert.equal(await evaluate(`window.titleNode===document.querySelector('h1 span') && titleAnimation===document.querySelector('h1 span').getAnimations()[0] && titleAnimation.startTime===${start}`),true,'Polling restarted scrolling');
+ await navigate('/master-overlay?'+query({history:1,width:320,fields:'title,artist',overflow:'expand'}));
+ await until(()=>evaluate(`document.querySelector('.card')?.getBoundingClientRect().width>900`),'Container did not expand for long text');
+ assert.equal(await evaluate(`document.querySelector('h1').scrollWidth<=document.querySelector('h1').clientWidth+1`),true,'Expanded text remains clipped');
+ await navigate('/master-overlay/settings?'+query({history:0,width:320,fields:'title,artist',overflow:'expand'}));
+ await until(()=>evaluate(`document.querySelector('#preview')?.offsetWidth>900`),'Expanded settings preview remained clipped');
+ assert.equal(await evaluate(`document.querySelector('#preview').offsetWidth>=document.querySelector('#preview').contentDocument.querySelector('.card').offsetWidth`),true);
+ await call('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+ await navigate('/overlay?'+query({deck:1,fields:'title,cover',overflow:'slide',coverShape:'round',coverSpin:1}));
+ await until(()=>evaluate('document.querySelector(".track")'),'Reduced motion deck missing');
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.disc')).animationName`),'none');
+ const normalized=await evaluate(`(async()=>{const m=await import('/master-options.js');const n=m.normalize({infoVersion:2,historyFields:[],fieldStyles:${JSON.stringify(styles)},coverPosition:'right',coverSpin:true});return [n,m.parseOptions('?'+m.optionQuery(n))];})()`);
+ assert.deepEqual(normalized[0],normalized[1],'Option URL roundtrip changed the design');
+ console.log('Track design passed: separate BPM/rounding, label, missing values, independent history fields, cover fallback/fit/right/round/rotation, field styles, scrolling continuity, expansion, reduced motion and legacy URL compatibility.');
+}).catch(error=>{console.error(error);process.exitCode=1;});

@@ -41,6 +41,14 @@ withBrowser((req,res,url)=>{
  await until(()=>evaluate('document.getElementById("scene-stage").style.background==="rgb(178, 72, 118)"'),'Scene background did not update');
  for(const point of points)assert.deepEqual(await pixel(...point),[178,72,118,255],'Component obscures scene background');
  await screenshot('scene-transparency-solid');
+ // Expanded text must be visible outside the original layer rectangle, up to the scene edge.
+ scene.items[0].options.overflow='expand';track.title='Beyond the horizon '.repeat(5);
+ await until(()=>evaluate(`document.querySelector('iframe').contentDocument?.documentElement.dataset.overflow==='expand'`),'Expanded scene did not reload');
+ await until(()=>evaluate(`document.querySelector('iframe').contentDocument?.querySelector('.card')?.offsetWidth>700`),'Expanded scene text remained narrow');
+ assert.equal(await evaluate(`getComputedStyle(document.querySelector('.scene-item')).overflow`),'visible');
+ assert.deepEqual(await pixel(460,45),[40,80,120,255],'Expanded card was clipped by its original scene layer');
+ delete scene.items[0].options.overflow;track.title='Night Drive';
+ await until(()=>evaluate(`document.querySelector('iframe').contentDocument?.documentElement.dataset.overflow==='ellipsis'`),'Scene width did not reset');
  // The same renderer is reused in the editor and must tolerate a different surrounding theme.
  await evaluate(`(async()=>{const {renderScene}=await import('/scene-shared.js');window.sceneDocument=await(await fetch('/api/scene?scene=fixture')).json();document.documentElement.style.colorScheme='light';const stage=document.getElementById('scene-stage');stage.replaceChildren();renderScene(stage,window.sceneDocument,undefined,true);})()`);
  await until(()=>evaluate('[...document.querySelectorAll("iframe")].every(f=>f.contentDocument?.querySelector(".track,canvas"))'),'Editor components did not load');

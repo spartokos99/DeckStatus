@@ -64,11 +64,25 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    }
    await click('[data-tab=users]');await fill('user-name','helper');await fill('user-password','Temporary helper passphrase');await evaluate('document.getElementById("user-form").requestSubmit()');await until(()=>evaluate('document.getElementById("users-list").children.length===2'),'User creation failed');
    await presetPage('/master-overlay/settings?history=2&historyScale=0.55&align=right&timeline=1&width=640&lang=en');
+   const trackOption=async(name,value)=>evaluate(`{const input=document.querySelector('[data-track-option="${name}"]');if(input.type==='checkbox')input.checked=${JSON.stringify(value)};else input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('change'));}`);
+   await trackOption('bpmInteger',true);await trackOption('hideMissing',true);await trackOption('historySameFields',false);
+   await evaluate(`for(const input of document.querySelectorAll('[data-history-field]')){input.checked=['title','label'].includes(input.value);input.dispatchEvent(new Event('change'));}`);
+   await trackOption('coverPosition','right');await trackOption('coverShape','round');await trackOption('coverSpin',true);
+   await evaluate(`{const input=document.querySelector('[data-track-option="font"]');input.value='impact';input.dispatchEvent(new Event('input'));}`);
+   for(const [name,value] of [['fontSize','46'],['fontStyle','italic'],['fontWeight','800']])await evaluate(`{const input=document.querySelector('[data-track-option="${name}"]');input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input'));}`);
+   await evaluate(`document.querySelectorAll('.track-extras details').forEach(d=>d.open=true);document.querySelector('.track-extras').scrollIntoView();`);
+   await screenshot('track-settings-en');
+   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
+   assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Expanded track settings overflow on mobile');
+   await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1120,deviceScaleFactor:1,mobile:false});
    const masterPreset=await savePreset('Studio <Master>');
    await checkOverlayUrl();
    assert.equal(await evaluate('document.getElementById("saved-preset").selectedOptions[0].textContent'),'Studio <Master>','Preset name became markup');
    assert.equal(await evaluate('document.getElementById("app-mode").hidden'),false,'Overlay settings hid the current mode');
    await change('history',0);await click('#preset-load');assert.equal(await evaluate('document.getElementById("history").value'),'2','Master preset did not restore history');
+   assert.equal(await evaluate(`document.querySelector('[data-track-option="font"]').value`),'impact','Individual font was lost on preset load');
+   for(const [name,value] of [['fontSize','46'],['fontStyle','italic'],['fontWeight','800']])assert.equal(await evaluate(`document.querySelector('[data-track-option="${name}"]').value`),value,'Individual typography was lost on preset load');
+   assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-history-field]:checked')].map(i=>i.value)`),['title','label'],'History fields were lost on preset load');
    assert.equal(await evaluate('document.getElementById("historyScale").value'),'0.55');assert.equal(await evaluate('document.getElementById("align").value'),'right');
    await fill('preset-name','Studio master');await change('history',3);await click('#preset-update');await until(()=>evaluate('document.getElementById("preset-message").textContent.includes("Preset saved")'),'Preset update failed');
    await presetPage('/overlay/settings?deck=2&timeline=1&fields=title,artist,bpm&fontSize=30&lang=en');
@@ -91,6 +105,10 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    await navigate('/scenes?lang=en');await until(()=>evaluate('document.getElementById("scene-component").options.length===4 && !document.getElementById("scene-presets-refresh").disabled'),'Scene preset library missing');
    for(const preset of [masterPreset,wavePreset,deckPreset]){await change('scene-component',preset);await click('#scene-add-preset');}
    assert.equal(await evaluate('document.getElementById("option-deck").value'),'2');
+   assert.equal(await evaluate('document.getElementById("item-design").disabled'),true,'Linked design should be edited through its preset');
+   assert.equal(await evaluate('document.getElementById("option-deck").matches(":disabled")'),false,'Linked deck selection is disabled');
+   await change('option-deck',1);
+   await change('item-source-preset','');
    await fill('option-fontSize',31);await evaluate('document.getElementById("option-fontSize").dispatchEvent(new Event("input"))');
    await fill('scene-name','Studio scene');await evaluate('document.getElementById("scene-name").dispatchEvent(new Event("input"))');
    await fill('item-x','420');await evaluate('document.getElementById("item-x").dispatchEvent(new Event("input"))');await fill('item-y','560');await evaluate('document.getElementById("item-y").dispatchEvent(new Event("input"))');
@@ -104,12 +122,18 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    assert.equal(new URL(sceneUrl).origin,'http://127.0.0.1:'+port,'Scene OBS URL lost localhost');
    assert.equal((await fetch(sceneUrl)).status,200,'Local scene key failed');
    assert.equal(saved.items[0].name,'Studio master');assert.equal(saved.items[0].options.history,3);assert.equal(saved.items[0].options.historyScale,.55);assert.equal(saved.items[0].options.align,'right');
-   assert.equal(saved.items[1].options.gain,2.3);assert.equal(saved.items[1].options.mode,'bars');assert.equal(saved.items[2].options.fontSize,31);assert.deepEqual(saved.items[2].options.fields,['title','artist','bpm']);
+   assert.equal(saved.items[2].options.deck,1,'Deck override was not saved');
+   assert.equal(saved.items[0].options.fieldStyles.title.fontSize,46);assert.equal(saved.items[0].options.fieldStyles.title.fontStyle,'italic');assert.equal(saved.items[0].options.fieldStyles.title.fontWeight,800);
+   assert.equal(saved.items[0].options.fieldStyles.title.font,'impact');assert.equal(saved.items[0].options.coverPosition,'right');assert.equal(saved.items[0].options.bpmInteger,true);assert.deepEqual(saved.items[0].options.historyFields,['title','label']);
+   assert.equal(saved.items[1].options.gain,2.3);assert.equal(saved.items[1].options.mode,'bars');assert.equal(saved.items[2].options.fontSize,31);assert.deepEqual(saved.items[2].options.fields,['title','artist','bpm','currentBpm']);
+   assert.equal(saved.items[0].presetId,masterPreset);assert.equal(saved.items[1].presetId,wavePreset);assert.equal(saved.items[2].presetId,'');
    const savedPresets=await evaluate('(async()=> (await (await fetch("/api/presets")).json()).presets)()');
    assert.equal(savedPresets.find(p=>p.id===deckPreset).options.fontSize,30,'Editing a scene modified the preset');
    assert.equal(savedPresets.find(p=>p.id===masterPreset).revision,2,'Preset update did not keep its identity');
    await evaluate(`(async()=>{const p=(await (await fetch('/api/presets')).json()).presets.find(p=>p.id===${JSON.stringify(masterPreset)});p.options.history=7;await fetch('/api/presets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',id:p.id,revision:p.revision,preset:p})});})()`);
-   assert.equal(await evaluate('(async()=> (await (await fetch("/api/scenes")).json()).scenes[0].items[0].options.history)()'),3,'Updating a preset changed a saved scene');
+   assert.equal(await evaluate('(async()=> (await (await fetch("/api/scenes")).json()).scenes[0].items[0].options.history)()'),7,'Updating a preset did not update the linked scene');
+   const refreshed=await evaluate('(async()=> (await (await fetch("/api/scenes")).json()).scenes[0])()');assert.equal(refreshed.key,saved.key);assert.equal(refreshed.items[0].x,saved.items[0].x);assert.equal(refreshed.items[0].width,saved.items[0].width);assert.ok(refreshed.revision>saved.revision);
+   await until(()=>evaluate(`new URL(document.querySelector('.scene-item iframe').src).searchParams.get('history')==='7'`),'Clean editor did not refresh the linked design');
    await screenshot('scene-editor-en');
    await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Editor overflow on mobile');
    await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1120,deviceScaleFactor:1,mobile:false});
@@ -137,7 +161,7 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    await signIn(password);await until(()=>evaluate('location.pathname==="/"'),'Login after restart failed');
    const restoredAudio=await evaluate('(async()=> (await fetch("/api/admin/audio")).json())()');assert.equal(restoredAudio.settings.deviceId,savedAudioId);assert.equal(restoredAudio.settings.autoStart,false);assert.equal(restoredAudio.state.status,'stopped');
    const persisted=await evaluate('(async()=> ({ratings:(await (await fetch("/api/admin/ratings")).json()).tracks,scenes:(await (await fetch("/api/scenes")).json()).scenes}))()');assert.equal(persisted.scenes[0].name,'Updated scene');assert.equal(persisted.ratings.length,0);
-   const persistedPresets=await evaluate('(async()=> (await (await fetch("/api/presets")).json()).presets)()');assert.equal(persistedPresets.length,3);assert.equal(persistedPresets.find(p=>p.id===masterPreset).options.history,7);assert.equal(persisted.scenes[0].items[0].options.history,3);
+   const persistedPresets=await evaluate('(async()=> (await (await fetch("/api/presets")).json()).presets)()');assert.equal(persistedPresets.length,3);assert.equal(persistedPresets.find(p=>p.id===masterPreset).options.history,7);assert.equal(persisted.scenes[0].items[0].options.history,7);
    // A different browser preference state still has the same server presets.
    await evaluate('localStorage.clear()');await presetPage('/overlay/settings?lang=de');await change('saved-preset',deckPreset);await click('#preset-load');
    assert.equal(await evaluate('document.getElementById("deck").value'),'2');assert.equal(await evaluate('document.getElementById("preset-create").textContent'),'Als neu speichern');
@@ -149,7 +173,7 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
     await until(()=>evaluate('location.hostname==="127.0.0.1"&&document.querySelectorAll("iframe").length===3'),'Opening a local scene from the domain was blocked');
     await until(()=>evaluate('[...document.querySelectorAll("iframe")].filter(f=>f.src.includes("overlay")).every(f=>f.contentDocument?.querySelector(".track"))'),'Local scene child renderers did not load');
    }
-   console.log('Real EXE browser tests passed: authentication, users, Twitch-required voting, all component preset CRUD/EN-DE/mobile/restart, scene insertion and independent snapshots, drag/save/OBS tokens and conflicts.');
+   console.log('Real EXE browser tests passed: authentication, users, Twitch-required voting, component preset CRUD/EN-DE/mobile/restart, track design controls, linked scene updates and detached copies, drag/save/OBS tokens and conflicts.');
    if(proxy){
     assert.ok(proxy.requests.some(r=>r.method==='POST'&&r.path==='/api/public/rating'&&r.status===401),'HTTPS anonymous vote was not rejected');
     for(const route of ['/api/auth/login','/api/auth/password','/api/auth/logout','/api/scenes','/api/presets'])

@@ -54,3 +54,7 @@
   .connection-panel { padding: var(--s4); }
   .connection-details { grid-template-columns: 108px minmax(0, 1fr); }
 }
+.prolink-deck-choice { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px; }
+.prolink-deck-choice select { width:130px; }
+.prolink-autoconnect { display:flex; align-items:center; gap:8px; }
+#selection-status { margin-left:10px; font-size:var(--fs-sm); color:var(--text-muted); }

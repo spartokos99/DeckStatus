@@ -1,22 +1,33 @@
 # Memory profile for Rekordbox 7.2.18.0 (Windows x64)
 
-This profile documents the addresses and checks in `src/deckstatus_bridge.cpp` for the local `rekordbox.exe` examined on September 14, 2026. The bytes, PE fields and constructor assignments below were checked statically against the installed file. Separate live-test results are recorded in [validation.md](validation.md).
+This profile documents the shared addresses in `src/deckstatus_bridge.cpp` and executable identities/code guards in `src/rekordbox_profile.h`. The original file was examined on September 14, 2026; the owner's patched file and original backup were compared on September 23, 2026. Separate live-test results are recorded in [validation.md](validation.md).
 
 ## Examined file identity
 
-| Property | Value |
-|---|---|
-| Local file | `D:\Programs\rekordbox 7.2.18\rekordbox.exe` |
-| File version | `7.2.18.0` |
-| File size | `100561840` bytes |
-| SHA-256 | `a99896cf26d5998e6ad4177796a467b83df14bf8ae7207df21ed01251e402493` |
-| DOS/PE signature | `MZ` / `PE\0\0` |
-| Machine / OptionalHeader.Magic | `0x8664` (AMD64) / `0x020B` (PE32+) |
-| TimeDateStamp | `0x6A672BEA` |
-| SizeOfImage | `0x06291000` |
-| Preferred ImageBase | `0x0000000140000000` |
+| Property | Original | Audited patched variant |
+|---|---|---|
+| File version | `7.2.18.0` | `7.2.18.0` |
+| File size | `100561840` bytes | `102587392` bytes |
+| SHA-256 | `a99896cf26d5998e6ad4177796a467b83df14bf8ae7207df21ed01251e402493` | `297ab491ae745191b09ee72612be6d4c61075788740fb62140f93b0628337a4f` |
+| DOS/PE signature | `MZ` / `PE\0\0` | Same |
+| Machine / OptionalHeader.Magic | `0x8664` (AMD64) / `0x020B` (PE32+) | Same |
+| TimeDateStamp | `0x6A672BEA` | Same |
+| SizeOfImage | `0x06291000` | `0x06481000` |
+| Entry point RVA | `0x02711CCC` | `0x06291000` |
+| Number of sections | `8` | `10` |
+| Preferred ImageBase | `0x0000000140000000` | Same |
 
-The DLL checks the file name, complete file version, PE structure, architecture, timestamp, image size and the 14 code regions below. SHA-256 is a documented comparison value; the DLL does not calculate it at runtime. A different build is reported as `unsupported`. Other Rekordbox 7 versions are not accepted based on similar offsets.
+Starting with DeckStatus 2.3.1, the DLL checks the file name, complete file version, PE structure, architecture, timestamp, image size, entry point and section count, then verifies the full executable's SHA-256 and size. It also checks the 14 instruction regions in the loaded image before sampling. The disk hash uses Windows CNG in bounded chunks, once per attachment. No Rekordbox binaries are included in DeckStatus.
+
+The previous rejection was caused by the changed **SizeOfImage**, not by a runtime SHA check (2.3.0 did not calculate one). The patched file adds `.rbq` and `.rbqdat` sections and changes the entry point. The original eight sections keep their RVAs, virtual sizes and flags; their raw file offsets move by 512 bytes. The complete original `.text` section is byte-identical. All other original sections are identical except for three bytes in `.rdata` at RVAs `0x05584D49`, `0x05584D65` and `0x05584D81`, outside the referenced profile data. The original backup matches the previously documented hash exactly.
+
+Both identities therefore share the address layout below, without duplicate offset tables. An unknown hash/PE fingerprint or a changed loaded-code guard is reported as `unsupported`; there is no version-only fallback or editable profile override. Future variants require a fresh comparison of their code, referenced data and loaded behavior, not just copying a hash into the table. This is compatibility validation, not certification of arbitrary patches.
+
+The optional read-only verifier does not execute or inject into either file:
+
+```powershell
+build/Release/rekordbox_profile_test.exe --verify '<path-to-rekordbox.exe>' '<path-to-original-backup>'
+```
 
 All code and data addresses in this document are RVAs, relative to the actual module base. Object offsets such as `+0x490` refer to their respective heap pointers. ASLR changes neither relative instruction displacements nor these object offsets.
 
@@ -70,7 +81,7 @@ The maximum accepted duration and position magnitude are 86,400,000 ms (24 hours
 
 ## Fourteen exact code checks
 
-These bytes were taken directly from `src/deckstatus_bridge.cpp`, mapped to file offsets through the PE section table, and compared with the installed EXE. The first nine comparisons and the five additional timeline checks passed.
+These bytes are stored in `src/rekordbox_profile.h`, mapped to file offsets through each PE section table, and compared with both examined files. All nine original comparisons and five timeline checks match both variants.
 
 | RVA | Expected and observed bytes | Purpose |
 |---|---|---|

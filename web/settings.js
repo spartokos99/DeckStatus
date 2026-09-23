@@ -5,6 +5,7 @@ import {broadcastUrl,loadBroadcastKeys,obsUrl} from './broadcast.js';
 import {appReady} from './navigation.js';
 import {setupPresets} from './component-presets.js';
 import { poll as startPolling } from './poll.js';
+import {trackExtras,fontOptions} from './track-controls.js';
 const broadcastKeys=await loadBroadcastKeys();
 const app=await appReady;
 const mode = location.pathname.startsWith('/master-overlay') ? 'master' : 'deck';
@@ -20,6 +21,21 @@ const stored = id => normalize({ ...(read(key(id)) || defaults), deck: id, lang:
 let options = stored(deck);
 if ([...query.keys()].some(name => name in defaults && !['lang', 'deck'].includes(name))) options = normalize({ ...parseOptions(location.search), deck, lang: getLanguage() });
 let pending, state = null;
+let previewObserver;
+byId('preview').addEventListener('load',()=>{
+  previewObserver?.disconnect();
+  if(options.overflow!=='expand')return;
+  const tracks=byId('preview').contentDocument?.getElementById('tracks');if(!tracks)return;
+  previewObserver=new ResizeObserver(()=>{
+    const width=Math.ceil(Math.max(options.width,tracks.offsetWidth)+16);
+    byId('preview').style.width=width+'px';
+    byId('dimensions').textContent=t('sourceSize',{width,height:parseInt(byId('preview').style.height,10)});
+  });
+  previewObserver.observe(tracks);
+});
+fontOptions(byId('font'));
+const extras=document.createElement('div');byId('reset').before(extras);
+const refreshExtras=trackExtras(extras,{read:()=>options,write:value=>{options=normalize(value);save(key(),options);clearTimeout(pending);pending=setTimeout(apply,180);},master:mode==='master'});
 document.querySelectorAll('main [data-mode]').forEach(node => { node.hidden = node.dataset.mode !== mode; });
 byId('deck').value = deck;
 
@@ -37,6 +53,7 @@ function labels() {
 function syncControls() {
   controls.forEach(input => { if (input.type === 'checkbox') input.checked = options[input.id]; else input.value = options[input.id]; });
   fields.forEach(input => { input.checked = options.fields.includes(input.value); });
+  refreshExtras();
   byId('preset').value = Object.keys(presets).find(name => Object.entries(presets[name]).every(([k,v]) => options[k] === v)) || 'custom';
   labels();
 }
@@ -48,7 +65,8 @@ function apply() {
   byId('open').href = byId('url').value;
   // Reserve space for a full history, larger fonts and a stacked cover.
   const textHeight = options.fontSize * 6 + (options.timeline ? 92 : 0);
-  const rowHeight = Math.ceil(2 * options.padding + (options.layout === 'stacked' ? options.coverSize + textHeight + 20 : Math.max(options.coverSize, textHeight)));
+  const spacing = Object.values(options.fieldStyles).reduce((sum,style)=>sum+(style.marginTop||0)+(style.marginBottom||0),0) + options.elementGap*7;
+  const rowHeight = Math.ceil(2 * options.padding + spacing + (options.coverPosition === 'top' ? options.coverSize + textHeight + 20 : Math.max(options.coverSize, textHeight)));
   const height = Math.ceil(16 + rowHeight + (mode === 'master' ? options.history * (rowHeight * options.historyScale + options.gap) : 0));
   byId('preview').style.width = options.width + 16 + 'px';
   byId('preview').style.height = height + 'px';

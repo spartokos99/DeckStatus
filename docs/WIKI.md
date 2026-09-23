@@ -2,9 +2,11 @@
 
 **GitHub Wiki import:** create a page named **Home** in your repository's Wiki, select Markdown and paste this entire file. The wiki Git repository was unavailable when this guide was prepared.
 
-This guide describes **DeckStatus v2.2.0**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
+This guide describes **DeckStatus v2.3.2**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
 
 ## Running DeckStatus
+
+Version 2.3.2 includes per-element typography, per-scene deck selection for linked presets, and an administrator updater. See [scene component controls](scene-components.md#deck-and-master-overlays) and [updates, backups and recovery](updater.md).
 
 [Twitch automation and improved scene layers](twitch.md) are included. Link accounts under **Admin → Twitch** and create rules with multiple actions under **Stream → Automations**. It works with both DJ source modes and does not require a public inbound connection. Version 2.2.0 adds a refreshed application interface and a shared master hold time under **Admin → Master detection** (4 seconds by default).
 
@@ -21,9 +23,9 @@ Open `http://127.0.0.1:18740/`. On the first start, sign in as `admin` using the
 
 ## Compatibility and architecture
 
-**Only the author's Rekordbox 7.2.18.0 Windows x64 executable has been live-tested.** The bridge uses a version-specific profile and refuses unsupported executables. New versions need independent validation.
+**Only the author's Rekordbox 7.2.18.0 Windows x64 installation has been live-tested.** The bridge recognizes two exact executable variants: the original and the owner's audited patched file. Each must match its full-file SHA-256, size and PE profile as well as the shared 14 loaded-code guards. Hashing runs once per attachment, outside the sampling loop. Unknown variants fail closed; matching the version alone is insufficient. See the [profile table](rekordbox-7.2.18.md) and [validation record](validation.md).
 
-ProLink targets CDJ-3000, CDJ-3000X and XDJ-AZ player endpoints, plus DJM-A9 and DJM-900NXS2 mixers, with **no live hardware validation**. XDJ-AZ requires PRO DJ LINK → Connect to CDJ/XDJ/DJM; standalone four-deck mode is not supported. Metadata is requested directly through DBServer; the DeviceSQL export.pdb fallback is disabled because OneLibrary/Device Library Plus IDs can refer to different tracks. Missing metadata stays unknown. Firmware combinations, streaming and cloud sources are unverified. See [ProLink](prolink.md) for device-specific limits.
+ProLink targets CDJ-3000, CDJ-3000X and XDJ-AZ player endpoints, plus DJM-A9 and DJM-900NXS2 mixers, with owner-reported discovery of **3× CDJ-3000 + DJM-900NXS2**. Connection and metadata validation remain pending; see the dated [validation record](validation.md). XDJ-AZ requires PRO DJ LINK → Connect to CDJ/XDJ/DJM; standalone four-deck mode is not supported. Metadata is requested directly through DBServer; the DeviceSQL export.pdb fallback is disabled because OneLibrary/Device Library Plus IDs can refer to different tracks. Missing metadata stays unknown. Firmware combinations, streaming and cloud sources are unverified. See [ProLink](prolink.md) for device-specific limits.
 
 The native C++ EXE serves HTTP, accounts, persistence and Windows audio. In Rekordbox mode its companion DLL reads supported deck state and collection metadata enriches tracks/artwork. In ProLink mode an owned Java helper uses Beat Link 8.0.0 with direct DBServer queries and communicates over bounded JSON pipes. The legacy Crate Digger metadata fallback is disabled.
 
@@ -46,6 +48,7 @@ The web interface uses local HTML/CSS/JavaScript without a CDN. `web/theme.css` 
 | Change network configuration | No | No | On the DeckStatus PC |
 | ProLink controls | No | Subject to network policy | Subject to network policy |
 | Audio settings / capture controls | No | No | Subject to network policy |
+| Prepare/install application updates | No | No | Subject to network policy |
 
 Pending-password accounts can inspect their identity, change their password, sign out and use public resources. Server-side permission checks protect direct API requests too.
 
@@ -117,7 +120,9 @@ Limits: canvas 320–7680 px wide and 180–4320 px high, 32 layers per scene, 1
 
 The saved scene reloads once per second. Geometry/opacity updates retain existing iframes and image elements; changing track/waveform renderer options reloads that iframe. Unsaved edits remain local until Save. Scenes do not start audio capture.
 
-Inserting a preset copies its name and options into an independent layer and sizes the layer from the saved component dimensions. Changing/deleting the preset leaves existing layers intact; editing a scene layer does not update its original preset. To use a revised preset, insert it again and replace the old layer. Multiple instances of the same preset are allowed.
+Inserting a preset retains its `presetId` and sizes the layer from the saved dimensions. Updating the preset changes the design of all linked layers, while preserving position, size, rotation, opacity, visibility and the OBS URL. Multiple instances are allowed. Choose **Independent layer** in the selected layer’s source selector to detach its current appearance; choose a preset there to relink without reinserting. Linked design controls are read-only. Deleting a preset detaches its layers and keeps their last design.
+
+Older layers auto-link only when name/type/options match exactly one saved preset, allowing inactive default audio-reaction fields. Custom or ambiguous layers stay independent and can be linked manually. Updates are atomic and advance scene revisions; an open clean editor refreshes, while unsaved changes remain drafts and stale saves return 409. OBS scenes refresh within their normal polling interval. See [track overlay controls](scene-components.md#deck-and-master-overlays).
 
 Operators and administrators share scenes. Every mutation requires the current revision; stale saves return 409. Reload the saved version after deciding whether to discard a draft. There is no automatic merge or revision history.
 
@@ -141,7 +146,7 @@ Copied deck/master/waveform/scene URLs always use `http://127.0.0.1:<port>` for 
 
 Connect the PC and supported players/mixers on the same Ethernet network with unique player numbers. Multiple announced XDJ-AZ player endpoints may share an IP address. Start ProLink mode, sign in, open Connections → ProLink setup, find devices and connect selected players.
 
-One to four selected players map to dashboard decks in ascending number order; players 5/6 are selectable. The mixer is detected automatically. Disconnect before changing selection. Merely opening setup performs no discovery.
+Keep the selection checkbox for each player and assign it an unused dashboard Deck 1–4. Players 5/6 are selectable. The mixer is detected automatically. Unselected unsupported devices remain visible and do not block connection. Disconnect before changing selection. Connecting saves the selection and mapping; **Save for next start** saves without connecting. Saved automatic connection waits for all matching player numbers/model names on a ProLink launch; a manual disconnect pauses it until Connect or restart. With no saved selection, startup remains idle. Merely opening setup performs no discovery.
 
 Allow the bundled `prolink/runtime/bin/java.exe` on the private DJ network. PRO DJ LINK uses UDP 50000–50002 and TCP DBServer traffic (port discovery on 12523, then the player's reported port). Other Link clients may already occupy those ports. The legacy NFS/export.pdb metadata fallback is disabled to avoid mismatched OneLibrary IDs.
 
@@ -151,7 +156,7 @@ The helper uses a monitoring identity and normal metadata handshakes, not passiv
 
 | Location | Purpose |
 |---|---|
-| `DeckStatus.data/portal.json` | Accounts, hashes, votes, presets, scenes, media metadata, audio settings and keys |
+| `DeckStatus.data/portal.json` | Accounts, hashes, votes, presets, scenes, media metadata, audio/master/ProLink settings and keys |
 | `DeckStatus.data/media/` | Uploaded images and GIFs, one file per asset named by its SHA-256 |
 | `DeckStatus.data/portal.lock` | Exclusive store ownership |
 | `DeckStatus.network.json` | Listener, port and remote-control setting |
@@ -205,6 +210,7 @@ Mutations need `Content-Type: application/json`. Retain cookies and use same-ori
 | `GET/POST /api/admin/master` | Admin server-wide master hold time; `{holdMs:0..30000}` |
 | `GET/POST /api/admin/users` | Admin user list/save/delete |
 | `GET/POST /api/scenes` | Signed-in list/save/delete/rotate |
+| `GET/POST /api/prolink/settings` | Signed-in saved player/deck mappings and launch connection; writes require remote-control permission |
 | `GET/POST /api/presets` | Signed-in component library/list/save/delete |
 | `GET/POST /api/media` | Signed-in media library/upload/delete |
 | `GET /api/media/{id}` | Original image/GIF through session or scoped read key |
@@ -239,6 +245,7 @@ Requires Windows x64, Visual Studio C++ desktop tools/CMake, JDK 21+ for the hel
 ~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1
 node tests/browser_master_test.cjs
+node tests/browser_track_design_test.cjs
 node tests/browser_admin_master_test.cjs
 node tests/browser_waveform_test.cjs
 node tests/browser_dashboard_history_test.cjs
@@ -256,7 +263,7 @@ node tests/network_smoke.cjs
 
 `CMakeLists.txt` is the single product-version source. Configuration generates `deckstatus_version.h` for the native API and EXE/DLL resources; `tools/version.cjs` reads the same declaration for JavaScript tests and screenshot tooling. Reconfigure and rebuild after changing the version.
 
-Native portal tests cover password lifecycle, sessions, roles, last-admin protection, failed-save preservation, persistent ratings/presets/scenes, legacy-store migration, preset validation/conflicts, key scope/rotation and real HTTP boundaries. Browser portal tests launch the actual EXE with isolated demo data and test login/users, public history and anonymous-vote rejection, all three preset types, independent scene copies, drag/save/mobile/EN-DE, anonymous OBS iframes, conflicts and restart persistence. Navigation tests include the grouped dropdown, keyboard/Escape, outside-click closing, mobile layout and mode gates.
+Native portal tests cover password lifecycle, sessions, roles, last-admin protection, failed-save preservation, persistent ratings/presets/scenes, legacy-store migration, preset validation/conflicts, key scope/rotation and real HTTP boundaries. Browser portal tests launch the actual EXE with isolated demo data and test login/users, public history and anonymous-vote rejection, all three preset types, linked preset updates, detached scene copies, track styles, drag/save/mobile/EN-DE, anonymous OBS iframes, conflicts and restart persistence. Navigation tests include the grouped dropdown, keyboard/Escape, outside-click closing, mobile layout and mode gates.
 
 Network smoke uses authenticated demo and idle ProLink instances. Production injection, DJ device connection and audio capture remain off. Optional portable helper discovery requires a separate explicit opt-in.
 

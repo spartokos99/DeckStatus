@@ -14,13 +14,16 @@ class MasterGate;
 class MasterHistory;
 class NetworkConfig;
 class Portal;
+class Updater;
 struct TwitchTransport;
 struct ServerFeatures {
     std::string mode = "rekordbox";
     std::function<nlohmann::json()> prolink_setup;
     std::function<nlohmann::json(const nlohmann::json&)> prolink_control;
+    std::function<void(const nlohmann::json&)> prolink_configure;
     NetworkConfig* network = nullptr;
     Portal* portal = nullptr;
+    Updater* updater = nullptr;
     // Shared master hold filter; without it the reported tempo master is published as is.
     MasterGate* master_gate = nullptr;
     // Optional protocol fixture; production leaves this empty.

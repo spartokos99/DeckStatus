@@ -1,6 +1,6 @@
 # ProLink mode
 
-ProLink is an **experimental, opt-in network source**. It supplies the existing dashboard, JSON API, deck/master overlays, scenes and session history. Supported device profiles have automated synthetic-packet coverage, **not live hardware validation**. No firmware combination is certified. The separately validated Rekordbox source remains limited to the author's 7.2.18.0 Windows x64 executable.
+ProLink is an **experimental, opt-in network source**. It supplies the existing dashboard, JSON API, deck/master overlays, scenes and session history. Supported device profiles have automated synthetic-packet coverage. The owner reports successful discovery of **3× CDJ-3000 + DJM-900NXS2**, with a DJS-1000 correctly shown as unsupported. The connection previously failed because that unrelated device blocked the whole network. The fix described below still needs a hardware retest; metadata/playback interoperability is not validated. No firmware combination is certified. The separately validated Rekordbox source remains limited to the author's 7.2.18.0 Windows x64 executable.
 
 ## Devices
 
@@ -12,15 +12,16 @@ ProLink is an **experimental, opt-in network source**. It supplies the existing 
 | DJM-A9 | Mixer | Automatically detected for mixer status and On-Air availability |
 | DJM-900NXS2 | Mixer | Automatically detected for mixer status and On-Air availability; no fader, EQ or FX values |
 
-Only player numbers 1–6 can be selected; at most four feed the dashboard. A mixer is never a selectable track deck. Device recognition uses exact model names, not broad CDJ/XDJ/DJM prefixes. Unknown models still prevent connection. All rows above describe implemented profiles, not hardware certification.
+Only player numbers 1–6 can be selected; at most four feed the dashboard. A mixer is never a selectable track deck. Device recognition uses exact model names, not broad CDJ/XDJ/DJM prefixes. Unselected unsupported models, including DJS-1000, remain visible but do not block connection. Only selected player endpoints feed the track decks. Duplicate numbers involving a selected player still prevent an ambiguous connection. All rows above describe implemented profiles, not hardware certification.
 
 ## Start and connect
 
 1. Extract the complete Windows release, including `prolink`. Run `Start-ProLink.cmd` or `DeckStatus.exe --mode prolink`.
 2. Connect the PC and supported hardware to the same Ethernet network. Use unique player numbers and one matching PC network adapter. Configure the XDJ-AZ's PRO DJ LINK mode as described above.
 3. Open `http://127.0.0.1:18740/prolink/settings`. Click **Find devices**. This listens for announcements; opening the page alone starts no network discovery.
-4. Select one to four players and click **Connect selected players**. Player numbers in ascending order map to dashboard Decks 1–4. Players 5 and 6 can be selected. The mixer is detected automatically.
+4. Check one to four players and choose each dashboard **Deck 1–4** from its selector. Only unused decks and the current assignment are offered. Player numbers 5 and 6 are selectable; numbering gaps and any order are allowed. Click **Connect selected players** to save the selection and connect. The mixer is detected automatically.
 5. Open the familiar overlay settings and copy your OBS URLs. **Disconnect / stop discovery** stops Link networking. Disconnect before changing the player selection.
+6. **Automatically connect saved devices on startup** is enabled for saved selections by default. **Save for next start** saves without starting discovery. In ProLink mode, the next launch discovers devices and connects once all saved player numbers and exact model names are present. Absent players stay listed as unavailable. **Disconnect / stop discovery** pauses automatic connection until you connect again or restart. Clear the checkbox and save to disable launch connection. A new installation has no saved selection, so it remains idle.
 
 `DeckStatus.exe` with no mode argument retains the original Rekordbox startup. `--mode rekordbox` is equivalent. `--prolink` is an alias for `--mode prolink`; `--port` and `--lang en|de` work in both modes. ProLink rejects `--pid`, `--database` and `--demo` instead of silently ignoring them. Mode selection is per launch; it does not overwrite your default or saved overlay designs.
 
@@ -40,7 +41,7 @@ The navigation shows Start, Stream and Connections, plus standalone Admin. Strea
 | Mixer faders/EQ/FX and analysed track-waveform overlay | Not implemented; capability flags are false |
 | Remote player or mixer control | No play, stop, load, sync, tempo-master or mixer-control commands are exposed |
 
-**Rekordbox-exported USB media is the primary target.** Streaming, cloud sources and arbitrary firmware versions have not been validated. Connections are refused if discovery includes models outside the table, selected player numbers are duplicated, or the network interface is ambiguous/unreachable.
+**Rekordbox-exported USB media is the primary target.** Streaming, cloud sources and arbitrary firmware versions have not been validated. Connections are refused if a selected player is unavailable/unsupported, selected player numbers or deck assignments are duplicated, or the selected network interface is ambiguous/unreachable. Unselected unsupported announcements are ignored for selection validation.
 
 **OneLibrary / Device Library Plus:** these track IDs must not be looked up in the older DeviceSQL `export.pdb` database; the same numeric ID can identify another track. DeckStatus therefore uses direct DBServer requests and disables Crate Digger's legacy fallback, including its indirect lifecycle autostart. This applies to the whole ProLink session so mixed networks and devices discovered later cannot inject incorrect metadata. If DBServer cannot supply metadata, title, artist, album, key, original BPM, artwork and possibly duration/timeline remain unavailable while status/current BPM can still appear. This also removes the old offline-export fallback for CDJ-3000 networks. No encrypted OneLibrary database parser is included.
 
@@ -52,7 +53,7 @@ Track IDs exposed by ProLink are **session IDs**, not globally unique Rekordbox 
 
 ## Networking and runtime
 
-The helper uses **Beat Link 8.0.0** and its pinned dependencies. It normally joins using an available number above the real CDJ channels. When CDJ-3000X is present, it first tries a free standard number (1–4) for DBServer compatibility; occupied numbers are never deliberately reused. Number selection is reset on reconnect. It never enables status/beat transmission for tempo control. Metadata retrieval requires normal Link handshakes and read requests, so connection is not passive packet sniffing.
+The helper uses **Beat Link 8.0.0** and its pinned dependencies. It normally joins using an available number above the real CDJ channels. When a selected player is CDJ-3000X, it first tries a free standard number (1–4) for DBServer compatibility; occupied numbers are never deliberately reused. Number selection is reset on reconnect. It never enables status/beat transmission for tempo control. Metadata retrieval requires normal Link handshakes and read requests, so connection is not passive packet sniffing.
 
 Windows Firewall must allow the bundled `prolink/runtime/bin/java.exe` on the private DJ network. PRO DJ LINK uses UDP 50000–50002 and additional TCP DBServer traffic (port discovery on 12523, followed by the port returned by the player). Rekordbox, Beat Link Trigger or another Link client on the same PC may already occupy the ports. Stop that client before connecting. No automatic firewall rules, adapter settings or device configuration are changed.
 
@@ -70,7 +71,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1
 
 `prolink/dependencies.lock.json` pins every downloaded JAR, source JAR, POM and runtime ZIP by URL and SHA-256. Downloads stay in ignored `build/prolink-deps`. The helper is compiled with `--release 21` and tested with the bundled runtime. Runtime libraries, dependency sources/POMs and runtime legal notices are included in the portable package. `build.ps1 -SkipProLink` builds/tests only the native application; it does not create a complete portable ProLink distribution.
 
-The project has nine native CTest cases (including helper lifecycle/IPC/freshness/restart and HTTP mode gating) and six headless browser suites. Java checks parse synthetic CDJ-3000, CDJ-3000X and XDJ-AZ announcement/status packets, validate both mixer profiles, shared-IP deck identities, unknown slot isolation and removal of the unsafe DeviceSQL auto-start hook. Browser fixtures exercise model guidance and selection. A real helper subprocess verifies UTF-8 JSON over Windows pipes, even with a Windows-1252 stdout default, and clean shutdown on closed input. These checks do not certify real hardware interoperability. See the dated [validation log](validation.md) for completed runs.
+Native CTest and headless browser suites cover helper lifecycle/IPC/freshness/restart, saved automatic connection, explicit deck assignment, ignoring unselected unsupported devices and HTTP mode gating. Java checks parse synthetic CDJ-3000, CDJ-3000X and XDJ-AZ announcement/status packets, validate both mixer profiles, shared-IP deck identities, unknown slot isolation and removal of the unsafe DeviceSQL auto-start hook. Browser fixtures exercise model guidance, EN/DE, deck selection, occupied-deck exclusion and persistent setup. Preferences are stored as `prolinkSettings:{autoConnect,devices:[{player,deck,name}]}` in the private portal store. `GET/POST /api/prolink/settings` requires a signed-in operator/admin; writes also obey the remote-control policy. No settings are applied to Rekordbox mode. A real helper subprocess verifies UTF-8 JSON over Windows pipes, even with a Windows-1252 stdout default, and clean shutdown on closed input. These checks do not certify real hardware interoperability. See the dated [validation log](validation.md) for completed runs.
 
 ```powershell
 node tests/browser_prolink_test.cjs

@@ -30,7 +30,10 @@ export function renderScene(stage,scene,key,editing=false){
     else{const frame=node.querySelector('iframe'),entry=source(item,key,scene.id),scale=item.width/entry.width;
       // Chromium otherwise paints an opaque default canvas when the iframe and
       // its dark-scheme overlay document disagree, even with transparent CSS.
-      frame.style.cssText=`color-scheme:dark;background:transparent;width:${entry.width}px;height:${item.height/scale}px;transform:scale(${scale});transform-origin:top left;border:0;pointer-events:none;`;
+      const expand=['deck','master'].includes(item.type)&&item.options.overflow==='expand';
+      node.style.overflow=expand?'visible':'hidden';
+      const frameWidth=expand?Math.max(entry.width,(scene.width-Math.max(0,item.x))/scale):entry.width;
+      frame.style.cssText=`color-scheme:dark;background:transparent;width:${frameWidth}px;height:${item.height/scale}px;transform:scale(${scale});transform-origin:top left;border:0;pointer-events:none;`;
       if(item.visible){if(frame.getAttribute('src')!==entry.url)frame.src=entry.url;}else frame.removeAttribute('src');}
     transform(node,item,node.envelope.value);
     if(editing){node.querySelector('.scene-item-label').textContent=item.name||(item.type==='deck'?t('deck',{id:item.options.deck||1}):t({master:'masterSettings',waveform:'waveNav',text:'creativeText',image:'creativeImage',fx:'creativeFx'}[item.type]));node.querySelector('.scene-handle').setAttribute('aria-label',t('sceneResize'));}

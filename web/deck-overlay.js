@@ -1,6 +1,6 @@
 import { parseOptions } from './master-options.js';
 import { t, getLanguage } from './i18n.js';
-import { applyAppearance, makeCard, updateCardContent } from './overlay-shared.js';
+import { applyAppearance, makeCard, updateCardContent, disposeCard } from './overlay-shared.js';
 
 import {broadcastUrl} from './broadcast.js';
 const query = new URLSearchParams(location.search);
@@ -16,12 +16,13 @@ const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 function render(state) {
   const item = ['connected', 'demo'].includes(state.status) && Array.isArray(state.decks)
     ? state.decks.find(deck => deck && deck.id === options.deck && deck.loaded === true && Number.isSafeInteger(deck.trackId) && deck.trackId > 0 && deck.trackId <= 4294967295) : null;
-  if (!item) { card?.remove(); card = null; trackId = null; return; }
+  if (!item) { if(card){disposeCard(card);card.remove();} card = null; trackId = null; return; }
   if (trackId !== item.trackId) {
     // One current and at most one leaving card, even during rapid load changes.
-    list.querySelectorAll('[aria-hidden]').forEach(node => node.remove());
+    list.querySelectorAll('[aria-hidden]').forEach(node => {disposeCard(node);node.remove();});
     if (card) {
       const leaving = card;
+      disposeCard(leaving);
       leaving.setAttribute('aria-hidden', 'true');
       Object.assign(leaving.style, { position: 'absolute', top: '0', left: '0' });
       if (options.duration && !reducedMotion.matches) leaving.animate([{ opacity: 1 }, { opacity: 0 }], { duration: options.duration }).finished.then(() => leaving.remove(), () => leaving.remove());

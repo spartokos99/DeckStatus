@@ -2,7 +2,9 @@ import {api} from './auth.js';
 import {appReady} from './navigation.js';
 import {obsUrl} from './broadcast.js';
 import {t,translate,getLanguage} from './i18n.js';
-import {defaults as trackDefaults,presets as trackPresets,normalize as trackOptions} from './master-options.js';
+import {defaults as trackDefaults,presets as trackPresets,normalize as trackOptions,fieldNames,fonts} from './master-options.js';
+import {trackExtras} from './track-controls.js';
+import {poll} from './poll.js';
 import {defaults as waveDefaults,presets as wavePresets,controls as waveControls,normalize as waveOptions} from './waveform-options.js';
 import {renderScene} from './scene-shared.js';
 import {listPresets,componentLabel} from './component-presets.js';
@@ -15,7 +17,7 @@ const item=()=>scene?.items.find(row=>row.id===selected);
 const id=()=>crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
 const copy=value=>JSON.parse(JSON.stringify(value));
 const fresh=()=>({name:t('sceneUntitled'),width:1920,height:1080,background:'transparent',items:[]});
-function status(){ $('scene-save-state').textContent=t(dirty?'sceneUnsaved':'sceneSaved');for(const control of document.querySelectorAll('.scene-toolbar button,.scene-toolbar select,.scene-properties input,.scene-properties textarea,.scene-properties select,.scene-properties button,.scene-add button,.scene-library button,.scene-library select'))control.disabled=busy||control.dataset.layerBoundary==='true';stage.inert=busy;$('scene-save').disabled=busy||!scene;$('scene-delete').disabled=busy||!scene?.id;$('scene-add-preset').disabled=busy||!scene||scene.items.length>=32||!componentPresets.some(p=>p.id===$('scene-component').value);for(const button of document.querySelectorAll('[data-add]'))button.disabled=busy||!scene||scene.items.length>=32;}
+function status(){ $('scene-save-state').textContent=t(dirty?'sceneUnsaved':'sceneSaved');for(const control of document.querySelectorAll('.scene-toolbar button,.scene-toolbar select,.scene-properties input,.scene-properties textarea,.scene-properties select,.scene-properties button,.scene-add button,.scene-library button,.scene-library select'))control.disabled=busy||control.dataset.layerBoundary==='true'||control.dataset.optionDisabled==='true';stage.inert=busy;$('scene-save').disabled=busy||!scene;$('scene-delete').disabled=busy||!scene?.id;$('scene-add-preset').disabled=busy||!scene||scene.items.length>=32||!componentPresets.some(p=>p.id===$('scene-component').value);for(const button of document.querySelectorAll('[data-add]'))button.disabled=busy||!scene||scene.items.length>=32;}
 function changed(){dirty=true;status();draw();}
 function fit(){if(!scene)return;zoom=$('scene-viewport').clientWidth/scene.width;$('scene-viewport').style.aspectRatio=scene.width+'/'+scene.height;stage.style.transform='scale('+zoom+')';}
 function draw(){if(!scene)return;
@@ -43,33 +45,47 @@ function layers(){
 }
 const normalizeComponent=(type,options)=>creativeTypes.includes(type)?creativeOptions(type,options):{...(type==='waveform'?{...waveOptions(options),lang:options.lang==='de'?'de':'en'}:trackOptions(options)),...reactionOptions(options)};
 function presetList(){const select=$('scene-component'),previous=select.value;select.replaceChildren(new Option(t(componentPresets.length?'presetChoose':'presetEmpty'),''));for(const type of ['deck','master','waveform',...creativeTypes]){const group=document.createElement('optgroup');group.label=componentLabel(type);for(const preset of componentPresets.filter(p=>p.type===type))group.append(new Option(preset.name,preset.id));if(group.children.length)select.append(group);}select.value=componentPresets.some(p=>p.id===previous)?previous:'';status();}
-async function reloadPresets(){componentPresets=await listPresets();presetList();}
-function addComponent(type,value,name){
+async function reloadPresets(){componentPresets=await listPresets();presetList();if(item())selectItem(selected);}
+function addComponent(type,value,name,presetId=''){
   if(busy||!scene||scene.items.length>=32)return;
   const options=normalizeComponent(type,value),textHeight=options.fontSize*6+(options.timeline?92:0);
-  const rowHeight=2*options.padding+(options.layout==='stacked'?options.coverSize+textHeight+20:Math.max(options.coverSize,textHeight));
+  const spacing=Object.values(options.fieldStyles||{}).reduce((sum,style)=>sum+(style.marginTop||0)+(style.marginBottom||0),0)+(options.elementGap||0)*7;
+  const rowHeight=2*options.padding+spacing+(options.coverPosition==='top'?options.coverSize+textHeight+20:Math.max(options.coverSize,textHeight));
   const height=type==='waveform'||creativeTypes.includes(type)?options.height:Math.min(4320,Math.ceil(16+rowHeight+(type==='master'?options.history*(rowHeight*options.historyScale+options.gap):0)));
   const entry={id:id(),type,x:type==='fx'?0:40,y:type==='fx'?0:40,width:type==='fx'?scene.width:options.width+(type==='waveform'||creativeTypes.includes(type)?0:16),height:type==='fx'?scene.height:height,opacity:1,rotation:0,visible:true,options};
-  if(name)entry.name=name;
+  if(name)entry.name=name;entry.presetId=presetId;
   scene.items.push(entry);selected=entry.id;changed();selectItem(selected);
 }
 $('scene-component').addEventListener('change',status);
-$('scene-add-preset').addEventListener('click',()=>{const preset=componentPresets.find(p=>p.id===$('scene-component').value);if(preset)addComponent(preset.type,copy(preset.options),preset.name);});
+$('scene-add-preset').addEventListener('click',()=>{const preset=componentPresets.find(p=>p.id===$('scene-component').value);if(preset)addComponent(preset.type,copy(preset.options),preset.name,preset.id);});
 $('scene-presets-refresh').addEventListener('click',()=>run(reloadPresets));
 const geometry=[['x',-7680,7680,1],['y',-4320,4320,1],['width',32,7680,1],['height',32,4320,1],['opacity',0,1,.05],['rotation',-360,360,1]];
 for(const [name,min,max,step] of geometry){const row=document.createElement('div'),label=document.createElement('label'),input=document.createElement('input');label.htmlFor='item-'+name;label.dataset.i18n='scene_'+name;input.id=label.htmlFor;input.type='number';input.min=min;input.max=max;input.step=step;input.addEventListener('input',()=>{if(input.checkValidity()&&item()){item()[name]=Number(input.value);changed();}});row.append(label,input);$('item-geometry').append(row);}
-const trackControls=[['deck','number',1,4,1],['history','number',0,50,1],['width','number',320,1600,10],['historyScale','number',.2,1,.05],['align','select',['left','center','right']],['layout','select',['horizontal','stacked']],['timeline','checkbox'],['badges','checkbox'],['font','select',['system','serif','mono']],['fontSize','number',14,40,1],['coverSize','number',32,180,1],['padding','number',4,48,1],['gap','number',0,40,1],['duration','number',0,2000,50],['background','color'],['textColor','color'],['mutedColor','color'],['accent','color'],['opacity','number',0,100,1],['radius','number',0,40,1],['border','number',0,10,1],['shadow','checkbox']];
+const trackControls=[['deck','number',1,4,1],['history','number',0,50,1],['width','number',320,1600,10],['historyScale','number',.2,1,.05],['align','select',['left','center','right']],['timeline','checkbox'],['badges','checkbox'],['font','select',Object.keys(fonts)],['fontSize','number',14,40,1],['coverSize','number',32,180,1],['padding','number',4,48,1],['gap','number',0,40,1],['duration','number',0,2000,50],['background','color'],['textColor','color'],['mutedColor','color'],['accent','color'],['opacity','number',0,100,1],['radius','number',0,40,1],['border','number',0,10,1],['shadow','checkbox']];
 function optionControls(){const entry=item(),container=$('item-options');container.replaceChildren();if(!entry)return;
+  const link=$('item-source-preset');link.replaceChildren(new Option(t('presetIndependent'),''));for(const preset of componentPresets.filter(p=>p.type===entry.type))link.add(new Option(preset.name,preset.id));link.value=entry.presetId||'';
+  $('item-link-help').hidden=!entry.presetId;
+  $('item-design').disabled=!!entry.presetId;
+  let deckRow=$('item-deck-row');
+  if(!deckRow){deckRow=document.createElement('label');deckRow.id='item-deck-row';deckRow.append(document.createElement('span'),document.createElement('select'));$('item-design').before(deckRow);}
+  deckRow.hidden=entry.type!=='deck';deckRow.firstElementChild.textContent=t('sceneOption_deck');
+  const deckSelect=deckRow.lastElementChild;deckSelect.id='option-deck';deckSelect.replaceChildren(...[1,2,3,4].map(id=>new Option(t('deck',{id}),id)));deckSelect.value=entry.options.deck||1;
+  deckSelect.onchange=()=>{entry.options={...entry.options,deck:Number(deckSelect.value)};changed();layers();};
   buildControls($('scene-reaction'),reactionControls,reactionOptions(entry.options),(name,value)=>{entry.options=normalizeComponent(entry.type,{...entry.options,[name]:value});changed();},t);
   if(creativeTypes.includes(entry.type)){buildControls(container,creativeControls[entry.type].filter(([name])=>name!=='width'&&name!=='height'),creativeOptions(entry.type,entry.options),(name,value)=>{entry.options=normalizeComponent(entry.type,{...entry.options,[name]:value});changed();},t,media);return;}
-  for(const [name,type,a,b,step] of entry.type==='waveform'?waveControls:trackControls){if((name==='deck'&&entry.type!=='deck')||(['history','historyScale'].includes(name)&&entry.type!=='master'))continue;
+  for(const [name,type,a,b,step] of entry.type==='waveform'?waveControls:trackControls){if(name==='deck'||(['history','historyScale'].includes(name)&&entry.type!=='master'))continue;
     const label=document.createElement('label'),input=document.createElement(type==='select'?'select':'input');label.htmlFor='option-'+name;label.textContent=t((entry.type==='waveform'?'wave_':'sceneOption_')+name);input.id=label.htmlFor;
     if(type==='select')for(const value of a)input.add(new Option(t('sceneValue_'+value)===('sceneValue_'+value)?value:t('sceneValue_'+value),value));else{input.type=type;if(type==='range'||type==='number'){input.min=a;input.max=b;input.step=step;}}
     if(type==='checkbox')input.checked=entry.options[name];else input.value=entry.options[name];
     input.addEventListener('input',()=>{if(!input.checkValidity())return;entry.options=normalizeComponent(entry.type,{...entry.options,[name]:type==='checkbox'?input.checked:input.value});changed();if(name==='deck')layers();});container.append(label,input);
   }
-  if(entry.type!=='waveform')for(const name of ['title','artist','album','bpm','key','cover']){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=entry.options.fields.includes(name);input.addEventListener('change',()=>{const values=new Set(entry.options.fields);input.checked?values.add(name):values.delete(name);if(!values.size){input.checked=true;return;}entry.options.fields=[...values];changed();});label.append(input,document.createTextNode(' '+t(name)));container.append(label);}
+  if(entry.type!=='waveform'){
+    entry.options=normalizeComponent(entry.type,entry.options);
+    for(const name of fieldNames){const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=entry.options.fields.includes(name);input.addEventListener('change',()=>{const values=new Set(entry.options.fields);input.checked?values.add(name):values.delete(name);if(!values.size){input.checked=true;return;}entry.options.fields=[...values];changed();});label.append(input,document.createTextNode(' '+t(name)));container.append(label);}
+    trackExtras(container,{read:()=>entry.options,write:value=>{entry.options=normalizeComponent(entry.type,value);changed();},master:entry.type==='master'});
+  }
 }
+$('item-source-preset').addEventListener('change',()=>{const entry=item();if(!entry)return;const preset=componentPresets.find(p=>p.id===$('item-source-preset').value);entry.presetId=preset?.id||'';if(preset)entry.options=normalizeComponent(entry.type,{...copy(preset.options),...(entry.type==='deck'?{deck:entry.options.deck}: {})});changed();selectItem(selected);});
 function selectItem(value){selected=value;const entry=item();$('item-fields').hidden=!entry;if(entry){for(const [name] of geometry)$('item-'+name).value=entry[name]??0;$('item-visible').checked=entry.visible;$('item-name').value=entry.name||'';const presets=creativeTypes.includes(entry.type)?creativePresets[entry.type]:entry.type==='waveform'?wavePresets:trackPresets;$('item-preset').replaceChildren(new Option(t('custom'),''));for(const name of Object.keys(presets))$('item-preset').add(new Option(name,name));optionControls();}layers();draw();}
 for(const name of ['name','width','height'])$('scene-'+name).addEventListener('input',()=>{const input=$('scene-'+name);if(!input.checkValidity())return;scene[name]=name==='name'?input.value:Number(input.value);changed();});
 $('scene-preset').addEventListener('change',()=>{if($('scene-preset').value==='custom')return;[scene.width,scene.height]=$('scene-preset').value.split('x').map(Number);changed();fillDocument();});
@@ -103,5 +119,14 @@ new ResizeObserver(fit).observe($('scene-viewport'));
 window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
 window.addEventListener('languagechange',()=>{translate();fillDocument();presetList();});
 translate();await run(async()=>{media=await listMedia();await reload();await reloadPresets();});
+poll(async()=>{
+  if(busy||dirty||!scene?.id)return;
+  const id=scene.id,revision=scene.revision,values=(await api('/api/scenes')).scenes,current=values.find(value=>value.id===id);
+  if(!current||current.revision===revision)return;
+  const presets=await listPresets();
+  // A user may start editing or switch scenes while either request is in flight.
+  if(busy||dirty||scene?.id!==id||scene.revision!==revision)return;
+  scenes=values;scene=copy(current);componentPresets=presets;presetList();fillDocument();
+},{interval:3000,immediate:false});
 
 document.querySelectorAll('a[data-i18n="creativeAudioSetup"]').forEach(link=>link.hidden=!app?.capabilities?.admin);

@@ -28,11 +28,21 @@ async function run(args,test){
   const state=(await request('/api/state')).data;assert.equal(state.decks[0].title,'Night Drive "Live"');assert.equal(state.decks[1].artist,'Studio North');
   assert.equal(state.decks[0].bpm,128);assert.equal(state.decks[0].originalBpm,126);assert.equal(state.decks[0].durationMs,240000);
   assert.equal((await request('/api/prolink/devices')).status,409);assert.equal((await request('/api/prolink/control',{action:'discover'})).status,409);
+  assert.equal((await request('/api/prolink/settings')).status,409);assert.equal((await request('/api/prolink/settings',{autoConnect:false,devices:[]})).status,409);
   assert.equal((await request('/api/audio/state')).data.status,'stopped');assert.ok((await request('/api/history')).data.total>=1);
  });
  await run(['--mode','prolink'],async(request,base)=>{
   const app=(await request('/api/app')).data;assert.equal(app.mode,'prolink');assert.equal(app.capabilities.rekordboxSetup,false);
   let setup=(await request('/api/prolink/devices')).data;assert.equal(setup.runtimeAvailable,true);assert.equal(setup.status,'stopped');
+  assert.equal((await fetch(base+'/api/prolink/settings')).status,401);
+  assert.equal((await fetch(base+'/api/prolink/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).status,401);
+  assert.deepEqual((await request('/api/prolink/settings')).data,{autoConnect:true,devices:[]});
+  const selection={autoConnect:true,devices:[{player:3,deck:1,name:'CDJ-3000'}]};
+  assert.deepEqual((await request('/api/prolink/settings',selection)).data,selection);
+  assert.deepEqual((await request('/api/prolink/settings')).data,selection);
+  assert.equal((await request('/api/prolink/settings',{autoConnect:true,devices:[{player:4,deck:1,name:'DJS-1000'}]})).status,400);
+  assert.equal((await request('/api/prolink/devices')).data.status,'stopped','Saving preferences started networking');
+  assert.equal((await request('/api/prolink/settings',{autoConnect:false,devices:[]})).status,200);
   assert.equal((await request('/api/rekordbox/status')).status,409);assert.equal((await request('/api/health')).status,503);
   assert.equal((await request('/api/prolink/control',{action:'play'})).status,400);
   assert.equal((await request('/api/prolink/control',{action:'connect',players:[1,1]})).status,400);

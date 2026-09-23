@@ -1,4 +1,5 @@
 #include "prolink.h"
+#include "prolink_selection.h"
 #include <Windows.h>
 #include <wincrypt.h>
 #include <chrono>
@@ -6,6 +7,7 @@
 #include <mutex>
 #include <set>
 #include <thread>
+#include <stdexcept>
 
 namespace deckstatus {
 using Json = nlohmann::json;
@@ -25,6 +27,7 @@ bool valid_prolink_command(const Json& command) {
     if (!command.is_object() || !command.contains("action") || !command["action"].is_string()) return false;
     const auto action = command["action"].get<std::string>();
     if (action == "discover" || action == "disconnect") return command.size() == 1;
+    if(action=="connect"&&command.size()==2&&command.contains("mapping"))return valid_prolink_mapping(command["mapping"]);
     if (action != "connect" || command.size() != 2 || !command.contains("players") || !command["players"].is_array() ||
         command["players"].empty() || command["players"].size() > 4) return false;
     std::set<int> players;
@@ -44,6 +47,9 @@ struct ProLink::Impl {
     std::map<std::uint32_t, std::pair<std::string, std::string>> covers;
     std::size_t cover_bytes{};
     unsigned generation{};
+    Json preferences={{"autoConnect",false},{"devices",Json::array()}};
+    bool suspended=false,awaiting_devices=false;
+    ULONGLONG attempted{};
 
     explicit Impl(std::filesystem::path path) : directory(std::move(path)) {}
     void stop() {
@@ -137,6 +143,13 @@ struct ProLink::Impl {
             cover_bytes += size; covers.emplace(id, std::make_pair(mime, std::move(data)));
         }
     }
+    Json send(const Json& command) {
+        if(command["action"]=="disconnect"&&!process)return {{"accepted",true}};
+        if(!start())return {{"error","prolinkHelperFailed"}};
+        const auto line=command.dump()+'\n';DWORD written{};
+        if(!WriteFile(input,line.data(),static_cast<DWORD>(line.size()),&written,nullptr)||written!=line.size()) {failure("prolinkHelperFailed");return {{"error","prolinkHelperFailed"}};}
+        return {{"accepted",true}};
+    }
 };
 ProLink::ProLink(std::filesystem::path directory) : impl_(std::make_unique<Impl>(std::move(directory))) {}
 ProLink::~ProLink() = default;
@@ -154,13 +167,39 @@ Json ProLink::setup() {
 Json ProLink::control(const Json& command) {
     if (!valid_prolink_command(command)) return {{"error", "prolinkInvalidCommand"}};
     std::lock_guard lock(impl_->commands);
-    if (command["action"] == "disconnect" && !impl_->process) return setup();
-    if (!impl_->start()) return {{"error", "prolinkHelperFailed"}};
-    const auto line = command.dump() + '\n'; DWORD written{};
-    if (!WriteFile(impl_->input, line.data(), static_cast<DWORD>(line.size()), &written, nullptr) || written != line.size()) {
-        impl_->failure("prolinkHelperFailed"); return {{"error", "prolinkHelperFailed"}};
+    impl_->suspended=command["action"]!="connect";impl_->awaiting_devices=false;impl_->attempted=GetTickCount64();
+    return impl_->send(command);
+}
+void ProLink::configure(const Json& settings,bool resume) {
+    if(!valid_prolink_settings(settings))throw std::invalid_argument("Invalid ProLink settings");
+    std::lock_guard lock(impl_->commands);impl_->preferences=settings;impl_->suspended=!resume;impl_->attempted=0;
+}
+void ProLink::maintain() {
+    std::lock_guard lock(impl_->commands);
+    if(impl_->suspended||!impl_->preferences["autoConnect"].get<bool>()||impl_->preferences["devices"].empty())return;
+    const auto now=GetTickCount64();if(impl_->attempted&&now-impl_->attempted<5000&&!impl_->awaiting_devices)return;
+    Json current;ULONGLONG received;
+    {std::lock_guard state_lock(impl_->mutex);current=impl_->settings;received=impl_->received;}
+    const bool fresh=received&&now-received<=2000;
+    if(fresh&&(current.value("status","")=="connected"||current.value("status","")=="connecting"))return;
+    if(!fresh||current.value("status","")!="discovering") {
+        if(impl_->attempted&&now-impl_->attempted<5000)return;
+        impl_->attempted=now;
+        if(received&&now-received>6000)impl_->stop();
+        impl_->awaiting_devices=true;impl_->send({{"action","discover"}});return;
     }
-    return {{"accepted", true}};
+    Json mapping=Json::array();
+    for(const auto& wanted:impl_->preferences["devices"]) {
+        int matches=0;
+        for(const auto& device:current.value("devices",Json::array()))if(device.value("number",0)==wanted["player"].get<int>()){
+            // Duplicated numbers are ambiguous even when the other model is unsupported.
+            if(!device.value("selectable",false)||device.value("name",std::string{})!=wanted["name"].get<std::string>())return;
+            ++matches;
+        }
+        if(matches!=1)return;
+        mapping.push_back({{"player",wanted["player"]},{"deck",wanted["deck"]}});
+    }
+    impl_->attempted=now;impl_->awaiting_devices=false;impl_->send({{"action","connect"},{"mapping",mapping}});
 }
 std::pair<std::string, std::string> ProLink::cover(std::uint32_t id) {
     std::lock_guard lock(impl_->mutex);

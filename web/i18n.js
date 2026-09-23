@@ -42,6 +42,10 @@ export function diagnostic(value) {
   const source = english();
   if (!source) return value;
   if (Object.hasOwn(source, value)) return t(value);
+  // Preserve technical profile/RVA details after a translated diagnostic.
+  const details = value.indexOf(' [');
+  if (details > 0 && Object.hasOwn(source, value.slice(0, details)))
+    return t(value.slice(0, details)) + value.slice(details);
   if (!reverseEnglish) {
     reverseEnglish = new Map();
     for (const [key, text] of Object.entries(source)) if (!reverseEnglish.has(text)) reverseEnglish.set(text, key);

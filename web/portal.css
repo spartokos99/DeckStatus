@@ -81,3 +81,5 @@
 [data-pane=automations] > .portal-actions { position: sticky; top: 0; background: var(--surface); padding: var(--s2) 0; z-index: 2; }
 
 @media (max-width: 900px) { .portal-columns, .twitch-grid { grid-template-columns: 1fr; } }
+
+.update-versions{display:grid;grid-template-columns:auto 1fr;gap:6px 20px}.update-versions dd{margin:0}.update-hash{overflow-wrap:anywhere}#update-progress{width:100%}

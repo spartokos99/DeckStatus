@@ -29,7 +29,7 @@ const routes = new Map([
 for (const asset of ['navigation.js', 'navigation.css', 'icon.svg', 'deck-overlay.js', 'overlay-shared.js', 'overlay.css', 'theme.css', 'settings.css', 'settings.js', 'poll.js', 'i18n.js', 'storage.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
 routes.set('/overlay/settings', 'master-settings.html');
 routes.set('/', 'index.html');
-for(const asset of ['auth.js','broadcast.js','component-presets.js','component-presets.css'])routes.set('/'+asset,asset);
+for(const asset of ['auth.js','broadcast.js','component-presets.js','component-presets.css','track-controls.js'])routes.set('/'+asset,asset);
 const fixture = http.createServer((request, response) => {
   if(request.url==='/api/app'){response.setHeader('Content-Type','application/json');response.end(JSON.stringify({version:appVersion,mode:'rekordbox',canControl:true,capabilities:{dashboard:true,history:true,deckOverlays:true,masterOverlay:true,audioWaveform:true,rekordboxSetup:true,prolinkSetup:false,networkSettings:true}}));return;}
   const url = new URL(request.url, 'http://localhost');
@@ -186,7 +186,7 @@ async function until(fn, message, timeout = 6000) {
     assert.deepEqual((await rows()).map(row => row.entry), [5, 4, 3, 2]);
     assert.equal(await evaluate('document.querySelectorAll(".track").length'), 4, 'Outgoing card leaked');
     current.bpm = 129.75;
-    await until(() => evaluate('document.querySelector(".track[data-current=true] [data-field=bpm]").textContent.includes("129,75")'), 'Live BPM not updated');
+    await until(() => evaluate('document.querySelector(".track[data-current=true] [data-field=currentBpm]").textContent.includes("129,75")'), 'Live BPM not updated');
     assert.equal(await evaluate('document.getAnimations().length'), 0, 'BPM update restarted animation');
     current.title = '<img src=x onerror="window.injectionExecuted=true">';
     await until(() => evaluate('document.querySelector("h1").textContent.startsWith("<img")'), 'Title not shown as text');

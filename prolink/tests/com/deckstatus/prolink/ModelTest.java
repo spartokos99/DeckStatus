@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.io.*;
 import java.nio.file.Path;
 import java.util.concurrent.*;
+import java.util.*;
 
 public final class ModelTest {
     static void check(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
@@ -85,6 +86,15 @@ public final class ModelTest {
         finder.removeLifecycleListener(unrelated);
     }
     public static void main(String[] args) throws Exception {
+        var devices=Set.of(announcement("CDJ-3000",1,"192.0.2.1"),announcement("CDJ-3000",2,"192.0.2.2"),announcement("CDJ-3000",3,"192.0.2.3"),announcement("DJM-900NXS2",33,"192.0.2.33"),announcement("DJS-1000",4,"192.0.2.4"));
+        var selected=Main.selectPlayers(new JSONObject("{\"mapping\":[{\"player\":3,\"deck\":1},{\"player\":1,\"deck\":4}]}"),devices);
+        check(selected.equals(Map.of(1,3,4,1)),"Explicit deck mapping changed or unsupported neighbour blocked it");
+        check(Main.selectPlayers(new JSONObject("{\"players\":[3,1,2]}"),devices).equals(Map.of(1,1,2,2,3,3)),"Legacy selection mapping changed");
+        for(String invalid:new String[]{"{\"mapping\":[{\"player\":4,\"deck\":1}]}","{\"mapping\":[{\"player\":1,\"deck\":1},{\"player\":2,\"deck\":1}]}","{\"mapping\":[{\"player\":1,\"deck\":1},{\"player\":1,\"deck\":2}]}"}) {
+            boolean refused=false;try{Main.selectPlayers(new JSONObject(invalid),devices);}catch(IllegalArgumentException expected){refused=true;}check(refused,"Invalid selection accepted");
+        }
+        var duplicates=new HashSet<>(devices);duplicates.add(announcement("DJS-1000",1,"192.0.2.90"));
+        boolean ambiguous=false;try{Main.selectPlayers(new JSONObject("{\"players\":[1]}"),duplicates);}catch(IllegalArgumentException expected){ambiguous=true;}check(ambiguous,"Duplicate selected player number accepted");
         CdjStatus a=status(1,1,3,42,0x78),same=status(2,1,3,42,0),otherMedia=status(2,2,3,42,0),otherSlot=status(2,1,2,42,0);
         check(a.isPlaying() && a.isSynced() && a.isOnAir() && a.isTempoMaster(),"Status flags not decoded");
         check(!same.isPlaying() && !same.isTempoMaster(),"False status flags lost");

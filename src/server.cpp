@@ -5,6 +5,7 @@
 #include "network.h"
 #include "portal_http.h"
 #include "language.h"
+#include "updater.h"
 #include <map>
 #include "master_gate.h"
 #include "master_history.h"
@@ -146,7 +147,7 @@ int run_server(const std::string& host, int port,
         {"/master-overlay.js", "master-overlay.js"}, {"/master-options.js", "master-options.js"},
         {"/deck-overlay.js", "deck-overlay.js"}, {"/overlay-shared.js", "overlay-shared.js"},
         {"/overlay.css", "overlay.css"}, {"/settings.css", "settings.css"},
-        {"/settings.js", "settings.js"}, {"/i18n.js", "i18n.js"}, {"/storage.js", "storage.js"},
+        {"/settings.js", "settings.js"}, {"/track-controls.js", "track-controls.js"}, {"/i18n.js", "i18n.js"}, {"/storage.js", "storage.js"},
         {"/theme.css", "theme.css"}, {"/poll.js", "poll.js"},
         {"/waveform", "waveform.html"}, {"/waveform/settings", "waveform-settings.html"},
         {"/waveform.js", "waveform.js"}, {"/waveform-options.js", "waveform-options.js"},
@@ -168,7 +169,7 @@ int run_server(const std::string& host, int port,
         {"/creative-renderer.js", "creative-renderer.js"}, {"/audio-reactivity.js", "audio-reactivity.js"}, {"/creative.css", "creative.css"},
         {"/media-library.js", "media-library.js"},
         {"/admin-audio.js", "admin-audio.js"}, {"/admin-master.js", "admin-master.js"},
-        {"/admin-twitch.js", "admin-twitch.js"},
+        {"/admin-twitch.js", "admin-twitch.js"}, {"/admin-updater.js", "admin-updater.js"},
         {"/automations", "automations.html"}, {"/automations.js", "automations.js"},
         {"/locales/en.json", "locales/en.json"}, {"/locales/de.json", "locales/de.json"}
     }) {
@@ -203,7 +204,7 @@ int run_server(const std::string& host, int port,
         server.set_write_timeout(3);
         server.set_keep_alive_timeout(2);
         server.set_keep_alive_max_count(50);
-        server.set_payload_max_length(12*1024*1024); // Only authenticated media uploads may exceed the normal 64 KiB limit.
+        server.set_payload_max_length(12*1024*1024); // Authenticated media/update uploads may exceed the normal 64 KiB limit.
         server.set_default_headers({
             {"Cache-Control", "no-store"},
             {"X-Content-Type-Options", "nosniff"},
@@ -301,7 +302,7 @@ int run_server(const std::string& host, int port,
         };
         server.authorize = [portal, &twitch, validate_request](const httplib::Request& request, auto& response, Access access) {
             if (validate_request(request, response) == httplib::Server::HandlerResponse::Handled) return false;
-            if(request.body.size()>65536&&request.path!="/api/media")throw PortalError(413,"portalCapacity");
+            if(request.body.size()>65536&&request.path!="/api/media"&&request.path!="/api/admin/updater/upload")throw PortalError(413,"portalCapacity");
             if (!portal) return true; // Isolated native fixtures may omit the application store.
             if (access == Access::Public) return true;
             const bool read = request.method == "GET" || request.method == "HEAD";
@@ -411,13 +412,28 @@ int run_server(const std::string& host, int port,
             master_gate->set_hold_ms(hold);
             json_response(response,master_description(request));
         });
+        auto* updater=features?features->updater:nullptr;
+        server.Get("/api/admin/updater",Access::Admin,[updater,can_control](const auto& request,auto& response){
+            if(!updater)throw PortalError(409,"updateUnavailable");auto result=updater->describe();result["canControl"]=can_control(request);json_response(response,result);
+        });
+        server.Post("/api/admin/updater",Access::Admin,[updater,can_control](const auto& request,auto& response){
+            if(!updater)throw PortalError(409,"updateUnavailable");if(!can_control(request))throw PortalError(403,"networkReadOnly");json_response(response,updater->command(portal_body(request)),202);
+        });
+        server.Post("/api/admin/updater/upload",Access::Admin,[updater,can_control](const auto& request,auto& response){
+            if(!updater)throw PortalError(409,"updateUnavailable");if(!can_control(request))throw PortalError(403,"networkReadOnly");
+            if(request.get_header_value("Content-Type")!="application/octet-stream"||raw_parameter_count(request,"id")!=1||raw_parameter_count(request,"offset")!=1)throw PortalError(400,"portalInvalid");
+            const auto position=request.get_param_value("offset");std::uint64_t offset{};const auto parsed=std::from_chars(position.data(),position.data()+position.size(),offset);
+            if(parsed.ec!=std::errc{}||parsed.ptr!=position.data()+position.size())throw PortalError(400,"portalInvalid");
+            json_response(response,updater->upload(request.get_param_value("id"),offset,request.body));
+        });
         const bool prolink = features && features->mode == "prolink";
-        server.Get("/api/app", Access::User, [prolink, network, portal, can_control, port](const auto& request, auto& response) {
+        server.Get("/api/app", Access::User, [prolink, network, portal, can_control, port, updater](const auto& request, auto& response) {
             const auto user=portal?portal->identity(portal_session(request)):Json(nullptr);
             const bool admin=!portal||(!user.is_null()&&user["role"]=="admin");
             json_response(response, {{"version", DECKSTATUS_VERSION}, {"mode", prolink ? "prolink" : "rekordbox"},
                 {"obsBaseUrl", network_url("127.0.0.1", port)},
                 {"user",user},
+                {"update",updater?updater->summary():Json{{"available",false}}},
                 {"canControl", can_control(request)},
                 {"capabilities", {{"dashboard", true}, {"history", true}, {"deckOverlays", true}, {"masterOverlay", true},
                     {"networkSettings", network != nullptr && admin}, {"scenes",portal!=nullptr}, {"admin",portal!=nullptr && admin},
@@ -427,6 +443,15 @@ int run_server(const std::string& host, int port,
         server.Get("/api/prolink/devices", Access::User, [features, prolink](const auto&, auto& response) {
             if (!prolink || !features->prolink_setup) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
             json_response(response, features->prolink_setup());
+        });
+        server.Get("/api/prolink/settings", Access::User, [prolink,portal](const auto&,auto& response) {
+            if(!prolink||!portal){json_response(response,{{"error","modeUnavailable"}},409);return;}
+            json_response(response,portal->prolink_settings());
+        });
+        server.Post("/api/prolink/settings", Access::User, [prolink,portal,features,can_control](const auto& request,auto& response) {
+            if(!prolink||!portal||!features->prolink_configure){json_response(response,{{"error","modeUnavailable"}},409);return;}
+            if(!can_control(request)){json_response(response,{{"error","networkReadOnly"}},403);return;}
+            const auto saved=portal->save_prolink_settings(portal_body(request));features->prolink_configure(saved);json_response(response,saved);
         });
         server.Get("/api/rekordbox/status", Access::User, [prolink, &snapshot](const auto&, auto& response) {
             if (prolink) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }

@@ -20,22 +20,22 @@
 </p>
 
 > [!IMPORTANT]
-> Rekordbox support has been live-tested only on the author’s **Rekordbox 7.2.18.0 Windows x64** installation. ProLink support is experimental and has not been tested with real hardware.
+> Rekordbox support has been live-tested on **Rekordbox 7.2.18.0 Windows x64** installation. ProLink support is experimental.
 > 
 > I should also mention that the entire tool was 100% AI-generated; I originally intended to use it just for my own stream, but it turned out so well and proved so practical that I decided to share it so other streamers could use it too.
 
 ## ✨ Features
 
-- 🎛️ **Four-deck dashboard:** title, artist, album, key, cover, current/original BPM and timelines.
-- 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles. Customise fields, colours, fonts, dimensions, alignment and smooth transitions.
-- ⏱️ **Stable master detection:** filter brief tempo-master handovers with a shared hold time for overlays, the dashboard and Full History. Configure 0–30 seconds under Admin → Master detection (default: 4 seconds).
-- 💾 **Saved presets:** save, load, update and delete overlays. The library persists on the server and is shared with signed-in users.
-- 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas. Drag, resize, reorder, hide/show and style independent layers; save to update the same OBS source.
-- 🎶 **Public Full History:** viewers browse played tracks at `/history` without an account. Rating tracks from 1–5 stars requires a separate Twitch sign-in.
-- ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions. Click a vote count to see Twitch usernames and individual ratings; older anonymous votes are preserved.
-- 🖼️ **Creative components:** static text, uploaded images/GIFs, optional Wikimedia Commons import, and audio-driven fog/flash effects. Make layer scale, position, rotation and opacity react to sound.
+- 🎛️ **Four-deck dashboard:** title, artist, album, label, key, cover, current/original BPM and timelines.
+- 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles - fully customizable.
+- ⏱️ **Stable master detection:** filter brief tempo-master handovers with a shared hold time for overlays, the dashboard and Full History.
+- 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas.
+- 🔄 **Updater:** release indicators, ZIP upload or verified GitHub download, backups and restart under **Admin → Updater**. See the [update guide](docs/updater.md).
+- 🎶 **Public Full History:** viewers browse played tracks at `/history` without an account. Rating tracks requires a separate Twitch sign-in.
+- ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
+- 🖼️ **Creative components:** static text, uploaded images/GIFs, optional Wikimedia Commons import, and audio-driven fog/flash effects.
 - ⚡ **Twitch automations:** trigger up to 16 actions per rule with rewards, chat commands/text, raids or stream status. Change layers, toggle audio reactivity or reply in chat, with individual durations and shared cooldowns.
-- 🎙️ **Shared audio input:** choose and save a device under Admin → Audio input; optionally start capture automatically on launch.
+- 🎙️ **Shared audio input:** choose and save a device under Admin → Audio input.
 - 🔐 **Accounts:** administrator/operator roles, user management and required initial password changes.
 - 🌐 **Optional LAN access and HTTPS domain support** behind a reverse proxy, JSON API, Rekordbox/ProLink modes and English/German application translations.
 
@@ -43,7 +43,7 @@
   
 ### 🍦 Rekordbox (Software)
 
-live-tested only with **Rekordbox 7.2.18.0 Windows x64 installation**.
+Live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. Version 2.3.1 recognizes the original executable and one specifically audited patched variant using exact SHA-256/PE profiles and loaded-code checks. Other patched files and Rekordbox versions remain unsupported; see the [profile identities](docs/rekordbox-7.2.18.md) and [validation record](docs/validation.md).
 
 |                    | Windows | macOS |
 |:------------------:|:-------:|:-----:|
@@ -54,17 +54,17 @@ live-tested only with **Rekordbox 7.2.18.0 Windows x64 installation**.
 |             	| **Implemented** 	| **Tested** 	|
 |:-----------:	|:-----------:	|:--------:	|
 |   **CDJs**  	|             	|          	|
-|   CDJ-3000  	|      ✅      	|      ❌    	|
+|   CDJ-3000  	|      ✅      	|      ✅    	|
 |  CDJ-3000X  	|      ✅      	|      ❌    	|
 |             	|             	|          	|
 |  **MIXERS** 	|             	|          	|
 |    DJM-A9   	|      ✅      	|      ❌    	|
-| DJM-900NXS2 	|      ✅      	|      ❌    	|
+| DJM-900NXS2 	|      ✅      	|      ✅    	|
 |             	|             	|          	|
 |   **AiO**   	|             	|          	|
 |    XDJ-AZ   	|      ✅      	|      ❌    	|
 
-No real ProLink hardware has been tested; see the [device and metadata limitations](docs/prolink.md).
+I successfully discovered 3× CDJ-3000 and a DJM-900NXS2; See the [device and metadata limitations](docs/prolink.md).
 
 ## ▶️ Run
 
@@ -75,13 +75,15 @@ No real ProLink hardware has been tested; see the [device and metadata limitatio
 
 Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks without Rekordbox or DJ hardware.
 
-For upgrades, stop DeckStatus and back up **DeckStatus.data** and **DeckStatus.network.json** before replacing application files. Existing users, presets, scenes, ratings and OBS links remain valid. Version 2.2.0 automatically moves uploaded images/GIFs into **DeckStatus.data/media**; keep the entire data directory together. Restore the pre-upgrade backup if you need to downgrade.
+For upgrades, stop DeckStatus and back up **DeckStatus.data** and **DeckStatus.network.json** before replacing application files. Existing users, presets, scenes, ratings and OBS links remain valid. Versions 2.2.0 and later automatically move uploaded images/GIFs into **DeckStatus.data/media**; keep the entire data directory together. Restore the pre-upgrade backup if you need to downgrade.
 
 Master handovers now wait **4 seconds** by default; the first master after startup or reconnect appears immediately. Set **Admin → Master detection** to **0** for immediate handovers.
 
 Configure Twitch under **Admin → Twitch** and edit rules under **Stream → Automations**. Viewer sign-in uses the same Public Twitch Client ID. Live Twitch account/OBS validation is still pending; see the [Twitch setup guide](docs/twitch.md).
 
-Download the complete Windows package from [DeckStatus v2.2.0](https://github.com/spartokos99/DeckStatus/releases/tag/v2.2.0).
+This package is **DeckStatus v2.3.2** (`DeckStatus-2.3.2-win-x64.zip`). Published versions are available from [GitHub Releases](https://github.com/spartokos99/DeckStatus/releases).
+
+Version 2.3.2 includes per-element font size/style/weight, editable scene deck assignments and the updater. See the [changelog](CHANGELOG.md) for all changes since the previous public release.
 
 ## 🛠️ Build and test
 
@@ -90,6 +92,7 @@ Requires Windows x64, Visual Studio C++ tools, CMake and JDK 21+ for ProLink.
 ~~~powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1
 node tests/browser_master_test.cjs
+node tests/browser_track_design_test.cjs
 node tests/browser_waveform_test.cjs
 node tests/browser_dashboard_history_test.cjs
 node tests/browser_prolink_test.cjs
@@ -98,6 +101,8 @@ node tests/browser_portal_test.cjs
 node tests/browser_creative_test.cjs
 node tests/browser_admin_audio_test.cjs
 node tests/browser_admin_master_test.cjs
+node tests/browser_updater_test.cjs
+node tests/updater_test.cjs
 node tests/browser_twitch_layers_test.cjs
 node tests/browser_viewer_ratings_test.cjs
 node tests/network_smoke.cjs

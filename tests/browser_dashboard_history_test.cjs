@@ -18,6 +18,8 @@ withBrowser((req,res,url)=>{
   }return false;
 },async({evaluate,navigate,until,delay,screenshot})=>{
   await navigate('/?lang=en');await until(()=>evaluate('document.querySelectorAll(".timeline[data-available=true]").length===4'),'Four deck timelines missing');
+  assert.equal(await evaluate(`(async()=>{const {diagnostic}=await import('/i18n.js');return diagnostic('Connected to Rekordbox 7.2.18; sampling live deck IDs, BPM and Master. [7.2.18.0 patched]');})()`),
+    'Connected to Rekordbox 7.2.18; reading decks, tempo, master and timeline. [7.2.18.0 patched]');
   assert.equal(await evaluate(`document.querySelector('nav a[href="/waveform/settings"] [data-i18n]').textContent`),'Waveform');
   assert.equal(await evaluate(`document.querySelector('nav a[href="/history"] [data-i18n]').textContent`),'Full History');
   assert.equal(await evaluate('document.querySelector(".brand img").getAttribute("src")'),'/icon.svg');
@@ -45,6 +47,8 @@ withBrowser((req,res,url)=>{
   assert.equal(await evaluate('document.querySelector("tbody tr img").hasAttribute("src")'),false);
   await evaluate('document.querySelector("[data-language]").value="de";document.querySelector("[data-language]").dispatchEvent(new Event("change"))');
   assert.equal(await evaluate('document.querySelector("h1").textContent'),'Deine vollständige Track-History.');
+  assert.equal(await evaluate(`(async()=>{const {diagnostic}=await import('/i18n.js');return diagnostic('Rekordbox 7.2.18 code guards do not match; this executable is unsupported. [7.2.18.0 patched, RVA 0x01729D41]');})()`),
+    'Die geprüften Codestellen von Rekordbox 7.2.18 stimmen nicht überein; diese Datei wird nicht unterstützt. [7.2.18.0 patched, RVA 0x01729D41]');
   fail=true;await until(()=>evaluate('document.getElementById("status").textContent.includes("erreichbar")'),'History network failure missing');
   assert.equal(await evaluate('document.querySelectorAll("tbody tr[data-current=true]").length'),0,'Failure retained a live badge');
   assert.equal(await evaluate('document.querySelectorAll("tbody tr").length'),100,'Failure erased observed history');

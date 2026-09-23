@@ -25,6 +25,7 @@ public final class Main {
     private final Map<Integer, Long> loadedAt = new ConcurrentHashMap<>();
     private final int idBase;
     private volatile List<Integer> players = List.of();
+    private volatile Map<Integer,Integer> deckPlayers = Map.of();
     private volatile String phase = "stopped", message = "prolinkStopped";
     private volatile String localAddress = "", networkInterface = "";
     private volatile boolean connected;
@@ -155,11 +156,12 @@ public final class Main {
             int masters = 0, master = 0, reporting = 0;
             long age = Long.MAX_VALUE;
             for (int id = 1; id <= 4; id++) {
-                JSONObject deck = id <= selected.size() ? deck(id, selected.get(id - 1), now, mixerOnline) : emptyDeck(id);
+                Integer player = deckPlayers.get(id);
+                JSONObject deck = player != null ? deck(id, player, now, mixerOnline) : emptyDeck(id);
                 if (deck.optBoolean("isMaster", false)) { masters++; master = id; }
                 if (!deck.isNull("playing")) {
                     reporting++;
-                    DeviceUpdate update = cdj.getLatestStatusFor(selected.get(id - 1));
+                    DeviceUpdate update = cdj.getLatestStatusFor(player);
                     if (update != null) age = Math.min(age, Math.max(0, (now - update.getTimestamp()) / 1_000_000));
                 }
                 decks.put(deck);
@@ -169,6 +171,7 @@ public final class Main {
             String status = active && reporting > 0 ? "connected" : phase.equals("error") ? "error" : phase.equals("connecting") ? "starting" : "disconnected";
             String detail = active ? reporting == 0 ? "prolinkWaitingStatus" : "prolinkConnected" : message;
             JSONObject setup = new JSONObject().put("status", active ? "connected" : phase).put("message", detail).put("devices", list).put("players", selected)
+                .put("mapping", new JSONArray(deckPlayers.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(e -> new JSONObject().put("deck", e.getKey()).put("player", e.getValue())).toList()))
                 .put("localAddress", localAddress).put("networkInterface", networkInterface).put("virtualPlayer", active ? (cdj.getDeviceNumber() & 255) : JSONObject.NULL);
             emit(new JSONObject().put("type", "snapshot").put("schemaVersion", 1).put("mode", "prolink").put("demo", false)
                 .put("status", status).put("message", detail).put("version", "PRO DJ LINK · Beat Link 8.0.0")
@@ -187,7 +190,7 @@ public final class Main {
         TimeFinder.getInstance().stop(); ArtFinder.getInstance().stop();
         BeatGridFinder.getInstance().stop(); metadata.stop(); BeatFinder.getInstance().stop(); cdj.stop(); finder.stop();
         lastTracks.clear(); loadedAt.clear(); mediaEpochs.replaceAll((key, value) -> value + 1);
-        players = List.of(); selectedAddresses.clear(); localAddress = networkInterface = "";
+        players = List.of(); deckPlayers = Map.of(); selectedAddresses.clear(); localAddress = networkInterface = "";
         phase = "stopped"; message = "prolinkStopped";
     }
     private void command(JSONObject command) throws Exception {
@@ -199,28 +202,17 @@ public final class Main {
         }
         if (!action.equals("connect")) throw new IllegalArgumentException("Invalid action");
         if (connected) throw new IllegalArgumentException("Disconnect before changing players");
-        JSONArray chosen = command.getJSONArray("players");
-        if (chosen.isEmpty() || chosen.length() > 4) throw new IllegalArgumentException("Select 1 to 4 players");
-        List<Integer> selected = new ArrayList<>();
-        for (int index = 0; index < chosen.length(); index++) {
-            int player = chosen.getInt(index); DeviceAnnouncement device = device(player);
-            if (selected.contains(player) || device == null || !supportedPlayer(device)) throw new IllegalArgumentException("Player unavailable");
-            // Duplicate numbers make unicast state ambiguous: refuse to attach.
-            if (devices().stream().filter(d -> d.getDeviceNumber() == player).count() != 1) throw new IllegalArgumentException("Duplicate player number");
-            selected.add(player); selectedAddresses.put(player, device.getAddress().getHostAddress());
-        }
-        if (devices().stream().anyMatch(d -> !DeviceSupport.supported(d))) {
-            message = "prolinkUnsupportedNetwork"; phase = "error"; return;
-        }
-        selected.sort(Integer::compareTo);
-        players = List.copyOf(selected); phase = "connecting"; message = "prolinkConnecting";
+        final Map<Integer,Integer> mapping = selectPlayers(command, devices());
+        deckPlayers = Map.copyOf(mapping); players = List.copyOf(mapping.values());
+        selectedAddresses.clear();for(int player:players)selectedAddresses.put(player,device(player).getAddress().getHostAddress());
+        phase = "connecting"; message = "prolinkConnecting";
         cdj.setDeviceName("DeckStatus");
         // Beat Link 8 does not classify the 3000X as metadata-flexible. Prefer a free
         // standard channel for its DBServer requests; allocation still avoids occupied numbers.
         cdj.setDeviceNumber((byte) 0);
-        cdj.setUseStandardPlayerNumber(devices().stream().anyMatch(d -> d.getDeviceName().equals("CDJ-3000X")));
+        cdj.setUseStandardPlayerNumber(devices().stream().anyMatch(d -> players.contains(d.getDeviceNumber()) && d.getDeviceName().equals("CDJ-3000X")));
         if (!cdj.start()) throw new IOException("Unable to join network");
-        if (cdj.getMatchingInterfaces().size() != 1 || !cdj.findUnreachablePlayers().isEmpty()) {
+        if (cdj.getMatchingInterfaces().size() != 1 || cdj.findUnreachablePlayers().stream().anyMatch(d -> players.contains(d.getDeviceNumber()))) {
             cdj.stop(); phase = "error"; message = "prolinkAmbiguousNetwork"; return;
         }
         localAddress = cdj.getLocalAddress().getHostAddress();
@@ -230,6 +222,24 @@ public final class Main {
         // unrelated track for OneLibrary IDs, including in mixed networks.
         metadata.setPassive(false); metadata.start(); ArtFinder.getInstance().start(); TimeFinder.getInstance().start();
         connected = true; phase = "connected"; message = "prolinkConnected";
+    }
+    static Map<Integer,Integer> selectPlayers(JSONObject command, Set<DeviceAnnouncement> devices) {
+        JSONArray chosen=command.optJSONArray("mapping");
+        if(chosen==null) {
+            JSONArray legacy=command.getJSONArray("players");List<Integer> numbers=new ArrayList<>();
+            for(int i=0;i<legacy.length();i++)numbers.add(legacy.getInt(i));
+            numbers.sort(Integer::compareTo);chosen=new JSONArray();
+            for(int i=0;i<numbers.size();i++)chosen.put(new JSONObject().put("player",numbers.get(i)).put("deck",i+1));
+        }
+        if(chosen.isEmpty()||chosen.length()>4)throw new IllegalArgumentException("Select 1 to 4 players");
+        Map<Integer,Integer> mapping=new TreeMap<>();Set<Integer> selected=new HashSet<>();
+        for(int i=0;i<chosen.length();i++) {
+            JSONObject entry=chosen.getJSONObject(i);int player=entry.getInt("player"),deck=entry.getInt("deck");
+            List<DeviceAnnouncement> matches=devices.stream().filter(d -> d.getDeviceNumber()==player).toList();
+            if(player<1||player>6||deck<1||deck>4||mapping.containsKey(deck)||!selected.add(player)||matches.size()!=1||!supportedPlayer(matches.get(0)))throw new IllegalArgumentException("Player unavailable or assignment ambiguous");
+            mapping.put(deck,player);
+        }
+        return mapping;
     }
     public static void main(String[] args) throws Exception {
         int idBase = args.length == 1 ? Integer.parseInt(args[0]) : 0;

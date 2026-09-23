@@ -1,5 +1,48 @@
 # Changelog
 
+## 2.3.2 · 2026-09-23
+
+- Add individual font size (8–200 px), normal/italic/oblique style and weight (100–900) to deck/master text elements. Overrides persist in URLs, presets and linked scenes; clearing an override restores the shared style.
+- Allow each scene deck layer to select Deck 1–4 while retaining its preset link. Saving or updating the preset changes its design without replacing that layer's deck assignment.
+- Show newer stable GitHub releases in the navigation and console. Check in the background at startup/every six hours, with manual checks under Admin → Updater.
+- Add administrator ZIP upload and verified GitHub download, separate preparation/confirmed installation, complete data backups, restart and rollback on normal replacement/startup failures. Preserve users, ratings, presets, scenes, media, network settings and OBS keys. See [update operation and recovery](docs/updater.md).
+- Includes the previously local 2.3.0 overlay/ProLink improvements and 2.3.1 exact executable profiles documented below. This is the first public release of those changes after 2.2.0.
+
+### Upgrade and compatibility
+
+- From versions without the updater, stop DeckStatus, back up the complete **DeckStatus.data** directory and **DeckStatus.network.json**, and extract the full 2.3.2 package while preserving those files. Include **DeckStatus.Update.ps1** beside the EXE. Future updates can be prepared under **Admin → Updater**; installation always requires confirmation.
+- Existing users, ratings, scenes, presets, media and OBS keys remain valid. Login sessions and played-track history reset on restart. Keep retained update backups private. See [update operation and recovery](docs/updater.md) for limits and manual recovery.
+- Live Rekordbox validation remains limited to the author's **7.2.18.0 Windows x64** installation and the two exact audited executable variants. Other hashes/versions remain unsupported. ProLink is experimental; the connection changes still require live hardware validation. Production Twitch authorization and OBS Studio validation remain pending.
+
+## 2.3.1 · 2026-09-23
+
+- Recognize the owner's audited patched Rekordbox 7.2.18.0 executable alongside the original file. The patch changes the PE image size and entry point, which caused the previous bridge to report it as unsupported; the sampled memory layout and all 14 code guards are unchanged.
+- Select between two explicit executable profiles using PE properties and full-file SHA-256/size verification. Both share the existing address layout, loaded-code checks and per-sample pointer/type validation. Unknown patches and other versions remain unsupported. Hash the executable once per attachment, not during sampling.
+- Report the selected variant when connected and distinguish unsupported PE fingerprints, file identity failures and mismatching loaded-code RVAs.
+- Add native regression coverage for both profiles, altered/unreadable guards and file/hash mismatches, plus an opt-in read-only verifier for the two real files. See [profile identities](docs/rekordbox-7.2.18.md) and [validation](docs/validation.md).
+
+### Upgrade and compatibility
+
+- Stop DeckStatus, back up **DeckStatus.data** and **DeckStatus.network.json**, and replace the complete application package, including **DeckStatusBridge.dll**. Keep the existing data and network files. No preset, scene, account or OBS URL migration is needed from 2.3.0.
+- Compatibility remains limited to the two documented Windows x64 7.2.18.0 files. A future patch with a different hash requires independent review; there is no user-editable address override or version-only bypass.
+- Includes all 2.3.0 overlay, linked-preset and ProLink improvements below. ProLink, Twitch and OBS live-validation limits are unchanged. This release is prepared locally; GitHub publication is deferred.
+
+## 2.3.0 · 2026-09-23
+
+- Extend master/deck overlays with label, separate BPM and BPM (Current) switches, whole-number BPM, missing-data hiding, additional local fonts and independent master-history fields. Preserve legacy BPM URLs.
+- Add cover placement on the left/top/right, round rotating covers and automatic content-height sizing. Add per-field colours/backgrounds/fonts/margins, content alignment, scrolling text and expanding containers, including scenes.
+- Keep inserted presets linked to their scene layers. Updates propagate atomically without replacing OBS URLs or layer placement; layers can be detached/relinked, and deleted presets preserve their last design. Migrate only unique unchanged legacy copies.
+- Ignore unrelated unsupported ProLink devices when connecting selected players. Add explicit deck assignment, persistent selection and automatic connection on ProLink startup once the saved devices appear. Manual disconnect pauses automatic connection. Rekordbox startup remains unchanged.
+- The owner reports discovery of 3× CDJ-3000 + DJM-900NXS2 and a correctly unsupported DJS-1000. The connection fix still needs live hardware verification; automated coverage uses isolated fixtures.
+
+### Upgrade and compatibility
+
+- Stop DeckStatus and back up the complete **DeckStatus.data** directory and **DeckStatus.network.json** before extracting the full package over the application files. Preserve accounts, ratings, media and existing OBS keys; restore the backup to downgrade.
+- Older unchanged scene layers link automatically only when their name, type and settings match one unique preset. Customized or ambiguous layers stay independent; use the source-preset selector to link them without reinserting. Future preset edits update linked designs while preserving placement and visibility.
+- Old URLs with one BPM switch retain both original and current values. New designs select **BPM** and **BPM (Current)** independently. Additional fonts use Windows system fonts; no font download is required.
+- In ProLink mode, connecting saves player/deck assignments. Automatic launch connection waits for all saved player numbers and model names; no saved selection means no automatic networking. **Save for next start** does not start discovery. Manual disconnect pauses automatic connection until Connect or restart.
+- Default startup remains Rekordbox, with live compatibility limited to the author's **Rekordbox 7.2.18.0 Windows x64** installation. ProLink connection/data, production Twitch authorization and OBS Studio integration still need live validation. See [validation](docs/validation.md).
+
 ## 2.2.0 · 2026-09-22
 
 - Add a server-wide **master hold time**: a new deck must stay the source's tempo master for a configurable period before DeckStatus publishes the handover. Brief changes no longer flip the master overlay, deck badges or session history.

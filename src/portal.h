@@ -38,6 +38,8 @@ public:
     // Server-wide master hold time in milliseconds; see src/master_gate.h.
     Json master_settings() const;
     Json save_master_settings(const Json& settings);
+    Json prolink_settings() const;
+    Json save_prolink_settings(const Json& settings);
     // Native integration only: secrets are DPAPI-encrypted at rest, never HTTP output.
     Json twitch_settings() const;
     void save_twitch_settings(const Json& settings);

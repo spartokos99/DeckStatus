@@ -11,6 +11,7 @@ withBrowser((req,res,url)=>{
  }else if(url.pathname==='/api/network'){reads++;if(fail){res.statusCode=503;res.end('{}');}else res.end(JSON.stringify(network()));}
  else if(url.pathname==='/api/audio/devices')res.end(JSON.stringify({devices:[{id:'synthetic',name:'Synthetic input',kind:'input'}]}));
  else if(url.pathname==='/api/audio/state')res.end(JSON.stringify({status:'stopped',fresh:false,left:[],right:[]}));
+ else if(url.pathname==='/api/prolink/settings')res.end(JSON.stringify({autoConnect:true,devices:[]}));
  else if(url.pathname==='/api/prolink/devices')res.end(JSON.stringify({status:'stopped',message:'prolinkStopped',runtimeAvailable:true,devices:[{number:1,name:'CDJ-3000',address:'192.0.2.11',selectable:true,supported:true}],players:[]}));
  else{res.statusCode=404;res.end('{}');}return true;
 },async({navigate,evaluate,until,call,screenshot})=>{
@@ -54,6 +55,7 @@ withBrowser((req,res,url)=>{
  assert.equal(await evaluate('document.getElementById("network-urls").textContent.includes("127.0.0.1")'),false);
  mode='prolink';await navigate('/prolink/settings?lang=en');await until(()=>evaluate('!document.getElementById("prolink-content").hidden && document.querySelector("[data-player]")'),'Remote ProLink missing');
  assert.equal(await evaluate('document.getElementById("discover").disabled'),true);assert.equal(await evaluate('document.querySelector("[data-player]").disabled'),true);
+ assert.equal(await evaluate('document.getElementById("save-selection").disabled && document.getElementById("auto-connect").disabled'),true,'Read-only access enabled saved connection controls');
  await evaluate('document.getElementById("discover").click()');assert.equal(posts.length,3);
  await navigate('/waveform/settings?lang=en');await evaluate('import("/waveform-settings.js").then(()=>true)');
  assert.equal(await evaluate('document.getElementById("device")'),null,'Audio device controls returned to waveform settings');

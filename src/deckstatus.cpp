@@ -7,6 +7,7 @@
 #include "prolink.h"
 #include "network.h"
 #include "portal.h"
+#include "updater.h"
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include <array>
@@ -244,6 +245,11 @@ int wmain(int argc, wchar_t** argv) {
         features.network = &network;
         deckstatus::Portal portal(data_directory);
         features.portal = &portal;
+        const std::vector<std::wstring> launch_arguments(argv+1,argv+argc);
+        // Demo/isolated validation never needs a background Internet request.
+        deckstatus::Updater updater(directory,data_directory,network_file,launch_arguments,stopping,
+            !demo && GetEnvironmentVariableW(L"DECKSTATUS_NO_UPDATE_CHECK",nullptr,0)==0);
+        features.updater = &updater;
         // One hold filter for both sources: overlays, dashboard and history observe
         // the same confirmed master, and Admin changes it for the whole server.
         deckstatus::MasterGate master_gate(portal.master_settings().value("holdMs", deckstatus::MasterGate::default_hold_ms));
@@ -253,12 +259,15 @@ int wmain(int argc, wchar_t** argv) {
         if (prolink_mode) {
             if (demo || pid || !database.empty()) throw std::runtime_error("ProLink mode cannot be combined with --demo, --pid or --database.");
             deckstatus::ProLink link(directory);
+            link.configure(portal.prolink_settings(),true);
             deckstatus::MasterHistory history([&](std::uint32_t id) { return link.cover(id); });
             features.mode = "prolink";
             features.prolink_setup = [&] { return link.setup(); };
             features.prolink_control = [&](const nlohmann::json& command) { return link.control(command); };
+            features.prolink_configure = [&](const nlohmann::json& settings) { link.configure(settings); };
             std::jthread sampler([&](std::stop_token token) {
                 while (!token.stop_requested() && !stopping) {
+                    link.maintain();
                     auto state = link.snapshot();
                     master_gate.apply(state);
                     history.update(state);

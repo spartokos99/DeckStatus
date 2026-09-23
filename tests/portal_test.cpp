@@ -16,6 +16,7 @@ void check(bool value,const char* message){if(!value)throw std::runtime_error(me
 template<class F>void fails(int status,F fn){try{fn();}catch(const deckstatus::PortalError& e){check(e.status==status,"Wrong error status");return;}throw std::runtime_error("Expected rejection");}
 #include "creative_portal_checks.h"
 #include "audio_settings_checks.h"
+#include "linked_presets_checks.h"
 int main(int argc,char** argv){
     const auto root=std::filesystem::temp_directory_path()/(L"DeckStatus-portal-test-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64()));
     try{
@@ -198,6 +199,7 @@ int main(int argc,char** argv){
         Json upgraded;{std::ifstream input(root/"portal.json");input>>upgraded;}check(upgraded.erase("presets")==1&&upgraded==legacy,"Migration changed existing data");
         auto invalid_store=legacy;invalid_store["presets"]=Json::array();{std::ofstream output(root/"portal.json");output<<invalid_store.dump();}
         fails(500,[&]{Portal invalid(root);});Json preserved;{std::ifstream input(root/"portal.json");input>>preserved;}check(preserved==invalid_store,"Invalid store was reset");
+        linked_presets_checks(root/"linked");
         creative_portal_checks(root/"creative");
         audio_settings_checks(root/"audio");
         check(std::filesystem::weakly_canonical(root).parent_path()==std::filesystem::weakly_canonical(std::filesystem::temp_directory_path()),"Unexpected cleanup path");std::filesystem::remove_all(root);

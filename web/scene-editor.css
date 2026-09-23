@@ -73,3 +73,9 @@
   .scene-toolbar select { flex-basis: 150px; }
 }
 @media (prefers-reduced-motion: reduce) { .scene-layer { transition: none; } }
+.track-extras details { border-top:1px solid var(--line); padding:10px 0; }
+.track-extras summary { cursor:pointer; font-weight:600; margin-bottom:10px; }
+.track-control { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:8px 0; }
+.track-control input:not([type="checkbox"]), .track-control select { width:48%; min-width:0; }
+#item-design { border:0; padding:0; margin:0; min-width:0; }
+#item-design:disabled { opacity:.65; }

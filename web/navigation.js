@@ -48,6 +48,7 @@ if (header) {
   const admin=navLink(['navAdmin','/admin','admin','⚙']);admin.classList.add('nav-standalone');nav.append(admin);
   header.querySelector('[data-language]').addEventListener('change', event => setLanguage(event.target.value));
   const account=document.createElement('a');account.id='nav-account';account.className='nav-account';header.querySelector('.nav-tools').append(account);
+  const update=document.createElement('a');update.id='nav-update';update.className='mode-pill update-indicator';update.hidden=true;header.querySelector('.nav-tools').prepend(update);
   const logout=document.createElement('button');logout.id='nav-logout';logout.dataset.i18n='authSignOut';logout.hidden=true;logout.addEventListener('click',async()=>{try{await api('/api/auth/logout',{});location.assign('/login');}catch(error){logout.title=error.message;}});header.querySelector('.nav-tools').append(logout);
 }
 function render() {
@@ -57,6 +58,8 @@ function render() {
   mode.textContent = app ? t('navMode') + ' · ' + (app.mode === 'prolink' ? 'ProLink' : 'Rekordbox') : t('navUnavailable');
   mode.dataset.mode = app?.mode || 'unknown';
   const publicView=app?.public===true;
+  const update=header.querySelector('#nav-update');update.hidden=publicView||!app?.update?.available;
+  if(!update.hidden){update.textContent='↑ '+t('updateAvailable')+' '+app.update.version;update.href=app?.user?.role==='admin'?'/admin#updater':'https://github.com/spartokos99/DeckStatus/releases/latest';}
   header.querySelector('nav').hidden=publicView;
   header.querySelector('.brand').href=publicView?'/history':'/';
   if(publicView){mode.textContent=t('authPublicHistory');mode.dataset.mode='public';}

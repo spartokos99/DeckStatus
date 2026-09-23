@@ -1,5 +1,5 @@
 #include "deckstatus_protocol.h"
-#include "scanner.h"
+#include "rekordbox_profile.h"
 
 #include <array>
 #include <cstdio>
@@ -16,10 +16,8 @@ namespace {
 using deckstatus::memory::read;
 using deckstatus::memory::read_bytes;
 
-// Exact 7.2.18.0 Windows x64 profile. Every field and code guard is documented
-// in docs/rekordbox-7.2.18.md. Other versions/builds fail closed.
-constexpr std::uint32_t supported_timestamp = 0x6A672BEA;
-constexpr std::uint32_t supported_image_size = 0x06291000;
+// Shared layout for the two audited 7.2.18.0 executable profiles.
+// Every field and code guard is documented in docs/rekordbox-7.2.18.md.
 constexpr std::uintptr_t main_global_rva = 0x05D1F260;
 constexpr std::uintptr_t player_vtable_rva = 0x03BB7E70;
 constexpr std::uintptr_t bpm_vtable_rva = 0x03B85620;
@@ -33,13 +31,6 @@ constexpr std::size_t master_device_offset = 0x958;
 
 template<class T> bool member(std::uintptr_t object, std::size_t offset, T& value) {
     return object && object <= UINTPTR_MAX - offset && read(object + offset, value);
-}
-
-template<std::size_t N>
-bool code_matches(std::uintptr_t base, std::size_t rva, const unsigned char (&expected)[N]) {
-    unsigned char actual[N]{};
-    return rva < supported_image_size && N <= supported_image_size - rva &&
-           read_bytes(base + rva, actual, N) && std::memcmp(actual, expected, N) == 0;
 }
 
 template<std::size_t N> void text(char (&destination)[N], const char* source) {
@@ -137,38 +128,6 @@ bool bpm_of_player(std::uintptr_t base, std::uintptr_t player, std::uint32_t& bp
            member(player, bpm_device_offset, verified_device) && verified_device == device;
 }
 
-bool resolve(std::uintptr_t base, char* message, std::size_t capacity) {
-    IMAGE_DOS_HEADER dos{};
-    IMAGE_NT_HEADERS64 nt{};
-    if (!read(base, dos) || dos.e_lfanew <= 0 || dos.e_lfanew > 0x100000 ||
-        !member(base, static_cast<std::size_t>(dos.e_lfanew), nt) ||
-        nt.FileHeader.TimeDateStamp != supported_timestamp ||
-        nt.OptionalHeader.SizeOfImage != supported_image_size) {
-        snprintf(message, capacity, "Unsupported Rekordbox executable fingerprint; expected the documented 7.2.18.0 x64 build.");
-        return false;
-    }
-    // All guards are instruction bytes containing RIP-relative or object-member
-    // displacements, so ASLR does not change them. No native functions are called.
-    if (!code_matches(base, 0x1729D41, {0x4C,0x89,0x3D,0x18,0x55,0x5F,0x04}) ||
-        !code_matches(base, 0x175579D, {0x48,0x89,0xAE,0x90,0x04,0x00,0x00}) ||
-        !code_matches(base, 0x249EB4E, {0x8B,0x42,0x08,0x89,0x87,0x80,0x05,0x00,0x00}) ||
-        !code_matches(base, 0x2473EC8, {0x48,0x8D,0x15,0x5D,0x80,0x71,0x01}) ||
-        !code_matches(base, 0x2473EF8, {0x48,0x89,0x87,0xE8,0x0C,0x00,0x00}) ||
-        !code_matches(base, 0x22ABF46, {0x44,0x89,0x89,0x9C,0x00,0x00,0x00}) ||
-        !code_matches(base, 0x2470049, {0x48,0x8D,0x15,0x9C,0xBD,0x71,0x01}) ||
-        !code_matches(base, 0x2470079, {0x48,0x89,0x87,0x58,0x09,0x00,0x00}) ||
-        !code_matches(base, 0x22ABD3F, {0x83,0xF0,0x01,0x48,0x8B,0xD9,0x89,0x81,0x94,0x00,0x00,0x00}) ||
-        !code_matches(base, 0x2473DDE, {0x48,0x8D,0x15,0x1B,0x81,0x71,0x01}) ||
-        !code_matches(base, 0x2473E0E, {0x48,0x89,0x87,0xD8,0x0C,0x00,0x00}) ||
-        !code_matches(base, 0x2473E53, {0x48,0x8D,0x15,0xB6,0x80,0x71,0x01}) ||
-        !code_matches(base, 0x2473E83, {0x48,0x89,0x87,0xE0,0x0C,0x00,0x00}) ||
-        !code_matches(base, 0x24784D1, {0x85,0xC0,0x79,0x06,0xF7,0xD8,0x0F,0xBA,0xE8,0x1F})) {
-        snprintf(message, capacity, "Rekordbox 7.2.18 code guards do not match; this executable is unsupported.");
-        return false;
-    }
-    return true;
-}
-
 bool master_of_player(std::uintptr_t base, std::uintptr_t player, std::uint32_t& value) {
     std::uintptr_t device = 0, vtable = 0, name = 0, verified_device = 0;
     char label[7]{};
@@ -204,7 +163,8 @@ void timeline_of_player(std::uintptr_t base, std::uintptr_t player, deckstatus::
     deck.timeline_available = 1;
 }
 
-void sample_loop(Channel& channel, deckstatus::SharedState& snapshot, std::uintptr_t base) {
+void sample_loop(Channel& channel, deckstatus::SharedState& snapshot, std::uintptr_t base,
+                 const deckstatus::rekordbox::Profile& profile) {
     const auto main_global = base + main_global_rva;
     while (channel.alive()) {
         std::uintptr_t component = 0, manager = 0;
@@ -264,8 +224,9 @@ void sample_loop(Channel& channel, deckstatus::SharedState& snapshot, std::uintp
         }
         snapshot.sample_tick = GetTickCount64();
         snapshot.status = valid_players ? deckstatus::BridgeStatus::connected : deckstatus::BridgeStatus::starting;
-        text(snapshot.message, valid_players ? "Connected to Rekordbox 7.2.18; sampling live deck IDs, BPM and Master." :
-             "Waiting for Rekordbox deck UI and BPM devices.");
+        if (valid_players)
+            snprintf(snapshot.message, sizeof(snapshot.message), "Connected to Rekordbox 7.2.18; sampling live deck IDs, BPM and Master. [%s]", profile.name);
+        else text(snapshot.message, "Waiting for Rekordbox deck UI and BPM devices.");
         if (!channel.publish(snapshot)) return;
         if (WaitForSingleObject(channel.stop, 100) != WAIT_TIMEOUT) break;
     }
@@ -284,21 +245,19 @@ void run() {
         if (!channel.alive()) { channel.finish(); return; }
         if (!get_version(snapshot.rekordbox_version, sizeof(snapshot.rekordbox_version))) {
             snapshot.status = deckstatus::BridgeStatus::unsupported;
-            text(snapshot.message, "This bridge supports the documented rekordbox.exe 7.2.18.0 x64 build only.");
+            text(snapshot.message, "This bridge supports the documented rekordbox.exe 7.2.18.0 x64 profiles only.");
         } else {
-            deckstatus::memory::ImageScanner scanner;
-            const auto module = GetModuleHandleW(nullptr);
-            const auto base = reinterpret_cast<std::uintptr_t>(module);
-            if (!scanner.initialize(module)) {
+            const auto base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
+            std::array<wchar_t, 32768> path{};
+            const auto length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+            if (!length || length >= path.size()) {
                 snapshot.status = deckstatus::BridgeStatus::unsupported;
-                text(snapshot.message, "Cannot validate executable image sections.");
-            } else if (!resolve(base, snapshot.message, sizeof(snapshot.message))) {
-                snapshot.status = deckstatus::BridgeStatus::unsupported;
-            } else {
-                sample_loop(channel, snapshot, base);
+                text(snapshot.message, "Cannot determine executable path for profile verification.");
+            } else if (const auto profile = deckstatus::rekordbox::validate(base, path.data(), snapshot.message, sizeof(snapshot.message))) {
+                sample_loop(channel, snapshot, base, *profile);
                 channel.finish();
                 return;
-            }
+            } else snapshot.status = deckstatus::BridgeStatus::unsupported;
         }
     } catch (const std::exception& exception) {
         snapshot.status = deckstatus::BridgeStatus::error;

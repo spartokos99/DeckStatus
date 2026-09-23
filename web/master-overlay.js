@@ -1,7 +1,7 @@
 import { parseOptions } from './master-options.js';
 import {broadcastUrl} from './broadcast.js';
 import { getLanguage, t } from './i18n.js';
-import { applyAppearance, makeCard, updateCardContent } from './overlay-shared.js';
+import { applyAppearance, makeCard, updateCardContent, disposeCard } from './overlay-shared.js';
 
 const options = parseOptions(location.search);
 options.lang = getLanguage();
@@ -29,17 +29,23 @@ function updateCard(card, item, index, isCurrent, demo) {
 }
 
 function layoutCards() {
-  const width = list.clientWidth;
-  for (const card of cards.values()) {
-    if (card.hasAttribute('aria-hidden')) continue;
+  const active = [...cards.values()].filter(card => !card.hasAttribute('aria-hidden'));
+  let width = list.clientWidth;
+  if (options.overflow === 'expand') {
+    for (const card of active) card.querySelector('.card').style.width = 'max-content';
+    width = Math.max(options.width, ...active.map(card => card.querySelector('.card').offsetWidth));
+    list.style.width = width + 'px';
+  }
+  for (const card of active) {
     const scale = card.dataset.current === 'true' ? 1 : options.historyScale;
     const content = card.querySelector('.card');
     content.style.width = width + 'px';
     card.style.setProperty('--track-scale', String(scale));
     card.style.width = width * scale + 'px';
-    // Reserve the scaled height in normal flow so small cards leave no empty slots.
-    card.style.height = content.offsetHeight * scale + 'px';
   }
+  // Batch measurement after width writes, including for long expanding histories.
+  const heights = active.map(card => card.querySelector('.card').offsetHeight * (card.dataset.current === 'true' ? 1 : options.historyScale));
+  active.forEach((card,index) => { card.style.height = heights[index] + 'px'; });
 }
 
 let layoutWidth = 0;
@@ -89,7 +95,7 @@ function render(data) {
     card.setAttribute('aria-hidden', 'true');
     const exit = options.align === 'right' ? 24 : -24;
     animate(card, [{ opacity: previous.opacity, transform: 'translateX(0) ' + scale }, { opacity: 0, transform: 'translateX(' + exit + 'px) ' + scale }], duration, () => {
-      card.remove(); cards.delete(id);
+      disposeCard(card); card.remove(); cards.delete(id);
     });
   }
   for (const row of rows) {

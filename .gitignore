@@ -55,6 +55,7 @@ CMakeUserPresets.json
 DeckStatus.network.json
 DeckStatus.network.json.tmp-*
 DeckStatus.data/
+DeckStatus.update/
 portal.json
 portal.json.tmp-*
 portal.lock
