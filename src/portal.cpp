@@ -33,10 +33,8 @@ Json valid_audio_settings(const Json& value) {
     return value;
 }
 Json valid_master_settings(const Json& value) {
-    if(!value.is_object()||value.size()!=1||!value.contains("holdMs")||!value["holdMs"].is_number_integer())throw PortalError(400,"masterSettingsInvalid");
-    const auto hold=value["holdMs"].get<std::int64_t>();
-    if(!MasterGate::valid_hold(hold))throw PortalError(400,"masterSettingsInvalid");
-    return Json{{"holdMs",static_cast<int>(hold)}};
+    if(!MasterGate::valid_settings(value))throw PortalError(400,"masterSettingsInvalid");
+    return value;
 }
 std::string sha(const std::string& input) {
     std::array<unsigned char,32> bytes{};
@@ -334,8 +332,8 @@ Json Portal::twitch_credentials() const {std::shared_lock lock(mutex_);const aut
 void Portal::save_twitch_credentials(const Json& credentials) {std::unique_lock lock(mutex_);auto next=data_;next["twitchCredentials"]=credentials.empty()?"":protect(credentials.dump(),true);commit(std::move(next));}
 Json Portal::audio_settings() const {std::shared_lock lock(mutex_);return data_.value("audioSettings",Json{{"deviceId",""},{"deviceName",""},{"autoStart",false}});}
 Json Portal::save_audio_settings(const Json& settings) {const auto value=valid_audio_settings(settings);std::unique_lock lock(mutex_);auto next=data_;next["audioSettings"]=value;commit(std::move(next));return value;}
-Json Portal::master_settings() const {std::shared_lock lock(mutex_);return data_.value("masterSettings",Json{{"holdMs",MasterGate::default_hold_ms}});}
-Json Portal::save_master_settings(const Json& settings) {const auto value=valid_master_settings(settings);std::unique_lock lock(mutex_);auto next=data_;next["masterSettings"]=value;commit(std::move(next));return value;}
+Json Portal::master_settings() const {std::shared_lock lock(mutex_);auto value=MasterGate::defaults();value.update(data_.value("masterSettings",Json::object()));return value;}
+Json Portal::save_master_settings(const Json& settings) {const auto patch=valid_master_settings(settings);std::unique_lock lock(mutex_);auto value=MasterGate::defaults();value.update(data_.value("masterSettings",Json::object()));value.update(patch);auto next=data_;next["masterSettings"]=value;commit(std::move(next));return value;}
 Json Portal::prolink_settings() const {std::shared_lock lock(mutex_);return data_.value("prolinkSettings",Json{{"autoConnect",true},{"devices",Json::array()}});}
 Json Portal::save_prolink_settings(const Json& settings) {if(!valid_prolink_settings(settings))throw PortalError(400,"prolinkInvalidSelection");std::unique_lock lock(mutex_);auto next=data_;next["prolinkSettings"]=settings;commit(std::move(next));return settings;}
 Json Portal::media() const {std::shared_lock lock(mutex_);Json out=Json::array();for(const auto& m:data_["media"])out.push_back(m);return out;}
@@ -438,8 +436,8 @@ bool Portal::broadcast_access(const std::string& key,const std::string& path,con
     for(const auto* kind:{"text","image","fx"})if(kinds.contains(kind)&&path==std::string("/component/")+kind)return true;
     if(scene_id.empty()&&kinds.contains("image")&&std::regex_match(path,std::regex("/api/media/[a-f0-9]{64}")))return true;
     if(path=="/api/audio/state"&&(kinds.contains("reactive")||(scene_id.empty()&&(kinds.contains("text")||kinds.contains("image")||kinds.contains("fx")))))return true;
-    return (kinds.contains("deck")&&(path=="/overlay"||path=="/overlay.html"||path=="/api/state"||std::regex_match(path,std::regex("/api/decks/[1-4]/cover"))))||
-        (kinds.contains("master")&&(path=="/master-overlay"||path=="/api/master"||std::regex_match(path,std::regex("/api/master/covers/[1-9][0-9]{0,9}"))))||
+    return (kinds.contains("deck")&&(path=="/overlay"||path=="/overlay.html"||path=="/api/state"||std::regex_match(path,std::regex("/api/decks/[1-4]/(cover|waveform)"))))||
+        (kinds.contains("master")&&(path=="/master-overlay"||path=="/api/master"||path=="/api/master/waveform"||std::regex_match(path,std::regex("/api/master/covers/[1-9][0-9]{0,9}"))))||
         (kinds.contains("waveform")&&(path=="/waveform"||path=="/api/audio/state"));
 }
 Json Portal::overlay_keys(bool rotate){

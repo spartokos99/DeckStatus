@@ -77,13 +77,15 @@ Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks wi
 
 For upgrades, stop DeckStatus and back up **DeckStatus.data** and **DeckStatus.network.json** before replacing application files. Existing users, presets, scenes, ratings and OBS links remain valid. Versions 2.2.0 and later automatically move uploaded images/GIFs into **DeckStatus.data/media**; keep the entire data directory together. Restore the pre-upgrade backup if you need to downgrade.
 
-Master handovers now wait **4 seconds** by default; the first master after startup or reconnect appears immediately. Set **Admin → Master detection** to **0** for immediate handovers.
+Master handovers wait **4 seconds** by default; the first master after startup or reconnect appears immediately. Set the hold time in **Admin → Master detection** to **0** for immediate handovers.
+
+Version 2.3.3 adds optional ProLink [beat/On-Air detection](docs/master-detection.md) and [five track timeline designs](docs/track-timelines.md), including scrolling analyzed waveforms. Configure detection under **Admin → Master detection** and timeline appearance in the master/deck component settings. Existing detection and timeline defaults are preserved.
 
 Configure Twitch under **Admin → Twitch** and edit rules under **Stream → Automations**. Viewer sign-in uses the same Public Twitch Client ID. Live Twitch account/OBS validation is still pending; see the [Twitch setup guide](docs/twitch.md).
 
-This package is **DeckStatus v2.3.2** (`DeckStatus-2.3.2-win-x64.zip`). Published versions are available from [GitHub Releases](https://github.com/spartokos99/DeckStatus/releases).
+This package is **DeckStatus v2.3.3** (`DeckStatus-2.3.3-win-x64.zip`). Published versions are available from [GitHub Releases](https://github.com/spartokos99/DeckStatus/releases).
 
-Version 2.3.2 includes per-element font size/style/weight, editable scene deck assignments and the updater. See the [changelog](CHANGELOG.md) for all changes since the previous public release.
+The administrator updater can download v2.3.3 or accept its complete ZIP. Installation preserves private data and settings and requires confirmation. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## 🛠️ Build and test
 
@@ -93,6 +95,7 @@ Requires Windows x64, Visual Studio C++ tools, CMake and JDK 21+ for ProLink.
 powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1
 node tests/browser_master_test.cjs
 node tests/browser_track_design_test.cjs
+node tests/browser_track_timeline_test.cjs
 node tests/browser_waveform_test.cjs
 node tests/browser_dashboard_history_test.cjs
 node tests/browser_prolink_test.cjs

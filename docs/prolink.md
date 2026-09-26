@@ -35,10 +35,11 @@ The navigation shows Start, Stream and Connections, plus standalone Admin. Strea
 | Current BPM | Effective deck tempo, including pitch |
 | Original BPM | Analysed tempo from track metadata; not inferred from current tempo |
 | Timeline | Beat Link time tracking when position reports or a usable beat grid are available; waits for a new report after each track change. No precise-position guarantee is made for the new models. |
-| MASTER and history | Same MASTER sequence semantics as the Rekordbox mode; an unselected player or mixer as master produces no current track card |
+| MASTER and history | Default: reported tempo master with hold time. Optional: [playing-track detection](master-detection.md) with beat timing and mixer On-Air gating |
 | Playing, Sync, On-Air | Additional fields in `/api/state` and badges on the device setup page; On-Air requires a fresh compatible mixer status |
 | Windows audio waveform | Available in both modes through the explicitly selected Windows audio source |
-| Mixer faders/EQ/FX and analysed track-waveform overlay | Not implemented; capability flags are false |
+| Analyzed track-waveform timeline | Optional scrolling/overview designs using available Beat Link waveform detail; [setup and limitations](track-timelines.md) |
+| Mixer faders/EQ/FX | Not implemented; capability flags remain false |
 | Remote player or mixer control | No play, stop, load, sync, tempo-master or mixer-control commands are exposed |
 
 **Rekordbox-exported USB media is the primary target.** Streaming, cloud sources and arbitrary firmware versions have not been validated. Connections are refused if a selected player is unavailable/unsupported, selected player numbers or deck assignments are duplicated, or the selected network interface is ambiguous/unreachable. Unselected unsupported announcements are ignored for selection validation.

@@ -52,3 +52,8 @@ h1 { font-size: var(--font-size, 23px); font-weight: 600; letter-spacing: -.5px;
 :root[data-layout="stacked"] .art { width: var(--cover-size); flex-basis: var(--cover-size); align-self: center; }
 .error { background: #112122; color: #f5faf8; padding: 16px; width: fit-content; border-radius: 8px; font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .time-fill { transition: none; } .art *, .text-clip > span { animation: none !important; } }
+
+/* Track analysis timelines share the same accessible time labels/progress values. */
+.track-waveform{display:block;width:100%;max-width:100%;border-radius:4px;background:transparent}
+.timeline[data-timeline-style="segments"] .time-bar{height:12px;border-radius:2px;mask-image:repeating-linear-gradient(90deg,#000 0px,#000 9px,transparent 9px,transparent 12px)}
+.timeline[data-timeline-style="ring"] .time-bar,.timeline[data-timeline-style="waveform"] .time-bar,.timeline[data-timeline-style="overview"] .time-bar{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden}

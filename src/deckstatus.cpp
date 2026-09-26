@@ -252,7 +252,7 @@ int wmain(int argc, wchar_t** argv) {
         features.updater = &updater;
         // One hold filter for both sources: overlays, dashboard and history observe
         // the same confirmed master, and Admin changes it for the whole server.
-        deckstatus::MasterGate master_gate(portal.master_settings().value("holdMs", deckstatus::MasterGate::default_hold_ms));
+        deckstatus::MasterGate master_gate(portal.master_settings());
         features.master_gate = &master_gate;
         const auto initial_password = portal.initial_password();
         if (!initial_password.empty()) std::cout << deckstatus::tr("authInitialConsole") << '\n' << deckstatus::tr("authTemporaryConsole") << initial_password << '\n' << deckstatus::tr("authChangeConsole") << '\n' << std::flush;
@@ -263,6 +263,7 @@ int wmain(int argc, wchar_t** argv) {
             deckstatus::MasterHistory history([&](std::uint32_t id) { return link.cover(id); });
             features.mode = "prolink";
             features.prolink_setup = [&] { return link.setup(); };
+            features.track_waveform = [&](std::uint32_t id) { return link.waveform(id); };
             features.prolink_control = [&](const nlohmann::json& command) { return link.control(command); };
             features.prolink_configure = [&](const nlohmann::json& settings) { link.configure(settings); };
             std::jthread sampler([&](std::stop_token token) {
@@ -287,6 +288,7 @@ int wmain(int argc, wchar_t** argv) {
         }
         std::unique_ptr<deckstatus::Injection> injection;
         std::unique_ptr<deckstatus::ArtworkResolver> artwork;
+        features.track_waveform = [&](std::uint32_t id) { return artwork ? artwork->waveform(id) : nlohmann::json(nullptr); };
         deckstatus::SharedState current = demo ? demo_state() : deckstatus::SharedState{};
         if (!demo) {
             const auto target = deckstatus::find_target(pid);

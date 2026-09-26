@@ -26,7 +26,7 @@ const routes = new Map([
   ['/master-overlay', 'master-overlay.html'], ['/master-overlay/settings', 'master-settings.html'],
   ['/master-overlay.js', 'master-overlay.js'], ['/master-options.js', 'master-options.js'], ['/overlay', 'overlay.html']
 ]);
-for (const asset of ['navigation.js', 'navigation.css', 'icon.svg', 'deck-overlay.js', 'overlay-shared.js', 'overlay.css', 'theme.css', 'settings.css', 'settings.js', 'poll.js', 'i18n.js', 'storage.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
+for (const asset of ['navigation.js', 'navigation.css', 'icon.svg', 'deck-overlay.js', 'overlay-shared.js', 'track-timeline.js', 'overlay.css', 'theme.css', 'settings.css', 'settings.js', 'poll.js', 'i18n.js', 'storage.js', 'locales/en.json', 'locales/de.json']) routes.set('/' + asset, asset);
 routes.set('/overlay/settings', 'master-settings.html');
 routes.set('/', 'index.html');
 for(const asset of ['auth.js','broadcast.js','component-presets.js','component-presets.css','track-controls.js'])routes.set('/'+asset,asset);

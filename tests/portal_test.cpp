@@ -82,6 +82,7 @@ int main(int argc,char** argv){
             deckstatus::MasterHistory master;Json state={{"status","demo"},{"demo",true},{"masterDeckId",1},{"decks",Json::array({entry})}};master.update(state);
             httplib::Server reserve;const auto port=reserve.bind_to_any_port("127.0.0.1");std::jthread reserve_thread([&]{reserve.listen_after_bind();});reserve.wait_until_ready();reserve.stop();reserve_thread.join();
             deckstatus::ServerFeatures features;features.portal=&portal;deckstatus::MasterGate master_gate;features.master_gate=&master_gate;std::atomic_bool stop=false;
+            features.track_waveform=[](std::uint32_t){return Json{{"format","rgb5"},{"durationMs",2000},{"samples",Json::array({58364,1024})}};};
             auto twitchSettings=portal.twitch_settings();twitchSettings["clientId"]="viewerclient123";portal.save_twitch_settings(twitchSettings);
             features.twitch_transport=std::make_shared<TwitchTransport>();
             features.twitch_transport->request=[](const auto&,const auto& path,const auto&,const auto&,const auto&)->TwitchTransport::Response{
@@ -104,6 +105,16 @@ int main(int argc,char** argv){
             status(client.Get("/api/admin/ratings/"+track+"/viewers"),401);
             // Every route carries its own access level; none falls back to a permissive default.
             const auto keys=portal.overlay_keys(false);
+            status(client.Get("/api/master/waveform?trackId=1"),401);
+            status(client.Get("/api/decks/1/waveform?trackId=1"),401);
+            const auto master_wave="/api/master/waveform?key="+keys["master"].get<std::string>();
+            const auto deck_wave="/api/decks/1/waveform?key="+keys["deck"].get<std::string>();
+            status(client.Get(master_wave+"&trackId=1"),200);status(client.Get(deck_wave+"&trackId=1"),200);
+            check(Json::parse(client.Get(master_wave+"&trackId=1")->body)["samples"].size()==2,"Waveform samples not served");
+            status(client.Get(master_wave+"&trackId=2"),404);status(client.Get(deck_wave+"&trackId=2"),404);
+            status(client.Get(master_wave+"&trackId=1&trackId=1"),400);
+            status(client.Get("/api/master/waveform?trackId=1&key="+keys["deck"].get<std::string>()),401);
+            status(client.Get("/api/decks/1/waveform?trackId=1&key="+keys["master"].get<std::string>()),401);
             for(const auto* guarded:{"/api/app","/api/health","/api/broadcast","/api/media","/api/scenes","/api/decks","/api/audio/devices","/api/audio/state","/api/state","/api/master","/api/master/covers/1","/api/network","/api/admin/audio","/api/admin/master"})
                 status(client.Get(guarded),401);
             status(client.Get("/api/history/covers/1"),404);
@@ -139,6 +150,9 @@ int main(int argc,char** argv){
             status(client.Post("/api/admin/master",R"({"holdMs":"4000"})","application/json"),400);
             status(client.Post("/api/admin/master",R"({"holdMs":1000,"other":1})","application/json"),400);
             check(portal.master_settings()["holdMs"]==deckstatus::MasterGate::default_hold_ms&&master_gate.hold_ms()==deckstatus::MasterGate::default_hold_ms,"Rejected hold time was applied");
+            status(client.Post("/api/admin/master",R"({"prolinkMethod":"smart","detectionBeats":32,"interruptBeats":8,"useOnAir":false})","application/json"),200);
+            status(client.Post("/api/admin/master",R"({"detectionBeats":0})","application/json"),400);
+            check(master_gate.describe()["prolinkMethod"]=="smart","Smart method not applied");
             status(client.Post("/api/admin/master",R"({"holdMs":9500})","application/json"),200);
             check(master_gate.hold_ms()==9500&&portal.master_settings()["holdMs"]==9500,"Accepted hold time was not applied or persisted");
             status(client.Get("/api/admin/ratings/"+track+"/viewers"),200);
@@ -183,7 +197,7 @@ int main(int argc,char** argv){
             std::ifstream input(root/"portal.json",std::ios::binary);const std::string file((std::istreambuf_iterator<char>(input)),{});check(file.find(password)==std::string::npos&&file.find(operator_password)==std::string::npos,"Plaintext password persisted");
         }
         // A stored hold time survives a restart; an impossible one is rejected, not repaired.
-        {Portal restarted(root);check(restarted.master_settings()["holdMs"]==9500,"Master hold time lost on restart");
+        {Portal restarted(root);check(restarted.master_settings()["holdMs"]==9500,"Master hold time lost on restart");check(restarted.master_settings()["detectionBeats"]==32&&restarted.master_settings()["useOnAir"]==false,"Smart settings lost after partial save/restart");
          fails(400,[&]{restarted.save_master_settings({{"holdMs",30001}});});
          fails(400,[&]{restarted.save_master_settings({{"holdMs",1000},{"extra",true}});});
          check(restarted.master_settings()["holdMs"]==9500,"Rejected hold time replaced the stored value");}

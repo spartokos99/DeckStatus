@@ -1,6 +1,7 @@
 import { t, locale, translate } from './i18n.js';
 import {broadcastUrl} from './broadcast.js';
 import {fonts, fieldNames, styledFields} from './master-options.js';
+import {updateTimelineDesign, disposeTimeline} from './track-timeline.js';
 
 export function applyAppearance(options) {
   const rgb = options.background.slice(1).match(/../g).map(part => parseInt(part, 16));
@@ -39,7 +40,7 @@ function measure(card) {
   });
 }
 const cardObserver = new ResizeObserver(entries => { for (const entry of entries) measure(entry.target.closest('.track')); });
-export function disposeCard(card) { cardObserver.unobserve(card.querySelector('.info')); pendingCards.delete(card); }
+export function disposeCard(card) { cardObserver.unobserve(card.querySelector('.info')); pendingCards.delete(card); disposeTimeline(card.querySelector('.timeline')); }
 document.addEventListener('visibilitychange', () => { document.documentElement.dataset.paused = String(document.hidden); });
 
 export function makeCard(options) {
@@ -124,6 +125,7 @@ export function updateCardContent(card, item, options, display) {
     fill.style.width = progress + '%';
     timeline.dataset.track = String(item.trackId); timeline.dataset.position = String(item.positionMs);
   }
+  updateTimelineDesign(timeline,item,options,display.waveformUrl);
   if (!fields.includes('cover')) { card.querySelector('img').dataset.selected = 'false'; return; }
   const img = card.querySelector('img'), url = item.coverUrl === display.coverUrl ? display.coverUrl : '';
   img.dataset.selected = 'true';

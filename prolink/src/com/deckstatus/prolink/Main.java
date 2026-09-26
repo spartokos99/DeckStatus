@@ -20,6 +20,7 @@ public final class Main {
     private final Map<SlotReference, Long> mediaEpochs = new ConcurrentHashMap<>();
     private final Map<String, Integer> trackIds = new ConcurrentHashMap<>();
     private final Set<Integer> sentArt = ConcurrentHashMap.newKeySet();
+    private final Map<Integer,Integer> sentWaves = new ConcurrentHashMap<>();
     private final Map<Integer, String> selectedAddresses = new ConcurrentHashMap<>();
     private final Map<Integer, String> lastTracks = new ConcurrentHashMap<>();
     private final Map<Integer, Long> loadedAt = new ConcurrentHashMap<>();
@@ -59,7 +60,7 @@ public final class Main {
     }
     static JSONObject emptyDeck(int id) {
         JSONObject deck = new JSONObject().put("id", id).put("loaded", false).put("metadataAvailable", false);
-        for (String field : List.of("trackId","title","artist","album","key","genre","label","bpm","originalBpm","coverUrl","positionMs","durationMs","isMaster","playing","onAir","synced","pitch","playerNumber","beatNumber")) deck.put(field, JSONObject.NULL);
+        for (String field : List.of("trackId","title","artist","album","key","genre","label","bpm","originalBpm","coverUrl","positionMs","durationMs","isMaster","playing","stopped","onAir","synced","pitch","playerNumber","beatNumber")) deck.put(field, JSONObject.NULL);
         return deck;
     }
     private static synchronized void emit(JSONObject value) {
@@ -86,6 +87,29 @@ public final class Main {
         if (trackIds.size() >= 999_999 && !trackIds.containsKey(identity)) throw new IllegalStateException("Session track limit reached");
         return trackIds.computeIfAbsent(identity, key -> idBase + trackIds.size() + 1);
     }
+    static JSONObject waveformData(WaveformDetail detail) {
+        int count=detail.getFrameCount();
+        if(count<1||count>2160000||detail.style==WaveformFinder.WaveformStyle.THREE_BAND)return null;
+        boolean color=detail.style==WaveformFinder.WaveformStyle.RGB;
+        ByteBuffer bytes=detail.getData();int points=Math.min(count,30000);JSONArray samples=new JSONArray();
+        for(int i=0;i<points;i++) {
+            int peak=0,start=(int)((long)i*count/points),end=(int)((long)(i+1)*count/points);
+            for(int n=start;n<end;n++) {
+                int first=Byte.toUnsignedInt(bytes.get(n*(color?2:1)));
+                int value=color?(first<<8)|Byte.toUnsignedInt(bytes.get(n*2+1)):((first>>5)<<13)|(4<<10)|(7<<7)|((first&31)<<2);
+                if(((value>>2)&31)>=((peak>>2)&31))peak=value;
+            }
+            samples.put(peak);
+        }
+        return new JSONObject().put("format","rgb5").put("durationMs",(long)count*1000/150).put("samples",samples);
+    }
+    private void waveform(int player,int id,TrackMetadata track) {
+        if(Objects.equals(sentWaves.get(player),id)||!WaveformFinder.getInstance().isRunning())return;
+        WaveformDetail detail=WaveformFinder.getInstance().getLatestDetailFor(player);
+        if(detail==null||!detail.dataReference.equals(track.trackReference))return;
+        JSONObject data=waveformData(detail);
+        if(data!=null){emit(new JSONObject().put("type","waveform").put("trackId",id).put("data",data));sentWaves.put(player,id);}
+    }
     private void artwork(int player, int id, TrackMetadata track) {
         if (sentArt.contains(id) || !ArtFinder.getInstance().isRunning()) return;
         AlbumArt art = ArtFinder.getInstance().getLatestArtFor(player);
@@ -105,9 +129,9 @@ public final class Main {
         if (!connected || !cdj.isRunning() || announcement == null || !announcement.getAddress().getHostAddress().equals(selectedAddresses.get(player))) return deck;
         DeviceUpdate update = cdj.getLatestStatusFor(announcement);
         if (!(update instanceof CdjStatus status) || !fresh(status, now)) return deck;
-        deck.put("playing", status.isPlaying()).put("synced", status.isSynced()).put("onAir", mixerOnline ? status.isOnAir() : JSONObject.NULL)
+        deck.put("stopped", status.isCued() || status.isAtEnd()).put("playing", status.isPlaying() || status.isLooping()).put("synced", status.isSynced()).put("onAir", mixerOnline ? status.isOnAir() : JSONObject.NULL)
             .put("pitch", (status.getPitch() / 1048576.0 - 1) * 100).put("firmware", text(status.getFirmwareVersion()));
-        if (!status.isTrackLoaded() || status.getRekordboxId() <= 0) { lastTracks.remove(player); loadedAt.remove(player); return deck; }
+        if (!status.isTrackLoaded() || status.getRekordboxId() <= 0) { lastTracks.remove(player); loadedAt.remove(player); sentWaves.remove(player); return deck; }
         String identity = identity(status);
         if (!identity.equals(lastTracks.put(player, identity))) loadedAt.put(player, now);
         int trackId = trackId(identity);
@@ -123,6 +147,7 @@ public final class Main {
                 .put("durationMs", track.getDuration() > 0 ? track.getDuration() * 1000L : JSONObject.NULL)
                 .put("originalBpm", track.getTempo() > 0 ? track.getTempo() / 100.0 : JSONObject.NULL);
             artwork(player, trackId, track);
+            waveform(player, trackId, track);
         }
         if (TimeFinder.getInstance().isRunning()) {
             TrackPositionUpdate position = TimeFinder.getInstance().getLatestPositionFor(player);
@@ -187,6 +212,7 @@ public final class Main {
     }
     private void disconnect() {
         connected = false;
+        WaveformFinder.getInstance().stop(); sentWaves.clear();
         TimeFinder.getInstance().stop(); ArtFinder.getInstance().stop();
         BeatGridFinder.getInstance().stop(); metadata.stop(); BeatFinder.getInstance().stop(); cdj.stop(); finder.stop();
         lastTracks.clear(); loadedAt.clear(); mediaEpochs.replaceAll((key, value) -> value + 1);
@@ -221,6 +247,8 @@ public final class Main {
         // Query DBServer directly. The disabled DeviceSQL fallback can return an
         // unrelated track for OneLibrary IDs, including in mixed networks.
         metadata.setPassive(false); metadata.start(); ArtFinder.getInstance().start(); TimeFinder.getInstance().start();
+        WaveformFinder.getInstance().setPreferredStyle(WaveformFinder.WaveformStyle.RGB);
+        WaveformFinder.getInstance().setFindDetails(true); WaveformFinder.getInstance().start();
         connected = true; phase = "connected"; message = "prolinkConnected";
     }
     static Map<Integer,Integer> selectPlayers(JSONObject command, Set<DeviceAnnouncement> devices) {

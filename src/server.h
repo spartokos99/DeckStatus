@@ -21,6 +21,7 @@ struct ServerFeatures {
     std::function<nlohmann::json()> prolink_setup;
     std::function<nlohmann::json(const nlohmann::json&)> prolink_control;
     std::function<void(const nlohmann::json&)> prolink_configure;
+    std::function<nlohmann::json(std::uint32_t)> track_waveform;
     NetworkConfig* network = nullptr;
     Portal* portal = nullptr;
     Updater* updater = nullptr;

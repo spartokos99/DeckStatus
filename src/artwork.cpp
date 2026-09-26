@@ -1,4 +1,5 @@
 #include "artwork.h"
+#include "track_waveform.h"
 
 #include <windows.h>
 #include <nlohmann/json.hpp>
@@ -193,6 +194,18 @@ std::string mime_type(std::string_view bytes) {
     return {};
 }
 
+std::string read_analysis(const Path& candidate, const Path& root) {
+    const auto resolved=canonical_local(candidate);
+    if(!resolved||!under(*resolved,root))return {};
+    FileHandle file;file.value=CreateFileW(resolved->c_str(),GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,nullptr,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,nullptr);
+    if(file.value==INVALID_HANDLE_VALUE||GetFileType(file.value)!=FILE_TYPE_DISK)return {};
+    const auto final=handle_path(file.value);if(!final||!under(*final,root))return {};
+    LARGE_INTEGER length{};if(!GetFileSizeEx(file.value,&length)||length.QuadPart<28||length.QuadPart>20*1024*1024)return {};
+    std::string bytes(static_cast<std::size_t>(length.QuadPart),'\0');DWORD received{};
+    if(!ReadFile(file.value,bytes.data(),static_cast<DWORD>(bytes.size()),&received,nullptr)||received!=bytes.size())return {};
+    return bytes;
+}
+
 Image read_image(const Path& candidate, const Path& root) {
     const auto resolved = canonical_local(candidate);
     if (!resolved || !under(*resolved, root)) return {};
@@ -257,6 +270,9 @@ struct ArtworkResolver::Impl {
     std::unordered_map<std::uint32_t, Entry> cache;
     std::size_t cache_bytes = 0;
     std::uint64_t cache_use = 0;
+    struct WaveEntry { nlohmann::json data; Clock::time_point expires; };
+    std::unordered_map<std::uint32_t,WaveEntry> waves;
+    std::mutex wave_mutex;
 
     ~Impl() { if (db && close_v2) close_v2(db); }
 
@@ -403,6 +419,44 @@ ArtworkResolver::ArtworkResolver(Path rekordbox_exe, Path database_override)
 }
 
 ArtworkResolver::~ArtworkResolver() = default;
+
+nlohmann::json ArtworkResolver::waveform(std::uint32_t content_id) {
+    std::lock_guard wave_lock(impl_->wave_mutex);
+    const auto now=Clock::now();
+    if(const auto it=impl_->waves.find(content_id);it!=impl_->waves.end()&&it->second.expires>now)return it->second.data;
+    std::string value;Path root;
+    {
+        std::lock_guard lock(impl_->mutex);
+        if(!impl_->db||!content_id)return nullptr;
+        sqlite3_stmt* statement=nullptr;
+        if(impl_->prepare(impl_->db,"SELECT AnalysisDataPath FROM djmdContent WHERE ID=? LIMIT 1",-1,&statement,nullptr)==0&&statement&&
+           impl_->bind_int64(statement,1,content_id)==0&&impl_->step(statement)==100) {
+            const auto text=impl_->column_text(statement,0);const auto size=impl_->column_bytes(statement,0);
+            if(text&&size>0&&size<=32760)value.assign(reinterpret_cast<const char*>(text),size);
+        }
+        if(statement)impl_->finalize(statement);root=impl_->root;
+    }
+    nlohmann::json result=nullptr;
+    // Same collection boundary as artwork. Never accept traversal, UNC or alternate streams.
+    std::replace(value.begin(),value.end(),'\\','/');
+    if(!value.empty()&&value.find('\0')==std::string::npos&&!value.starts_with("//")) {
+        auto path=from_utf8(value);bool safe=true;
+        for(const auto& part:path)if(part==L"..")safe=false;
+        if(value.find(':',path.is_absolute()?2:0)!=std::string::npos)safe=false;
+        if(path.has_root_name()&&!path.is_absolute())safe=false;
+        if(safe) {
+            path.replace_extension(L".EXT");
+            if(path.is_absolute())result=parse_track_waveform(read_analysis(path,root));
+            else {
+                path=path.relative_path();result=parse_track_waveform(read_analysis(root/path,root));
+                if(result.is_null())result=parse_track_waveform(read_analysis(root/L"share"/path,root));
+            }
+        }
+    }
+    if(impl_->waves.size()>=8)impl_->waves.erase(impl_->waves.begin());
+    impl_->waves[content_id]={result,now+(result.is_null()?std::chrono::seconds(5):std::chrono::seconds(300))};
+    return result;
+}
 
 Image ArtworkResolver::get(std::uint32_t content_id) {
     std::lock_guard lock(impl_->mutex);

@@ -24,7 +24,7 @@ function updateCard(card, item, index, isCurrent, demo) {
   card.dataset.entryId = String(item.entryId);
   updateCardContent(card, item, options, {
     label: t(isCurrent ? 'masterLabel' : 'previousLabel', { id: item.id, index }),
-    demo, timeline: isCurrent, coverUrl: '/api/master/covers/' + item.trackId
+    demo, timeline: isCurrent, coverUrl: '/api/master/covers/' + item.trackId, waveformUrl: '/api/master/waveform?trackId=' + item.trackId
   });
 }
 

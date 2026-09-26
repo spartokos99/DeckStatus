@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <nlohmann/json.hpp>
 
 namespace deckstatus {
 
@@ -21,6 +22,7 @@ public:
     ArtworkResolver& operator=(const ArtworkResolver&) = delete;
 
     std::pair<std::string, std::string> get(std::uint32_t content_id);
+    nlohmann::json waveform(std::uint32_t content_id);
     // Refreshes collection metadata for deck.track_id; preserves live BPM and IDs.
     // Missing rows/errors clear collection metadata and return false.
     bool enrich(DeckData& deck);

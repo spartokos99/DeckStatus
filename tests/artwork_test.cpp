@@ -33,7 +33,7 @@ struct Fixture {
         // Delete only files this fixture creates; no recursive cleanup.
         if (!root.empty()) {
             std::error_code error;
-            for (const auto* file : {L"collection/share/ARTWORK/cover.png", L"outside.png",
+            for (const auto* file : {L"collection/share/ARTWORK/cover.png", L"outside.png", L"collection/share/analysis.EXT", L"outside.EXT",
                                      L"collection/master.db", L"collection/master.db-journal"})
                 std::filesystem::remove(root / file, error);
             for (const auto* directory : {L"collection/share/ARTWORK", L"collection/share", L"collection"})
@@ -89,6 +89,17 @@ struct Fixture {
             "INSERT INTO djmdContent(ID,ImagePath) VALUES('131','//server/share/cover.png');"
             "INSERT INTO djmdContent(ID,ImagePath) VALUES('132','share/ARTWORK/cover.png:secret');"
             "INSERT INTO djmdContent(ID,ImagePath) VALUES('133','share/ARTWORK/cover.png');");
+        sql("ALTER TABLE djmdContent ADD COLUMN AnalysisDataPath TEXT;"
+            "UPDATE djmdContent SET AnalysisDataPath='/analysis.DAT' WHERE ID='123';"
+            "UPDATE djmdContent SET AnalysisDataPath='share/analysis.DAT' WHERE ID='133';"
+            "UPDATE djmdContent SET AnalysisDataPath='../outside.DAT' WHERE ID='130';"
+            "UPDATE djmdContent SET AnalysisDataPath='//server/share/analysis.DAT' WHERE ID='131';"
+            "UPDATE djmdContent SET AnalysisDataPath='share/analysis.DAT:secret' WHERE ID='132';");
+        std::string analysis(352,'\0');analysis.replace(0,4,"PMAI");analysis.replace(28,4,"PWV3");
+        const auto word=[&](std::size_t at,unsigned value){for(int i=0;i<4;++i)analysis[at+i]=static_cast<char>(value>>(24-i*8));};
+        word(4,28);word(8,352);word(32,24);word(36,324);word(40,1);word(44,300);
+        for(std::size_t i=52;i<analysis.size();++i)analysis[i]=static_cast<char>(0xff);
+        for(const auto* file:{L"collection/share/analysis.EXT",L"outside.EXT"}){std::ofstream out(root/file,std::ios::binary);out.write(analysis.data(),analysis.size());check(out.good(),"Cannot create waveform fixture");}
         check(close(db) == 0, "Cannot finish fixture database");
         db = nullptr;
         // A complete one-pixel PNG; the resolver also checks its signature.
@@ -145,6 +156,9 @@ int wmain(int argc, wchar_t** argv) {
                   std::string_view(deck.label) == "Test Label", "Joined metadata or UTF-8 did not match");
             check_live(deck);
             const auto image = resolver.get(123);
+            const auto waveform=resolver.waveform(123);check(waveform.is_object()&&waveform["samples"].size()==300&&waveform["durationMs"]==2000,"Collection waveform failed");
+            check(resolver.waveform(133)==waveform,"Share-relative waveform failed");
+            for(unsigned id:{130,131,132,999})check(resolver.waveform(id).is_null(),"Unsafe/missing analysis was served");
             check(image.first == "image/png" && image.second.size() > 8, "Collection-relative cover failed");
             check(resolver.get(133) == image, "share-relative cover failed");
             check(resolver.get(130).second.empty(), "Traversal must be rejected");

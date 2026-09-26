@@ -1,11 +1,11 @@
 // Synthetic administration fixture for the server-wide master hold time.
 // Run: node tests/browser_admin_master_test.cjs [PATH_TO_CHROME_OR_EDGE]
 const assert=require('node:assert/strict'),{withBrowser}=require('./browser_fixture.cjs');
-let holdMs=4000,canControl=true,failure=false,posts=[];
-const describe=()=>({holdMs,defaultHoldMs:4000,maxHoldMs:30000,available:true,canControl});
+let holdMs=4000,canControl=true,failure=false,posts=[],mode="rekordbox",smart={prolinkMethod:"tempo",detectionBeats:128,interruptBeats:16,useOnAir:true};
+const describe=()=>({...smart,holdMs,defaultHoldMs:4000,maxHoldMs:30000,available:true,canControl});
 withBrowser((req,res,url)=>{
  if(!url.pathname.startsWith('/api/'))return false;res.setHeader('Content-Type','application/json');
- if(url.pathname==='/api/app')res.end(JSON.stringify({mode:'rekordbox',canControl,capabilities:{admin:true,scenes:true,audioWaveform:true},user:{username:'admin'}}));
+ if(url.pathname==='/api/app')res.end(JSON.stringify({mode,canControl,capabilities:{admin:true,scenes:true,audioWaveform:true},user:{username:'admin'}}));
  else if(url.pathname==='/api/admin/users')res.end('{"users":[]}');
  else if(url.pathname==='/api/admin/ratings')res.end('{"tracks":[]}');
  else if(url.pathname==='/api/audio/devices')res.end('{"devices":[],"error":null}');
@@ -16,7 +16,7 @@ withBrowser((req,res,url)=>{
   else{let body='';req.on('data',chunk=>body+=chunk);req.on('end',()=>{
    const command=JSON.parse(body);posts.push(command);
    if(!Number.isInteger(command.holdMs)||command.holdMs<0||command.holdMs>30000){res.statusCode=400;return res.end('{"error":"masterSettingsInvalid"}');}
-   holdMs=command.holdMs;res.end(JSON.stringify(describe()));});}
+   holdMs=command.holdMs;for(const k of Object.keys(smart))if(command[k]!==undefined)smart[k]=command[k];res.end(JSON.stringify(describe()));});}
  }else{res.statusCode=404;res.end('{}');}return true;
 },async({navigate,evaluate,until,delay,call,screenshot})=>{
  const $=id=>'document.getElementById('+JSON.stringify('admin-master-'+id)+')';
@@ -66,5 +66,15 @@ withBrowser((req,res,url)=>{
  await until(()=>evaluate($('message')+'.textContent.length>0&&'+$('hold')+'.disabled'),'Outage not shown');
  failure=false;await open('de');await ready();
  assert.equal(holdMs,4000,'Recovery changed the stored hold time');
+ mode='prolink';await open('en');await ready();
+ assert.equal(await evaluate($('prolink')+'.hidden'),false);
+ await evaluate(`${$('method')}.value='smart';${$('method')}.dispatchEvent(new Event('input'));`);
+ assert.equal(await evaluate($('smart')+'.hidden'),false);assert.equal(await evaluate($('tempo')+'.hidden'),true);
+ assert.equal(await evaluate($('beats')+'.value'),'128');assert.equal(await evaluate($('interrupt')+'.value'),'16');
+ await evaluate(`${$('beats')}.value='32';${$('onair')}.checked=false;${$('beats')}.dispatchEvent(new Event('input'));${$('save')}.click();`);
+ await until(()=>smart.detectionBeats===32,'Smart settings did not save');await ready();
+ await open('de');await ready();assert.equal(await evaluate($('beats')+'.value'),'32');assert.equal(await evaluate($('onair')+'.checked'),false);
+ await screenshot('admin-master-prolink');
+ await evaluate($('reset')+'.click()');await evaluate($('save')+'.click()');await until(()=>smart.prolinkMethod==='tempo'&&smart.detectionBeats===128,'Smart defaults not restored');
  console.log('Admin master detection UI passed: server value, draft preservation, explicit save, opt-out label, default restore, EN/DE, mobile, remote policy and outage recovery.');
 }).catch(error=>{console.error(error);process.exitCode=1;});

@@ -145,7 +145,7 @@ int run_server(const std::string& host, int port,
         {"/master-overlay", "master-overlay.html"},
         {"/master-overlay/settings", "master-settings.html"}, {"/overlay/settings", "master-settings.html"},
         {"/master-overlay.js", "master-overlay.js"}, {"/master-options.js", "master-options.js"},
-        {"/deck-overlay.js", "deck-overlay.js"}, {"/overlay-shared.js", "overlay-shared.js"},
+        {"/deck-overlay.js", "deck-overlay.js"}, {"/overlay-shared.js", "overlay-shared.js"}, {"/track-timeline.js", "track-timeline.js"},
         {"/overlay.css", "overlay.css"}, {"/settings.css", "settings.css"},
         {"/settings.js", "settings.js"}, {"/track-controls.js", "track-controls.js"}, {"/i18n.js", "i18n.js"}, {"/storage.js", "storage.js"},
         {"/theme.css", "theme.css"}, {"/poll.js", "poll.js"},
@@ -404,12 +404,10 @@ int run_server(const std::string& host, int port,
             if(!can_control(request))throw PortalError(403,"networkReadOnly");
             if(!master_gate)throw PortalError(503,"masterSettingsUnavailable");
             const auto body=portal_body(request);
-            if(body.size()!=1||!body.contains("holdMs")||!body["holdMs"].is_number_integer())throw PortalError(400,"masterSettingsInvalid");
-            const auto hold=body["holdMs"].template get<std::int64_t>();
-            if(!MasterGate::valid_hold(hold))throw PortalError(400,"masterSettingsInvalid");
+            if(!MasterGate::valid_settings(body))throw PortalError(400,"masterSettingsInvalid");
             // Persist first: a rejected write must not leave the running gate ahead of the store.
-            if(portal)portal->save_master_settings({{"holdMs",hold}});
-            master_gate->set_hold_ms(hold);
+            const auto saved=portal?portal->save_master_settings(body):body;
+            master_gate->configure(saved);
             json_response(response,master_description(request));
         });
         auto* updater=features?features->updater:nullptr;
@@ -438,7 +436,7 @@ int run_server(const std::string& host, int port,
                 {"capabilities", {{"dashboard", true}, {"history", true}, {"deckOverlays", true}, {"masterOverlay", true},
                     {"networkSettings", network != nullptr && admin}, {"scenes",portal!=nullptr}, {"admin",portal!=nullptr && admin},
                     {"audioWaveform", true}, {"rekordboxSetup", !prolink}, {"prolinkSetup", prolink},
-                    {"playbackStatus", prolink}, {"onAir", prolink}, {"mixerControls", false}, {"trackWaveform", false}}}});
+                    {"playbackStatus", prolink}, {"onAir", prolink}, {"mixerControls", false}, {"trackWaveform", true}}}});
         });
         server.Get("/api/prolink/devices", Access::User, [features, prolink](const auto&, auto& response) {
             if (!prolink || !features->prolink_setup) { json_response(response, {{"error", "modeUnavailable"}}, 409); return; }
@@ -515,6 +513,24 @@ int run_server(const std::string& host, int port,
             });
         }
         server.Get("/api/state", Access::Keyed, [&snapshot](const auto&, auto& response) { json_response(response, snapshot()); });
+        const auto waveform_route=[&snapshot,features](bool master_only) {
+            return [&snapshot,features,master_only](const httplib::Request& request,httplib::Response& response) {
+                const auto state=snapshot();
+                const int deck_id=master_only?(state.value("masterDeckId",Json()).is_number_integer()?state["masterDeckId"].get<int>():0):request.matches[1].str()[0]-'0';
+                std::uint32_t track_id{};const auto input=request.get_param_value("trackId");
+                const auto parsed=std::from_chars(input.data(),input.data()+input.size(),track_id);
+                if(raw_parameter_count(request,"trackId")!=1||!track_id||parsed.ec!=std::errc{}||parsed.ptr!=input.data()+input.size())throw PortalError(400,"portalInvalid");
+                if(loaded_track(state,deck_id)!=track_id)throw PortalError(404,"trackWaveformUnavailable");
+                const auto wave=features&&features->track_waveform?features->track_waveform(track_id):Json(nullptr);
+                // A track can change while the analysis file is being read.
+                const auto after=snapshot();
+                if(loaded_track(after,deck_id)!=track_id||(master_only&&after.value("masterDeckId",Json())!=deck_id))throw PortalError(404,"trackWaveformUnavailable");
+                auto result=wave.is_null()?Json{{"available",false}}:wave;
+                result["available"]=!wave.is_null();result["trackId"]=track_id;json_response(response,result);
+            };
+        };
+        server.Get("/api/master/waveform",Access::Keyed,waveform_route(true));
+        server.Get(R"(/api/decks/([1-4])/waveform)",Access::Keyed,waveform_route(false));
         server.Get("/api/master", Access::Keyed, [master](const auto&, auto& response) {
             if (!master) { json_response(response, {{"error", "Master feed is not available"}}, 503); return; }
             json_response(response, master->snapshot());

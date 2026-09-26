@@ -262,8 +262,8 @@ bool TwitchIntegration::broadcast_access(const std::string& key,const std::strin
         const auto type=item["type"].get<std::string>();
         if(type=="image"&&path=="/api/media/"+item["options"].value("assetId",std::string{}))return true;
         if(path=="/api/audio/state"&&(type=="waveform"||type=="fx"||item["options"].value("audioEnabled",false)))return true;
-        if(type=="master"&&(path=="/master-overlay"||path=="/api/master"||std::regex_match(path,std::regex("/api/master/covers/[1-9][0-9]{0,9}"))))return true;
-        if(type=="deck"&&(path=="/overlay"||path=="/overlay.html"||path=="/api/state"||std::regex_match(path,std::regex("/api/decks/[1-4]/cover"))))return true;
+        if(type=="master"&&(path=="/master-overlay"||path=="/api/master"||path=="/api/master/waveform"||std::regex_match(path,std::regex("/api/master/covers/[1-9][0-9]{0,9}"))))return true;
+        if(type=="deck"&&(path=="/overlay"||path=="/overlay.html"||path=="/api/state"||std::regex_match(path,std::regex("/api/decks/[1-4]/(cover|waveform)"))))return true;
         if(type=="waveform"&&path=="/waveform")return true;
     }return false;
 }

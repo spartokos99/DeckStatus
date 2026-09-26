@@ -11,6 +11,7 @@ export const presets = {
 export const defaults = { infoVersion: 2, history: 5, fields: fieldNames.filter(name => name !== 'label'), historyFields: null,
   bpmInteger: false, hideMissing: false, contentAlign: 'left', overflow: 'ellipsis', elementGap: 0, fieldStyles: {},
   coverPosition: 'left', coverShape: 'square', coverSpin: false, coverFit: false,
+  timelineStyle: 'bar', timelineHeight: 64, timelineWindow: 12, timelineColor: true,
   duration: 650, width: 720, historyScale: 1, align: 'left',
   lang: 'en', deck: 1, timeline: false, font: 'system', fontSize: 23, coverSize: 84, padding: 18, gap: 10,
   layout: 'horizontal', badges: true, ...presets.midnight };
@@ -46,6 +47,8 @@ export function normalize(input = {}) {
   return {
     infoVersion: 2, historyFields: Array.isArray(input.historyFields) ? selectedFields(input.historyFields) : null,
     bpmInteger: flag('bpmInteger'), hideMissing: flag('hideMissing'), fieldStyles,
+    timelineStyle: ['bar','segments','ring','waveform','overview'].includes(input.timelineStyle) ? input.timelineStyle : 'bar',
+    timelineHeight: integer(input.timelineHeight, 64, 32, 200), timelineWindow: integer(input.timelineWindow, 12, 4, 60), timelineColor: flag('timelineColor'),
     contentAlign: ['left', 'center', 'right'].includes(input.contentAlign) ? input.contentAlign : defaults.contentAlign,
     overflow: ['ellipsis', 'slide', 'expand'].includes(input.overflow) ? input.overflow : defaults.overflow,
     elementGap: integer(input.elementGap, 0, 0, 40),

@@ -1,4 +1,5 @@
 #include "prolink.h"
+#include "track_waveform.h"
 #include "prolink_selection.h"
 #include <Windows.h>
 #include <wincrypt.h>
@@ -45,6 +46,7 @@ struct ProLink::Impl {
     Json settings = {{"status", "stopped"}, {"message", "prolinkStopped"}, {"devices", Json::array()}, {"players", Json::array()}};
     ULONGLONG received{};
     std::map<std::uint32_t, std::pair<std::string, std::string>> covers;
+    std::map<std::uint32_t,Json> waves;
     std::size_t cover_bytes{};
     unsigned generation{};
     Json preferences={{"autoConnect",false},{"devices",Json::array()}};
@@ -129,6 +131,17 @@ struct ProLink::Impl {
         if (type == "snapshot" && packet.contains("decks") && packet["decks"].is_array() && packet["decks"].size() == 4 &&
             packet.contains("setup") && packet["setup"].is_object()) {
             state = packet; state.erase("type"); state.erase("setup"); settings = packet["setup"]; received = GetTickCount64();
+        } else if(type=="waveform"&&packet.contains("trackId")&&packet["trackId"].is_number_unsigned()&&packet.contains("data")&&valid_track_waveform(packet["data"])) {
+            const auto id=packet["trackId"].get<std::uint32_t>();if(!id)return;
+            if(waves.size()>=8&&!waves.contains(id)) {
+                auto evict=waves.begin();
+                for(auto it=waves.begin();it!=waves.end();++it) {
+                    bool loaded=false;for(const auto& deck:state["decks"])if(deck.value("trackId",Json())==it->first)loaded=true;
+                    if(!loaded){evict=it;break;}
+                }
+                waves.erase(evict);
+            }
+            waves[id]=packet["data"];
         } else if (type == "cover" && packet.contains("trackId") && packet["trackId"].is_number_unsigned() && packet.contains("data") && packet["data"].is_string()) {
             const auto id = packet["trackId"].get<std::uint32_t>();
             const auto base64 = packet["data"].get<std::string>();
@@ -205,5 +218,9 @@ std::pair<std::string, std::string> ProLink::cover(std::uint32_t id) {
     std::lock_guard lock(impl_->mutex);
     const auto found = impl_->covers.find(id);
     return found == impl_->covers.end() ? std::pair<std::string, std::string>{} : found->second;
+}
+Json ProLink::waveform(std::uint32_t id) {
+    std::lock_guard lock(impl_->mutex);const auto it=impl_->waves.find(id);
+    return it==impl_->waves.end()?Json(nullptr):it->second;
 }
 }

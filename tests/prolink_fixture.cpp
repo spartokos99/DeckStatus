@@ -32,6 +32,8 @@ int main(int argc, char** argv) {
             auto& deck = state["decks"][0];
             deck["loaded"] = true; deck["trackId"] = base + 1; deck["metadataAvailable"] = true;
             deck["title"] = "Network fixture"; deck["bpm"] = 129.5; deck["originalBpm"] = 128;
+            std::cout << Json({{"type","waveform"},{"trackId",base+1},{"data",{{"format","rgb5"},{"durationMs",2000},{"samples",Json::array({58364,1024})}}}}).dump() << '\n';
+            std::cout << Json({{"type","waveform"},{"trackId",base+2},{"data",{{"format","rgb5"},{"durationMs",2000},{"samples",Json::array({65536})}}}}).dump() << '\n';
             std::cout << Json({{"type", "cover"}, {"trackId", base + 1}, {"mime", "image/png"}, {"data", "iVBORwABAg=="}}).dump() << '\n';
         }
         if (command["action"] == "disconnect") { state["status"] = "disconnected"; state["setup"]["status"]="stopped"; state["masterDeckId"] = nullptr; state["decks"] = deckstatus::prolink_empty_state("")["decks"]; }

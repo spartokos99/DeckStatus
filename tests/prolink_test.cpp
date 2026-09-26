@@ -44,6 +44,8 @@ int main(int argc, char** argv) {
             const auto id = link.snapshot()["decks"][0]["trackId"].get<unsigned>();
             require(link.cover(id).first == "image/png" && link.cover(id).second.size() == 7, "Artwork transfer failed");
             require(link.cover(id + 1).second.empty(), "Unknown artwork leaked");
+            require(link.waveform(id)["samples"].size()==2,"Waveform IPC lost samples");
+            require(link.waveform(id+1).is_null(),"Invalid waveform IPC accepted");
             link.control({{"action", "connect"}, {"players", {3}}});
             until([&] { return link.snapshot()["message"] == "prolinkHelperStale"; }, "Hung helper stayed live", 180);
             require(link.snapshot()["decks"][0]["loaded"] == false, "Stale helper retained current track");

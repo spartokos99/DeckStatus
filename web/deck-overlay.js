@@ -38,7 +38,8 @@ function render(state) {
   card.dataset.trackId = item.trackId;
   card.dataset.current = 'true';
   updateCardContent(card, item, options, { label: t('deck', { id: options.deck }), demo: state.demo === true,
-    timeline: true, coverUrl: '/api/decks/' + options.deck + '/cover?trackId=' + item.trackId });
+      timeline: true, coverUrl: '/api/decks/' + options.deck + '/cover?trackId=' + item.trackId,
+      waveformUrl: '/api/decks/' + options.deck + '/waveform?trackId=' + item.trackId });
 }
 async function poll() {
   try {

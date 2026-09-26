@@ -2,11 +2,11 @@
 
 **GitHub Wiki import:** create a page named **Home** in your repository's Wiki, select Markdown and paste this entire file. The wiki Git repository was unavailable when this guide was prepared.
 
-This guide describes **DeckStatus v2.3.2**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
+This guide describes **DeckStatus v2.3.3**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
 
 ## Running DeckStatus
 
-Version 2.3.2 includes per-element typography, per-scene deck selection for linked presets, and an administrator updater. See [scene component controls](scene-components.md#deck-and-master-overlays) and [updates, backups and recovery](updater.md).
+Version 2.3.3 adds optional ProLink [playing-track detection](master-detection.md) and [analyzed waveform timelines](track-timelines.md). Per-element typography, per-scene deck selection for linked presets, and the administrator updater remain available. See [scene component controls](scene-components.md#deck-and-master-overlays) and [updates, backups and recovery](updater.md).
 
 [Twitch automation and improved scene layers](twitch.md) are included. Link accounts under **Admin → Twitch** and create rules with multiple actions under **Stream → Automations**. It works with both DJ source modes and does not require a public inbound connection. Version 2.2.0 adds a refreshed application interface and a shared master hold time under **Admin → Master detection** (4 seconds by default).
 
@@ -99,13 +99,17 @@ Updates/deletes require the current revision. A concurrent edit returns HTTP 409
 
 The device ID/name and **Start audio capture automatically when DeckStatus starts** persist in `portal.json`. The flag defaults to off. Enabled autostart runs once at application startup, before login, using exactly the saved device. Missing devices are reported without fallback. Stop ends the current capture while retaining the selection and policy for the next launch. Remote administrators need Allow remote controls. See [the audio guide](audio-waveform.md) for API details and limitations.
 
-## Master hold time
+## Master detection
 
 Brief tempo-master changes reported by Rekordbox or PRO DJ LINK can flip an overlay during track preparation. **Admin → Master detection** sets how long a new deck must hold the role before DeckStatus publishes the handover. The default is 4 seconds; the range is 0 to 30 seconds and 0 restores the immediate switch.
 
 The filter sits between the source and every consumer, so the state API, deck and master overlays, the dashboard badge and Full History use the same confirmed master. While a new candidate is pending, the previously confirmed deck stays master and a handover shorter than the hold does not reach session history. The wait only applies when there is already a confirmed master with a loaded track. The first master after startup or reconnect, a different track on the confirmed deck, and a replacement for a deck that lost its track are published immediately. Disconnected, stale or unsupported states publish no master at all.
 
 The value lives in `portal.json` as `masterSettings.holdMs`, is read at startup and applies to the running server as soon as it is saved. Changing it requires an administrator plus the usual remote-control policy; it is a single server-wide value, so it is not part of an overlay's OBS URL or of a saved preset. It filters observations of tempo-master state and remains no proof of audible playback.
+
+ProLink also offers an optional playing-track method with 128 detection beats, 16 interruption beats and mixer On-Air gating. See [master detection](master-detection.md) for timing, fallbacks and persistent settings. The tempo-master method remains the default.
+
+Deck/master timelines offer classic, segmented, ring, scrolling analyzed waveform and full-track waveform designs. See [track timelines](track-timelines.md) for setup, source availability and bounded read APIs.
 
 ## Scene editor
 

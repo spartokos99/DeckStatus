@@ -85,6 +85,15 @@ public final class ModelTest {
         check(finder.getLifecycleListeners().contains(unrelated),"Unrelated lifecycle listener removed");
         finder.removeLifecycleListener(unrelated);
     }
+    static void waveforms() {
+        var ref=new DataReference(1,CdjStatus.TrackSourceSlot.USB_SLOT,42);
+        byte[] bytes=new byte[90000];for(int i=0;i<bytes.length;i+=2){bytes[i]=(byte)0xe3;bytes[i+1]=(byte)0xfc;}
+        var detail=new WaveformDetail(ref,java.nio.ByteBuffer.wrap(bytes),WaveformFinder.WaveformStyle.RGB);
+        var data=Main.waveformData(detail);check(data.getLong("durationMs")==300000&&data.getJSONArray("samples").length()==30000,"Waveform timing/size changed");
+        check(data.getJSONArray("samples").getInt(0)==0xe3fc,"RGB waveform damaged");
+        Main.configureMetadata();WaveformFinder.getInstance();Main.configureMetadata();
+        check(MetadataFinder.getInstance().getLifecycleListeners().stream().noneMatch(l->l.getClass().getEnclosingClass()==CrateDigger.class),"Waveforms restored unsafe DeviceSQL startup");
+    }
     public static void main(String[] args) throws Exception {
         var devices=Set.of(announcement("CDJ-3000",1,"192.0.2.1"),announcement("CDJ-3000",2,"192.0.2.2"),announcement("CDJ-3000",3,"192.0.2.3"),announcement("DJM-900NXS2",33,"192.0.2.33"),announcement("DJS-1000",4,"192.0.2.4"));
         var selected=Main.selectPlayers(new JSONObject("{\"mapping\":[{\"player\":3,\"deck\":1},{\"player\":1,\"deck\":4}]}"),devices);
@@ -113,7 +122,7 @@ public final class ModelTest {
         check(Main.text(" ")==JSONObject.NULL,"Blank metadata fabricated");
         boolean rejected=false;try{new CdjStatus(new DatagramPacket(new byte[0x40],0x40,InetAddress.getLoopbackAddress(),50002));}catch(IllegalArgumentException expected){rejected=true;}
         check(rejected,"Truncated status packet accepted");
-        hardwareProfiles();metadataPolicy();wireEncoding();
+        hardwareProfiles();metadataPolicy();waveforms();wireEncoding();
         System.out.println("ProLink Java model passed: CDJ-3000/3000X/XDJ-AZ packets, DJM profiles, shared-IP decks, flags/BPM, freshness, source/slot/media identities, disabled DeviceSQL auto-start, Unicode JSON and actual Windows UTF-8 pipes. No network sockets opened.");
     }
 }

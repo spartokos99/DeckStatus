@@ -7,6 +7,7 @@ inline void linked_presets_checks(const std::filesystem::path& root) {
         auto bad=preferences;bad["devices"][1]["deck"]=1;fails(400,[&]{p.save_prolink_settings(bad);});check(p.prolink_settings()==preferences,"Invalid selection changed saved devices");
         Json design={{"name","Linked master"},{"type","master"}};
         design["options"]={{"infoVersion",2},{"fields",Json::array({"title","label","bpm","currentBpm"})},{"historyFields",Json::array({"title"})},{"bpmInteger",true},{"hideMissing",true}};
+        design["options"].update({{"timeline",true},{"timelineStyle","waveform"},{"timelineHeight",96},{"timelineWindow",16},{"timelineColor",true}});
         design["options"]["fieldStyles"]={{"title",{{"font","impact"},{"background","#123456"},{"color","#abcdef"},{"marginTop",2},{"marginBottom",10},{"fontSize",48},{"fontStyle","italic"},{"fontWeight",800}}}};
         auto preset=p.edit_preset({{"action","save"},{"preset",design}});preset_id=preset["id"];
         auto invalid=design;invalid["options"]["fieldStyles"]["title"]["font"]="url(https://invalid.example/font)";fails(400,[&]{p.edit_preset({{"action","save"},{"preset",invalid}});});
@@ -18,6 +19,7 @@ inline void linked_presets_checks(const std::filesystem::path& root) {
         Json scene={{"name","Linked scene"},{"width",1920},{"height",1080},{"background","transparent"},{"items",Json::array({layer})}};
         auto saved=p.edit_scene({{"action","save"},{"scene",scene}});scene_id=saved["id"];key=saved["key"];
         design["options"]["historyFields"]=Json::array({"artist","label"});
+        design["options"]["timelineStyle"]="overview";
         const auto held=CreateFileW((root/"portal.json").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);check(held!=INVALID_HANDLE_VALUE,"Could not lock linked store");
         fails(500,[&]{p.edit_preset({{"action","save"},{"id",preset_id},{"revision",1},{"preset",design}});});CloseHandle(held);
         check(p.scene(scene_id,true)==saved&&p.presets()[0]==preset,"Failed update changed linked data");

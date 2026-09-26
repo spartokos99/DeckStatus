@@ -83,6 +83,42 @@ void gate_checks() {
     require(foreign["masterDeckId"] == 3, "Unknown state shape was rewritten");
 }
 
+void mix_checks() {
+    using Gate=deckstatus::MasterGate;
+    auto settings=Gate::defaults();settings["prolinkMethod"]="smart";settings["detectionBeats"]=8;settings["interruptBeats"]=4;
+    Gate gate(settings);auto state=pair_sample(11,12,2);state["mode"]="prolink";
+    for(auto& deck:state["decks"]){deck["bpm"]=120;deck["playing"]=true;deck["onAir"]=true;}
+    state["decks"][1]["playing"]=false;
+    const auto start=Gate::Clock::now();int milliseconds=0;
+    const auto tick=[&](int ms=500){milliseconds+=ms;auto result=state;gate.apply(result,start+std::chrono::milliseconds(milliseconds));return result["masterDeckId"];};
+    require(tick(0)==1,"First playing deck was withheld for detection beats");
+    state["decks"][1]["playing"]=true;
+    require(tick()==1,"New deck replaced master immediately");
+    for(int i=0;i<7;++i){state["decks"][1]["beatNumber"]=10000+i;state["decks"][1]["positionMs"]=999999;require(tick()==1,"Beat/position jump or early count promoted candidate");}
+    for(int i=0;i<20;++i)require(tick(0)==1,"Extra HTTP polls earned beats");
+    require(tick()==2,"Playing-beat threshold did not promote new track");
+    for(int i=0;i<12;++i)require(tick()==2,"Previously reported track stole master repeatedly");
+    state["decks"][1]["playing"]=false;
+    require(tick()==2&&tick()==2,"Brief pause removed confirmed master");
+    state["decks"][1]["playing"]=true;require(tick()==2,"Resume within grace lost master");
+    state["decks"][1]["onAir"]=false;
+    for(int i=0;i<3;++i)require(tick()==2,"Off-air grace expired early");
+    require(tick()==1,"Long interruption did not promote the remaining deck");
+    state["decks"][1]["onAir"]=true;state["decks"][1]["trackId"]=13;
+    require(tick()==1,"New track inherited old playback count");
+    state["decks"][0]["playing"]=false;state["decks"][0]["stopped"]=true;
+    require(tick()==2,"Hard stop waited for detection or interrupt beats");
+    state["status"]="disconnected";require(tick().is_null(),"Disconnected mixer retained master");
+    state["status"]="connected";state["decks"][1]["onAir"]=nullptr;
+    require(tick().is_null(),"Unknown On Air was treated as audible");
+    gate.configure({{"useOnAir",false}});require(tick()==2,"Playback-only method required mixer");
+    state["decks"][1]["loaded"]=false;require(tick().is_null(),"Unloaded deck remained master");
+    // Smart settings never affect Rekordbox's existing tempo-master behavior.
+    Gate rekordbox(settings);auto native=pair_sample(11,12,2);rekordbox.apply(native,start);
+    require(native["masterDeckId"]==2,"ProLink detection changed Rekordbox mode");
+    require(!Gate::valid_settings({{"detectionBeats",0}})&&!Gate::valid_settings({{"interruptBeats",1025}})&&!Gate::valid_settings({{"useOnAir",1}})&&!Gate::valid_settings({{"prolinkMethod","guess"}}),"Invalid detection settings accepted");
+}
+
 int main() {
     try {
         int calls = 0;
@@ -167,6 +203,7 @@ int main() {
         racing.update(sample(1));
         require(racing.cover(1).second.empty(), "Eviction during cover lookup leaked removed artwork");
         gate_checks();
+        mix_checks();
         std::this_thread::sleep_for(std::chrono::milliseconds(3050));
         require(feed.snapshot()["current"].is_null() && feed.snapshot()["status"] == "stale", "Stopped sampler kept a stale current track");
         require(feed.snapshot()["history"].size() == 50, "Staleness erased session history");

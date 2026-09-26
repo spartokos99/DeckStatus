@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3.3 · 2026-09-26
+
+- Add optional ProLink playing-track detection inspired by prolink-tools: 128 detection beats, 16 interruption beats and optional mixer On-Air gating. Configure it persistently under Admin → Master detection. Existing tempo-master detection remains the default; Rekordbox behavior is unchanged.
+- Add segmented, ring, scrolling analyzed waveform and full-track waveform timelines to master/deck overlays, with adjustable height, time window and colors. Presets and linked scenes retain these options; master history cards do not acquire timelines.
+- Read local Rekordbox PWV3/PWV5 analysis and ProLink Beat Link waveform detail through bounded, scoped APIs. Fall back to ordinary progress when analysis is unavailable; no audio capture starts. See [master detection](docs/master-detection.md) and [track timelines](docs/track-timelines.md). Live validation of these additions is pending.
+
+### Upgrade and compatibility
+
+- Use **Admin → Updater** to download/upload the complete ZIP, prepare it and confirm installation, or stop DeckStatus and replace the portable application files manually. Back up the complete **DeckStatus.data** directory and **DeckStatus.network.json**; preserve both when extracting manually. Accounts, ratings, presets, scenes, media, saved source settings and OBS keys remain valid. Login sessions and played-track history reset on restart.
+- Existing installations keep the tempo-master method and classic timeline. Beat/On-Air detection is opt-in for ProLink; Rekordbox behavior and exact executable-profile checks are unchanged. At 128 BPM, 128 detection beats take 60 seconds; reduce the count for earlier overlap detection.
+- Live Rekordbox validation remains limited to the author's **7.2.18.0 Windows x64** installation and its two audited executable variants. ProLink is experimental. The new detection method, actual track-waveform data and OBS performance still require live validation; automated fixtures do not certify hardware compatibility.
+
 ## 2.3.2 · 2026-09-23
 
 - Add individual font size (8–200 px), normal/italic/oblique style and weight (100–900) to deck/master text elements. Overrides persist in URLs, presets and linked scenes; clearing an override restores the shared style.

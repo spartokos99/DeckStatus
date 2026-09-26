@@ -17,6 +17,7 @@ public:
     void configure(const nlohmann::json& settings,bool resume=false);
     void maintain();
     std::pair<std::string, std::string> cover(std::uint32_t track_id);
+    nlohmann::json waveform(std::uint32_t track_id);
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

@@ -6,7 +6,7 @@
 namespace deckstatus::track_options {
 using Json = nlohmann::json;
 inline const std::set<std::string> fields={"title","artist","album","label","key","bpm","currentBpm","cover"};
-inline const std::set<std::string> extra={"infoVersion","historyFields","bpmInteger","hideMissing","contentAlign","overflow","elementGap","fieldStyles","coverPosition","coverShape","coverSpin","coverFit"};
+inline const std::set<std::string> extra={"infoVersion","historyFields","bpmInteger","hideMissing","contentAlign","overflow","elementGap","fieldStyles","coverPosition","coverShape","coverSpin","coverFit","timelineStyle","timelineHeight","timelineWindow","timelineColor"};
 inline const std::set<std::string> fonts={"system","serif","mono","arial","calibri","tahoma","verdana","trebuchet","impact","palatino"};
 inline void validate(const std::string& key,const Json& value) {
     const auto fail=[] { throw PortalError(400,"presetInvalid"); };
@@ -31,7 +31,10 @@ inline void validate(const std::string& key,const Json& value) {
             }
         }
     } else if(key=="deck") {if(!value.is_number_integer()||value<1||value>4)fail();}
-    else if(key=="bpmInteger"||key=="hideMissing"||key=="coverSpin"||key=="coverFit") {if(!value.is_boolean())fail();}
+    else if(key=="bpmInteger"||key=="hideMissing"||key=="coverSpin"||key=="coverFit"||key=="timelineColor") {if(!value.is_boolean())fail();}
+    else if(key=="timelineStyle") {if(!value.is_string()||!std::set<std::string>{"bar","segments","ring","waveform","overview"}.contains(value.get<std::string>()))fail();}
+    else if(key=="timelineHeight") {if(!value.is_number_integer()||value<32||value>200)fail();}
+    else if(key=="timelineWindow") {if(!value.is_number_integer()||value<4||value>60)fail();}
     else if(key=="infoVersion") {if(value!=2)fail();}
     else if(key=="elementGap") {if(!value.is_number_integer()||value<0||value>40)fail();}
     else {

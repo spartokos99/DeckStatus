@@ -36,6 +36,13 @@ export function trackExtras(root, {read, write, master}) {
   inputs.set('elementGap',row(layout,'elementGap','number'));inputs.get('elementGap').max=40;
   const help=document.createElement('p');help.className='hint';help.dataset.i18n='trackOverflowHelp';help.textContent=t('trackOverflowHelp');layout.append(help);
   const styles=section('trackElementStyle'),field=row(styles,'trackElement','select',styledFields);
+  const timeline=section('trackTimelineOptions');
+  const design=row(timeline,'timelineStyle','select',[]);
+  for(const value of ['bar','segments','ring','waveform','overview']){const option=new Option(t('timelineDesign_'+value),value);option.dataset.i18n='timelineDesign_'+value;design.add(option);}
+  inputs.set('timelineStyle',design);
+  for(const [name,min,max] of [['timelineHeight',32,200],['timelineWindow',4,60]]){const input=row(timeline,name,'number');input.min=min;input.max=max;inputs.set(name,input);}
+  inputs.set('timelineColor',row(timeline,'timelineColor','checkbox'));
+  const waveHelp=document.createElement('p');waveHelp.className='hint';waveHelp.dataset.i18n='trackWaveformHelp';waveHelp.textContent=t('trackWaveformHelp');timeline.append(waveHelp);
   field.dataset.trackStyleField='';
   for(const name of ['color','background']){
     const toggle=row(styles,name==='color'?'trackCustomColor':'trackCustomBackground','checkbox');
@@ -67,6 +74,7 @@ export function trackExtras(root, {read, write, master}) {
     write({...read(),...(name==='historySameFields'?{historyFields:input.checked?null:[...read().fields]}:{[name]:input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value})});refresh();
   });
   function refresh(){const options=read();for(const [name,input] of inputs){if(input.type==='checkbox')input.checked=name==='historySameFields'?options.historyFields===null:options[name];else input.value=options[name];}
+    for(const [name,disabled] of [['timelineWindow',options.timelineStyle!=='waveform'],['timelineHeight',['bar','segments'].includes(options.timelineStyle)],['timelineColor',!['waveform','overview'].includes(options.timelineStyle)]]){inputs.get(name).disabled=disabled;inputs.get(name).dataset.optionDisabled=String(disabled);}
     for(const input of historyInputs){input.checked=(options.historyFields??options.fields).includes(input.value);input.disabled=options.historyFields===null;input.dataset.optionDisabled=String(input.disabled);}
     for(const [name,disabled] of [['coverSpin',options.coverShape!=='round'],['coverFit',options.coverPosition==='top']]){inputs.get(name).disabled=disabled;inputs.get(name).dataset.optionDisabled=String(disabled);}refreshStyle();
   }
