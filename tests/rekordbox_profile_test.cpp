@@ -7,8 +7,9 @@
 namespace rb = deckstatus::rekordbox;
 void check(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
 
+constexpr DWORD largest_image() { DWORD size = 0; for (const auto& p : rb::profiles) if (p.image_size > size) size = p.image_size; return size; }
 struct Image {
-    unsigned char* bytes = static_cast<unsigned char*>(VirtualAlloc(nullptr, rb::profiles[1].image_size,
+    unsigned char* bytes = static_cast<unsigned char*>(VirtualAlloc(nullptr, largest_image(),
                                                                    MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
     Image() { check(bytes != nullptr, "Cannot allocate synthetic image"); }
     ~Image() { VirtualFree(bytes, 0, MEM_RELEASE); }
@@ -31,8 +32,10 @@ struct Image {
         section->VirtualAddress = 4096;
         section->Misc.VirtualSize = profile.image_size - 4096;
         section->Characteristics = IMAGE_SCN_MEM_EXECUTE;
-        for (const auto& guard : rb::guards)
+        for (std::size_t i = 0; i < profile.layout->guard_count; ++i) {
+            const auto& guard = profile.layout->guards[i];
             std::memcpy(bytes + guard.rva, guard.bytes.data(), guard.bytes.size());
+        }
         return nt;
     }
 };
@@ -67,7 +70,7 @@ void verify_file(const wchar_t* path) {
     char message[512]{};
     const auto profile = rb::validate(reinterpret_cast<std::uintptr_t>(mapped.view), path, message, sizeof(message));
     check(profile != nullptr, message);
-    std::cout << "Verified " << profile->name << ": PE profile, full-file SHA-256 and all 14 mapped code guards.\n";
+    std::cout << "Verified " << profile->name << ": PE profile, full-file SHA-256 and all " << profile->layout->guard_count << " mapped code guards.\n";
 }
 
 int wmain(int argc, wchar_t** argv) {
@@ -83,7 +86,8 @@ int wmain(int argc, wchar_t** argv) {
             DWORD failed = 0;
             check(rb::identify(image.base()) == &profile, "Known PE variant rejected");
             check(rb::code_matches(image.base(), profile, failed) && !failed, "Known code guards rejected");
-            for (const auto& guard : rb::guards) {
+            for (std::size_t i = 0; i < profile.layout->guard_count; ++i) {
+                const auto& guard = profile.layout->guards[i];
                 image.bytes[guard.rva] ^= 1;
                 check(!rb::code_matches(image.base(), profile, failed) && failed == guard.rva, "Modified code guard accepted or wrong diagnostic RVA");
                 image.bytes[guard.rva] ^= 1;
@@ -102,9 +106,9 @@ int wmain(int argc, wchar_t** argv) {
             check(!rb::identify(image.base()), "Invalid PE accepted");
             image.set(profile);
             DWORD old = 0;
-            check(VirtualProtect(image.bytes + rb::guards[0].rva, 1, PAGE_NOACCESS, &old), "Cannot protect guard page");
-            check(!rb::code_matches(image.base(), profile, failed) && failed == rb::guards[0].rva, "Unreadable code guard accepted");
-            check(VirtualProtect(image.bytes + rb::guards[0].rva, 1, old, &old), "Cannot restore guard page");
+            check(VirtualProtect(image.bytes + profile.layout->guards[0].rva, 1, PAGE_NOACCESS, &old), "Cannot protect guard page");
+            check(!rb::code_matches(image.base(), profile, failed) && failed == profile.layout->guards[0].rva, "Unreadable code guard accepted");
+            check(VirtualProtect(image.bytes + profile.layout->guards[0].rva, 1, old, &old), "Cannot restore guard page");
         }
         check(!rb::identify(0), "Null image accepted");
         TempFile file;
@@ -123,7 +127,7 @@ int wmain(int argc, wchar_t** argv) {
         check(!rb::file_matches(file.path.c_str(), 3, abc_hash), "Same-size file mutation accepted");
         check(DeleteFileW(file.path.c_str()), "Cannot remove owned test file");
         check(!rb::file_matches(file.path.c_str(), 3, abc_hash), "Missing file accepted");
-        std::cout << "Both PE profiles, all 14 guards, rejection boundaries and SHA-256 file identity passed.\n";
+        std::cout << "All PE profiles, all code guards, rejection boundaries and SHA-256 file identity passed.\n";
         return 0;
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

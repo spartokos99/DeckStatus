@@ -20,7 +20,7 @@
 </p>
 
 > [!IMPORTANT]
-> Rekordbox support has been live-tested on **Rekordbox 7.2.18.0 Windows x64** installation. ProLink support is experimental.
+> Rekordbox support has been live-tested on **Rekordbox 7.2.18.0 Windows x64** installation. A separate **7.2.19.0** profile was contributed and live-tested by a contributor on one installation. ProLink support is experimental.
 > 
 > I should also mention that the entire tool was 100% AI-generated; I originally intended to use it just for my own stream, but it turned out so well and proved so practical that I decided to share it so other streamers could use it too.
 
@@ -43,11 +43,12 @@
   
 ### 🍦 Rekordbox (Software)
 
-Live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. Version 2.3.1 recognizes the original executable and one specifically audited patched variant using exact SHA-256/PE profiles and loaded-code checks. Other patched files and Rekordbox versions remain unsupported; see the [profile identities](docs/rekordbox-7.2.18.md) and [validation record](docs/validation.md).
+Live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. Version 2.3.1 recognizes the original executable and one specifically audited patched variant using exact SHA-256/PE profiles and loaded-code checks. The original **7.2.19.0** executable has its own audited profile (different memory layout), contributed and live-tested by a contributor on one installation. Other patched files and Rekordbox versions remain unsupported; see the profile identities for [7.2.18.0](docs/rekordbox-7.2.18.md) and [7.2.19.0](docs/rekordbox-7.2.19.md) and the [validation record](docs/validation.md).
 
 |                    | Windows | macOS |
 |:------------------:|:-------:|:-----:|
 | Rekordbox 7.2.18.0 |    ✅    |   ❌   |
+| Rekordbox 7.2.19.0 |    ✅    |   ❌   |
 
 ### 🧰 Pro DJ Link (Hardware - Experimental)
 

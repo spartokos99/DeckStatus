@@ -2,6 +2,13 @@
 
 This is a historical record. Test counts, behavior and protocol versions describe the revision tested in each entry; later entries may supersede them. Live Rekordbox validation remains limited to the author's **7.2.18.0 Windows x64 installation**. The owner reports successful ProLink discovery of 3× CDJ-3000 + DJM-900NXS2; connection/data validation remains pending (see the newest entry).
 
+## Unreleased Rekordbox 7.2.19.0 profile (contribution) — 2026-10-08
+
+- Static analysis of the original **rekordbox.exe 7.2.19.0** (SHA-256 `c9ed23e9…1c37`), read-only, never executed or modified. Same device component class and player structure as 7.2.18.0; the component global, manager, player index, track ID and device pointers moved. Evidence and the 14 new code guards are in [rekordbox-7.2.19.md](rekordbox-7.2.19.md). The bridge now selects a per-build layout from the validated profile; the 7.2.18.0 profiles and their guards are unchanged.
+- The read-only verifier, cross-compiled with MinGW-w64 and run under Wine, accepted the real file: `Verified 7.2.19.0 original: PE profile, full-file SHA-256 and all 14 mapped code guards.` The synthetic profile test passed for all three profiles except the inaccessible-guard-page case, which also fails with the unmodified 2.3.3 test under Wine (Wine allows reading a `PAGE_NOACCESS` page through `ReadProcessMemory`); it was not run on Windows.
+- A bridge DLL built from this change (MinGW-w64, not MSVC) was dropped into the official **2.3.3** package and live-tested by the contributor with Rekordbox 7.2.19.0: decks, track IDs/metadata, live BPM while moving the tempo fader, master changes, timeline and ejected decks matched Rekordbox. This is one contributor installation, not the author's hardware validation.
+- **Not yet run:** `build.ps1` with MSVC, native CTest and browser suites on Windows. The 7.2.18.0 code path is unchanged in behavior but should be rechecked against the author's installation.
+
 ## DeckStatus 2.3.3 release validation — 2026-09-26
 
 - Built the complete Release package from an isolated source copy because the owner's existing `build/Release/DeckStatus.exe` was running and locked. The isolated build's source/assets match the intended release tree. The running instance was not stopped. EXE/DLL resources report **2.3.3 / 2.3.3.0**, with all nine icon sizes verified.

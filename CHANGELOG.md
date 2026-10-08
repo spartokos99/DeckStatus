@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Recognize the original **Rekordbox 7.2.19.0** Windows x64 executable with its own audited profile. 7.2.19.0 moves the component global, manager, player index, track ID and device pointers; the bridge now selects a per-build memory layout and code-guard table from the validated executable profile. The 7.2.18.0 profiles are unchanged. See [7.2.19.0 profile](docs/rekordbox-7.2.19.md) and [validation](docs/validation.md).
+- Live-tested by a contributor on one 7.2.19.0 installation; the author's live validation remains limited to 7.2.18.0.
+
 ## 2.3.3 · 2026-09-26
 
 - Add optional ProLink playing-track detection inspired by prolink-tools: 128 detection beats, 16 interruption beats and optional mixer On-Air gating. Configure it persistently under Admin → Master detection. Existing tempo-master detection remains the default; Rekordbox behavior is unchanged.
