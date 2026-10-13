@@ -37,6 +37,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include=".gitattributes" />
+    <Content Include="AGENTS.md" />
+    <Content Include="HANDOFF.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

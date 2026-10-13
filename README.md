@@ -20,7 +20,7 @@
 </p>
 
 > [!IMPORTANT]
-> Rekordbox 7.2.18.0 and the original Rekordbox 7.2.19.0 Windows x64 executable have been live-tested successfully by the owner. The 7.2.19.0 profile is separate and verifies the exact executable identity and 14 code guards; unknown variants remain unsupported. ProLink support is experimental.
+> ProLink support is experimental.
 > 
 > I should also mention that the entire tool was 100% AI-generated; I originally intended to use it just for my own stream, but it turned out so well and proved so practical that I decided to share it so other streamers could use it too.
 
@@ -31,8 +31,7 @@
 - ⏱️ **Stable master detection:** filter brief tempo-master handovers with a shared hold time for overlays, the dashboard and Full History.
 - 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas.
 - 🔄 **Updater:** release indicators, ZIP upload or verified GitHub download, backups and restart under **Admin → Updater**. See the [update guide](docs/updater.md).
-- 🎶 **Public Full History:** viewers browse played tracks at `/history` without an account. Rating tracks requires a separate Twitch sign-in.
-- ⭐ **Persistent ratings:** the admin panel shows averages, vote counts and star distributions across sessions.
+- 🎶 **Public Full History:** viewers can browse played tracks at `/history`. Rating tracks requires a separate Twitch sign-in.
 - 🖼️ **Creative components:** static text, uploaded images/GIFs, optional Wikimedia Commons import, and audio-driven fog/flash effects.
 - ⚡ **Twitch automations:** trigger up to 16 actions per rule with rewards, chat commands/text, raids or stream status. Change layers, toggle audio reactivity or reply in chat, with individual durations and shared cooldowns.
 - 🎙️ **Shared audio input:** choose and save a device under Admin → Audio input.
@@ -43,27 +42,26 @@
   
 ### 🍦 Rekordbox (Software)
 
-The author's **Rekordbox 7.2.18.0 Windows x64 installation** has been live-tested, and the owner reports a successful live test with the original **7.2.19.0 Windows x64 executable**. Each build has its own exact profile; other patched files and versions remain unsupported. See the [7.2.18 profile](docs/rekordbox-7.2.18.md), [7.2.19 profile](docs/rekordbox-7.2.19.md) and [validation record](docs/validation.md).
 
 |                    | Windows | macOS |
 |:------------------:|:-------:|:-----:|
-| Rekordbox 7.2.18.0 |    ✅    |   ❌   |
-| Rekordbox 7.2.19.0 | ✅ (owner-reported) | ❌ |
+| Rekordbox 7.2.18.0 |   ✅    |  ❌   |
+| Rekordbox 7.2.19.0 |   ✅    |  ❌   |
 
 ### 🧰 Pro DJ Link (Hardware - Experimental)
 
-|             	| **Implemented** 	| **Tested** 	|
-|:-----------:	|:-----------:	|:--------:	|
-|   **CDJs**  	|             	|          	|
-|   CDJ-3000  	|      ✅      	|      ✅    	|
-|  CDJ-3000X  	|      ✅      	|      ❌    	|
-|             	|             	|          	|
-|  **MIXERS** 	|             	|          	|
-|    DJM-A9   	|      ✅      	|      ❌    	|
-| DJM-900NXS2 	|      ✅      	|      ✅    	|
-|             	|             	|          	|
-|   **AiO**   	|             	|          	|
-|    XDJ-AZ   	|      ✅      	|      ❌    	|
+|             	| **Implemented** 	 | **Tested** 	 |
+|:-----------:	|:----------------:|:-----------:|
+|   **CDJs**  	|         	         |      	       |
+|   CDJ-3000  	|     ✅      	     |   ✅    	    |
+|  CDJ-3000X  	|     ✅      	     |   ❌    	    |
+|             	|         	         |      	       |
+|  **MIXERS** 	|         	         |      	       |
+|    DJM-A9   	|     ✅      	     |   ❌    	    |
+| DJM-900NXS2 	|     ✅      	     |   ✅    	    |
+|             	|         	         |      	       |
+|   **AiO**   	|         	         |      	       |
+|    XDJ-AZ   	|     ✅      	     |   ❌    	    |
 
 I successfully discovered 3× CDJ-3000 and a DJM-900NXS2; See the [device and metadata limitations](docs/prolink.md).
 
