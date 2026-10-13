@@ -42,7 +42,10 @@ h1 { font-size: var(--font-size, 23px); font-weight: 600; letter-spacing: -.5px;
 .metrics strong { font-weight: 600; color: var(--text-color); }
 .tempos { display: inline-flex; flex-wrap: wrap; gap: 6px 14px; }
 .tempos > span { white-space: nowrap; }
-.timeline { margin-top: 14px; font-variant-numeric: tabular-nums; color: var(--muted-color); font-size: calc(var(--font-size, 23px) * .5); }
+.timeline { width: min(var(--timeline-width, 100%), 100%); margin-top: 14px; font-variant-numeric: tabular-nums; color: var(--muted-color); font-size: calc(var(--font-size, 23px) * .5); }
+.timeline[data-align="left"] { margin-right: auto; }
+.timeline[data-align="center"] { margin-inline: auto; }
+.timeline[data-align="right"] { margin-left: auto; }
 .time-labels { display: flex; gap: 12px; justify-content: space-between; margin-bottom: 6px; }
 .time-bar { height: 5px; background: #80808044; border-radius: 4px; overflow: hidden; }
 .time-fill { display: block; width: 0; height: 100%; background: var(--accent); transition: width 250ms linear; }

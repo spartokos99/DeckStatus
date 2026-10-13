@@ -9,6 +9,7 @@ export function applyAppearance(options) {
     'text-color': options.textColor, 'muted-color': options.mutedColor, accent: options.accent,
     background: 'rgba(' + rgb.join(',') + ',' + options.opacity / 100 + ')', radius: options.radius + 'px',
     border: options.border + 'px', padding: options.padding + 'px', gap: options.gap + 'px',
+    'timeline-width': options.timelineWidth + '%',
     'cover-size': options.coverSize + 'px', 'element-gap': options.elementGap + 'px', 'content-align': options.contentAlign,
     shadow: options.shadow ? '0 3px 10px #0003' : 'none' };
   for (const [key, value] of Object.entries(variables)) document.documentElement.style.setProperty('--' + key, value);
@@ -108,6 +109,7 @@ export function updateCardContent(card, item, options, display) {
   for (const name of ['bpm', 'originalBpm']) setText(card.querySelector('[data-value="' + name + '"]'),typeof item[name] === 'number' && Number.isFinite(item[name]) && item[name] > 0 ? formatter.format(item[name]) : '—');
   const timeline = card.querySelector('.timeline');
   timeline.hidden = !options.timeline || !display.timeline;
+  timeline.dataset.align = options.timelineAlign;
   if (!timeline.hidden) {
     const valid = typeof item.positionMs === 'number' && Number.isFinite(item.positionMs) && Math.abs(item.positionMs) <= 86400000 &&
       typeof item.durationMs === 'number' && Number.isFinite(item.durationMs) && item.durationMs > 0 && item.durationMs <= 86400000;

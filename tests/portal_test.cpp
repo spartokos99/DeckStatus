@@ -54,7 +54,7 @@ int main(int argc,char** argv){
             auto repeat=entry;repeat["title"]="  NIGHT   DRIVE ";repeat["trackId"]=999;repeat["entryId"]=200;
             check(portal.public_history({{"entries",Json::array({repeat})}},voter)["entries"][0]["ratingId"]==track,"Ratings depend on session ID");
             check(portal.presets().empty(),"New library not empty");
-            Json preset={{"name","Studio master"},{"type","master"},{"options",{{"width",720},{"history",2},{"fields",Json::array({"title","artist","bpm"})},{"timeline",true}}}};
+            Json preset={{"name","Studio master"},{"type","master"},{"options",{{"width",720},{"history",2},{"fields",Json::array({"title","artist","bpm"})},{"timeline",true},{"timelineWidth",65},{"timelineAlign","center"}}}};
             auto stored=portal.edit_preset({{"action","save"},{"preset",preset}});preset_id=stored["id"];
             check(stored["revision"]==1&&stored["options"]==preset["options"],"Preset options lost");
             preset["name"]="Renamed master";
@@ -64,6 +64,8 @@ int main(int argc,char** argv){
             fails(409,[&]{portal.edit_preset({{"action","delete"},{"id",preset_id},{"revision",1}});});
             auto invalid=preset;invalid["options"]["url"]="https://invalid.example";fails(400,[&]{portal.edit_preset({{"action","save"},{"preset",invalid}});});
             invalid=preset;invalid["options"]["fields"]=Json::array({Json::object()});fails(400,[&]{portal.edit_preset({{"action","save"},{"preset",invalid}});});
+            invalid=preset;invalid["options"]["timelineWidth"]=101;fails(400,[&]{portal.edit_preset({{"action","save"},{"preset",invalid}});});
+            invalid=preset;invalid["options"]["timelineAlign"]="middle";fails(400,[&]{portal.edit_preset({{"action","save"},{"preset",invalid}});});
             invalid=preset;invalid["name"]="   ";fails(400,[&]{portal.edit_preset({{"action","save"},{"preset",invalid}});});
             invalid=preset;invalid["type"]="deck";fails(400,[&]{portal.edit_preset({{"action","save"},{"id",preset_id},{"revision",2},{"preset",invalid}});});
             const auto preset_before=portal.presets();

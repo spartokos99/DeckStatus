@@ -17,7 +17,7 @@
 
 - Windows x64, native C++20/MSVC host and injected bridge; optional Java 21 ProLink helper; local HTML/CSS/JavaScript UI without a frontend package manager or CDN.
 - Default launch remains **Rekordbox mode**. ProLink is opt-in and must not initialize its networking in Rekordbox mode.
-- Only the author's **Rekordbox 7.2.18.0 Windows x64** installation has been live-tested. Keep the exact executable/profile checks. Do not accept other versions based on similar offsets or describe synthetic tests as hardware certification.
+- The author's **Rekordbox 7.2.18.0 Windows x64** installation and, per the owner's report, the original **7.2.19.0 Windows x64** executable have been live-tested. Keep the exact executable/profile checks. Do not accept other versions based on similar offsets or describe synthetic tests as hardware certification.
 - ProLink device support is experimental. Preserve exact device profiles, stale-data handling and source/media track identities. XDJ-AZ standalone four-deck mode is not supported.
 - ProLink uses direct DBServer metadata requests. Do not restore the legacy DeviceSQL `export.pdb` fallback without resolving the OneLibrary ID mismatch and indirect Crate Digger auto-start; see `Main.configureMetadata()` and its regression test.
 - Unknown metadata stays unknown. Current and original BPM are distinct. MASTER history observes the selected detection method (tempo master by default, optional ProLink beat/On-Air detection), not proof of audible playback.

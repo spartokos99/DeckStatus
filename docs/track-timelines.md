@@ -10,7 +10,7 @@ In **Stream → Scene Components → Master overlay** or **Deck overlays**, enab
 | Scrolling track waveform | Analyzed waveform moving past a fixed central playhead |
 | Full-track waveform | Overview of the complete track and its moving playhead |
 
-Canvas designs have an adjustable height of 32–200 px. The scrolling view shows 4–60 seconds of track time. Waveforms can use their analysis colors or the overlay accent color. The existing per-element timeline font and foreground/background overrides continue to style the labels. A master overlay only shows the current track's timeline; history cards do not fetch or draw waveforms.
+Canvas designs have an adjustable height of 32–200 px. In the master overlay, the timeline width can be set from 20% to 100% of the available track-content width; this changes only the timeline, and its bars, labels and canvas scale to fit. Choose left, center or right alignment independently; the default is right, keeping a narrower timeline attached to the right edge of the track-content area. The scrolling view shows 4–60 seconds of track time. Waveforms can use their analysis colors or the overlay accent color. The existing per-element timeline font and foreground/background overrides continue to style the labels. A master overlay only shows the current track's timeline; history cards do not fetch or draw waveforms.
 
 ## Data sources
 

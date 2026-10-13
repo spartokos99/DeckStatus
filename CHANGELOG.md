@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.4 · 2026-10-13
+
+- Add a separate exact memory profile for the original Rekordbox 7.2.19.0 Windows x64 executable. The 7.2.18.0 profiles and addresses remain unchanged; unknown builds still fail closed. The owner reports a successful live test of 7.2.19.0. See [7.2.19.0 profile](docs/rekordbox-7.2.19.md).
+- Add a left/center/right alignment setting for the resizable master-overlay timeline; its bars, labels and waveform remain scaled to the selected width.
+- Update compatibility documentation to record the owner's successful 7.2.19.0 live test and clarify that it does not certify other builds or ProLink hardware.
+
 ## 2.3.3 · 2026-09-26
 
 - Add optional ProLink playing-track detection inspired by prolink-tools: 128 detection beats, 16 interruption beats and optional mixer On-Air gating. Configure it persistently under Admin → Master detection. Existing tempo-master detection remains the default; Rekordbox behavior is unchanged.

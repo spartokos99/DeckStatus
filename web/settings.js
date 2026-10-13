@@ -44,6 +44,7 @@ function labels() {
   byId('intro').textContent = t(mode + 'Intro');
   document.title = t(mode === 'master' ? 'masterSettings' : 'deckSettings') + ' · ' + t('appName');
   byId('duration-value').textContent = options.duration + ' ms';
+  byId('timelineWidth-value').textContent = options.timelineWidth + '%';
   byId('scale-value').textContent = new Intl.NumberFormat(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(options.historyScale) + '×';
   byId('opacity-value').textContent = options.opacity + '%';
   const available = state && ['connected', 'demo'].includes(state.status);

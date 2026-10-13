@@ -20,7 +20,7 @@
 </p>
 
 > [!IMPORTANT]
-> Rekordbox support has been live-tested on **Rekordbox 7.2.18.0 Windows x64** installation. ProLink support is experimental.
+> Rekordbox 7.2.18.0 and the original Rekordbox 7.2.19.0 Windows x64 executable have been live-tested successfully by the owner. The 7.2.19.0 profile is separate and verifies the exact executable identity and 14 code guards; unknown variants remain unsupported. ProLink support is experimental.
 > 
 > I should also mention that the entire tool was 100% AI-generated; I originally intended to use it just for my own stream, but it turned out so well and proved so practical that I decided to share it so other streamers could use it too.
 
@@ -43,11 +43,12 @@
   
 ### 🍦 Rekordbox (Software)
 
-Live-tested only with the author's **Rekordbox 7.2.18.0 Windows x64 installation**. Version 2.3.1 recognizes the original executable and one specifically audited patched variant using exact SHA-256/PE profiles and loaded-code checks. Other patched files and Rekordbox versions remain unsupported; see the [profile identities](docs/rekordbox-7.2.18.md) and [validation record](docs/validation.md).
+The author's **Rekordbox 7.2.18.0 Windows x64 installation** has been live-tested, and the owner reports a successful live test with the original **7.2.19.0 Windows x64 executable**. Each build has its own exact profile; other patched files and versions remain unsupported. See the [7.2.18 profile](docs/rekordbox-7.2.18.md), [7.2.19 profile](docs/rekordbox-7.2.19.md) and [validation record](docs/validation.md).
 
 |                    | Windows | macOS |
 |:------------------:|:-------:|:-----:|
 | Rekordbox 7.2.18.0 |    ✅    |   ❌   |
+| Rekordbox 7.2.19.0 | ✅ (owner-reported) | ❌ |
 
 ### 🧰 Pro DJ Link (Hardware - Experimental)
 
@@ -79,13 +80,13 @@ For upgrades, stop DeckStatus and back up **DeckStatus.data** and **DeckStatus.n
 
 Master handovers wait **4 seconds** by default; the first master after startup or reconnect appears immediately. Set the hold time in **Admin → Master detection** to **0** for immediate handovers.
 
-Version 2.3.3 adds optional ProLink [beat/On-Air detection](docs/master-detection.md) and [five track timeline designs](docs/track-timelines.md), including scrolling analyzed waveforms. Configure detection under **Admin → Master detection** and timeline appearance in the master/deck component settings. Existing detection and timeline defaults are preserved.
+Version 2.3.4 adds exact Rekordbox 7.2.19.0 support alongside the unchanged 7.2.18.0 profiles, and lets you align a resized master-overlay timeline left, center or right. Version 2.3.3 introduced optional ProLink beat/On-Air detection and five track timeline designs, including scrolling analyzed waveforms. See the [7.2.19.0 profile](docs/rekordbox-7.2.19.md) and [timeline guide](docs/track-timelines.md). Existing detection and timeline defaults are preserved.
 
 Configure Twitch under **Admin → Twitch** and edit rules under **Stream → Automations**. Viewer sign-in uses the same Public Twitch Client ID. Live Twitch account/OBS validation is still pending; see the [Twitch setup guide](docs/twitch.md).
 
-This package is **DeckStatus v2.3.3** (`DeckStatus-2.3.3-win-x64.zip`). Published versions are available from [GitHub Releases](https://github.com/spartokos99/DeckStatus/releases).
+This package is **DeckStatus v2.3.4** (`DeckStatus-2.3.4-win-x64.zip`). Published versions are available from [GitHub Releases](https://github.com/spartokos99/DeckStatus/releases).
 
-The administrator updater can download v2.3.3 or accept its complete ZIP. Installation preserves private data and settings and requires confirmation. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+The administrator updater can download v2.3.4 or accept its complete ZIP. Installation preserves private data and settings and requires confirmation. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## 🛠️ Build and test
 

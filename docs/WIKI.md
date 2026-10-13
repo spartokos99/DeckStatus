@@ -2,11 +2,11 @@
 
 **GitHub Wiki import:** create a page named **Home** in your repository's Wiki, select Markdown and paste this entire file. The wiki Git repository was unavailable when this guide was prepared.
 
-This guide describes **DeckStatus v2.3.3**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
+This guide describes **DeckStatus v2.3.4**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
 
 ## Running DeckStatus
 
-Version 2.3.3 adds optional ProLink [playing-track detection](master-detection.md) and [analyzed waveform timelines](track-timelines.md). Per-element typography, per-scene deck selection for linked presets, and the administrator updater remain available. See [scene component controls](scene-components.md#deck-and-master-overlays) and [updates, backups and recovery](updater.md).
+Version 2.3.4 adds exact Rekordbox 7.2.19.0 support alongside the unchanged 7.2.18.0 profiles, and left/center/right alignment for resized master-overlay timelines. Version 2.3.3 added optional ProLink [playing-track detection](master-detection.md) and [analyzed waveform timelines](track-timelines.md). Per-element typography, per-scene deck selection for linked presets, and the administrator updater remain available. See the [7.2.19 profile](rekordbox-7.2.19.md), [scene component controls](scene-components.md#deck-and-master-overlays) and [updates, backups and recovery](updater.md).
 
 [Twitch automation and improved scene layers](twitch.md) are included. Link accounts under **Admin → Twitch** and create rules with multiple actions under **Stream → Automations**. It works with both DJ source modes and does not require a public inbound connection. Version 2.2.0 adds a refreshed application interface and a shared master hold time under **Admin → Master detection** (4 seconds by default).
 
@@ -23,7 +23,7 @@ Open `http://127.0.0.1:18740/`. On the first start, sign in as `admin` using the
 
 ## Compatibility and architecture
 
-**Only the author's Rekordbox 7.2.18.0 Windows x64 installation has been live-tested.** The bridge recognizes two exact executable variants: the original and the owner's audited patched file. Each must match its full-file SHA-256, size and PE profile as well as the shared 14 loaded-code guards. Hashing runs once per attachment, outside the sampling loop. Unknown variants fail closed; matching the version alone is insufficient. See the [profile table](rekordbox-7.2.18.md) and [validation record](validation.md).
+The author's Rekordbox 7.2.18.0 Windows x64 installation has been live-tested, and the owner reports a successful live test of the original 7.2.19.0 Windows x64 executable. Each version uses its own exact identity, memory layout and loaded-code guards; unknown variants fail closed, and matching the version alone is insufficient. See the [7.2.18 profile](rekordbox-7.2.18.md), [7.2.19 profile](rekordbox-7.2.19.md) and [validation record](validation.md).
 
 ProLink targets CDJ-3000, CDJ-3000X and XDJ-AZ player endpoints, plus DJM-A9 and DJM-900NXS2 mixers, with owner-reported discovery of **3× CDJ-3000 + DJM-900NXS2**. Connection and metadata validation remain pending; see the dated [validation record](validation.md). XDJ-AZ requires PRO DJ LINK → Connect to CDJ/XDJ/DJM; standalone four-deck mode is not supported. Metadata is requested directly through DBServer; the DeviceSQL export.pdb fallback is disabled because OneLibrary/Device Library Plus IDs can refer to different tracks. Missing metadata stays unknown. Firmware combinations, streaming and cloud sources are unverified. See [ProLink](prolink.md) for device-specific limits.
 

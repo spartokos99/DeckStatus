@@ -44,7 +44,29 @@ withBrowser((req,res,url)=>{
  await navigate('/master-overlay/settings?timeline=1&timelineStyle=waveform&timelineWindow=20&timelineHeight=100');
  await until(()=>evaluate(`document.querySelector('[data-track-option="timelineStyle"]')?.value==='waveform'`),'Timeline settings did not load');
  assert.deepEqual(await evaluate(`['timelineWindow','timelineHeight'].map(n=>document.querySelector('[data-track-option="'+n+'"]').value)`),['20','100']);
- const roundtrip=await evaluate(`(async()=>{const m=await import('/master-options.js'),o=m.normalize({timeline:true,timelineStyle:'overview',timelineHeight:120,timelineWindow:16,timelineColor:false});return JSON.stringify(o)===JSON.stringify(m.parseOptions('?'+m.optionQuery(o)));})()`);
+ const roundtrip=await evaluate(`(async()=>{const m=await import('/master-options.js'),o=m.normalize({timeline:true,timelineStyle:'overview',timelineHeight:120,timelineWidth:65,timelineAlign:'center',timelineWindow:16,timelineColor:false});return JSON.stringify(o)===JSON.stringify(m.parseOptions('?'+m.optionQuery(o)));})()`);
  assert(roundtrip,'Timeline design lost in OBS URL');
- console.log('Track timelines passed: five designs, real-data rendering, pause/seek, history isolation, caching, fallback, deck scoped URL, unknown position and settings roundtrip.');
+ assert.equal(await evaluate(`JSON.parse(localStorage.getItem('deckstatus.master.options')).timelineWidth`),100,'Timeline width did not default to full content width');
+ await evaluate(`(()=>{const input=document.getElementById('timelineWidth');input.value='50';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+ await until(()=>evaluate(`document.getElementById('url').value.includes('timelineWidth=50')`),'Timeline width was not applied to the master overlay URL');
+ current={...current,positionMs:5000};
+ await navigate('/master-overlay?timeline=1&fields=title,artist&timelineStyle=waveform&timelineWidth=50');
+ await until(()=>evaluate(`document.querySelector('canvas.track-waveform')?.width>0`),'Narrow timeline waveform did not render');
+ for(const align of ['left','center','right']){
+  await navigate('/master-overlay?timeline=1&fields=title,artist&timelineStyle=waveform&timelineWidth=50&timelineAlign='+align);
+  await until(()=>evaluate(`document.querySelector('.timeline')?.dataset.align===${JSON.stringify(align)}`),'Timeline alignment was not applied: '+align);
+  const geometry=await evaluate(`(()=>{const track=document.querySelector('.track:not([aria-hidden])'),info=track.querySelector('.info').getBoundingClientRect(),timeline=track.querySelector('.timeline').getBoundingClientRect(),canvas=track.querySelector('.timeline canvas');return {ratio:timeline.width/info.width,left:timeline.left-info.left,right:info.right-timeline.right,card:track.querySelector('.card').getBoundingClientRect().width,canvas:canvas.width,timelineWidth:timeline.width};})()`);
+  assert(Math.abs(geometry.ratio-.5)<.02,'Timeline width did not scale independently of the track content');
+  assert(Math.abs(geometry.canvas-geometry.timelineWidth)<2,'Waveform canvas did not scale to the selected timeline width');
+  assert.equal(geometry.card,720,'Changing timeline width changed the card width');
+  if(align==='left')assert(geometry.left<2&&geometry.right>geometry.left,'Left alignment did not keep the timeline at the content start');
+  if(align==='center')assert(Math.abs(geometry.left-geometry.right)<2,'Center alignment did not center the timeline');
+  if(align==='right')assert(geometry.right<2&&geometry.left>geometry.right,'Right alignment did not keep the timeline at the content end');
+ }
+ await navigate('/master-overlay/settings?timeline=1&timelineWidth=65&timelineAlign=center');
+ await until(()=>evaluate(`document.querySelector('#timelineAlign')?.value==='center'`),'Timeline alignment setting did not load');
+ await evaluate(`(()=>{const input=document.getElementById('timelineAlign');input.value='left';input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+ await until(()=>evaluate(`document.getElementById('url').value.includes('timelineAlign=left')`),'Timeline alignment was not applied to the master overlay URL');
+ assert.equal(await evaluate(`JSON.parse(localStorage.getItem('deckstatus.master.options')).timelineAlign`),'left','Timeline alignment did not persist');
+ console.log('Track timelines passed: five designs, real-data rendering, pause/seek, history isolation, caching, fallback, deck scoped URL, unknown position, settings roundtrip, independent width, and left/center/right alignment.');
 }).catch(error=>{console.error(error);process.exitCode=1;});

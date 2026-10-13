@@ -81,6 +81,6 @@ The capture worker owns its COM/WASAPI objects and uses shared mode. It supports
 - Synthetic browser tests cover all six render modes, FFT peak/amplitude, channels, gating, opacity with trails, configuration, EN/DE and failure states.
 - No separate validation of microphone/interface capture, actual Rekordbox-to-loopback signal fidelity or an OBS waveform session has been performed.
 
-**Rekordbox compatibility remains limited to the author's tested 7.2.18.0 Windows x64 executable.** This audio feature does not expand the injected bridge's supported builds.
+**Rekordbox compatibility is limited to the separately profiled 7.2.18.0 and 7.2.19.0 Windows x64 executables; the owner reports successful live use of both.** This audio feature does not expand the injected bridge's supported builds.
 
 Primary API references: [Microsoft: capturing a stream](https://learn.microsoft.com/en-us/windows/win32/coreaudio/capturing-a-stream), [loopback recording](https://learn.microsoft.com/en-us/windows/win32/coreaudio/loopback-recording), [GetMixFormat](https://learn.microsoft.com/en-us/windows/win32/api/audioclient/nf-audioclient-iaudioclient-getmixformat).

@@ -1,6 +1,6 @@
 # ProLink mode
 
-ProLink is an **experimental, opt-in network source**. It supplies the existing dashboard, JSON API, deck/master overlays, scenes and session history. Supported device profiles have automated synthetic-packet coverage. The owner reports successful discovery of **3× CDJ-3000 + DJM-900NXS2**, with a DJS-1000 correctly shown as unsupported. The connection previously failed because that unrelated device blocked the whole network. The fix described below still needs a hardware retest; metadata/playback interoperability is not validated. No firmware combination is certified. The separately validated Rekordbox source remains limited to the author's 7.2.18.0 Windows x64 executable.
+ProLink is an **experimental, opt-in network source**. It supplies the existing dashboard, JSON API, deck/master overlays, scenes and session history. Supported device profiles have automated synthetic-packet coverage. The owner reports successful discovery of **3× CDJ-3000 + DJM-900NXS2**, with a DJS-1000 correctly shown as unsupported. The connection previously failed because that unrelated device blocked the whole network. The fix described below still needs a hardware retest; metadata/playback interoperability is not validated. No firmware combination is certified. Rekordbox has separate exact profiles for 7.2.18.0 and 7.2.19.0; the owner reports successful live use of both versions.
 
 ## Devices
 

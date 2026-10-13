@@ -1,6 +1,29 @@
 # Validation log
 
-This is a historical record. Test counts, behavior and protocol versions describe the revision tested in each entry; later entries may supersede them. Live Rekordbox validation remains limited to the author's **7.2.18.0 Windows x64 installation**. The owner reports successful ProLink discovery of 3× CDJ-3000 + DJM-900NXS2; connection/data validation remains pending (see the newest entry).
+This is a historical record. Test counts, behavior and protocol versions describe the revision tested in each entry; later entries may supersede them. The owner reports successful live testing of the original **7.2.19.0 Windows x64** installation as well as the previously validated **7.2.18.0** profiles. The owner also reports successful ProLink discovery of 3× CDJ-3000 + DJM-900NXS2; connection/data validation remains pending.
+
+## Owner-reported Rekordbox 7.2.19.0 live test — 2026-10-13
+
+- The project owner reports that Rekordbox 7.2.19.0 worked successfully in live use. This follows the static identity/layout audit below and confirms live compatibility for the exact original Windows x64 executable profile documented in [the 7.2.19.0 profile](rekordbox-7.2.19.md).
+- This is the owner's report, not a live test performed by the documentation author. No additional claims are made here about other Rekordbox versions, patched executables, ProLink hardware or separately unvalidated features.
+
+## DeckStatus 2.3.4 release validation — 2026-10-13
+
+- Built the complete x64 Release binaries and optional ProLink helper from an isolated source copy because the existing `build/Release/DeckStatus.exe` was running. The running process was not stopped or modified.
+- Native CTest: **11 cases passed**; the optional `artwork_database` integration case was skipped because no test collection was configured. ProLink Java model/pipe tests passed and all pinned dependency/runtime checks passed.
+- **All 16 browser/application regression suites passed**, including master/deck settings, timeline rendering and alignment, presets/scenes, authentication, updater, Twitch UI and LAN/localhost network smoke. The preset API now validates and retains timeline width/alignment options.
+- EXE and DLL resources report **2.3.4 / 2.3.4.0** and all nine embedded icon sizes passed. The portable ZIP extracted with all **451 staged files** intact and passed its isolated authenticated EN/DE demo/idle-ProLink smoke test.
+- No production Rekordbox injection, ProLink hardware discovery or audio capture was started. Rekordbox 7.2.19.0 live compatibility remains an owner-reported result, not a test performed as part of this release build.
+- The full portable ZIP, a fresh extraction and its isolated demo smoke test were verified; the published ZIP and SHA-256 sidecar are listed in the GitHub release.
+
+## Rekordbox 7.2.19.0 static profile audit — 2026-10-13
+
+- Independently checked the installed `D:\Programs\rekordbox 7.2.19\rekordbox.exe` read-only: AMD64 PE fingerprint, file size **103,540,656 bytes**, SHA-256 `c9ed23e974c51c75e2ec069fbd2679a3dbe606be9e79e9cbbd13d6418ab11c37`, image size, entry point, timestamp and all **14 mapped code guards** match the added profile.
+- Targeted `dumpbin` disassembly of the same file confirmed the RIP-relative component global, manager member, four player slots, player vtable/index, DeviceComponent vtable and cached-value member used by the profile.
+- The installed Rekordbox 7.2.18.0 patched executable at `D:\Programs\rekordbox 7.2.18\rekordbox.exe` still matches its existing identity and all 14 existing guards. Its profile and memory addresses were not changed.
+- The Release native build succeeded. All **11 executed CTest cases passed**; the optional `artwork_database` integration case was skipped because it was not configured. The profile tests exercise each profile's identity and its complete guard set, plus altered-PE/guard rejection and SHA-256 checks.
+- The compiled verifier accepted both installed executables: **7.2.19.0 original** and **7.2.18.0 patched**, including full-file SHA-256 and all 14 mapped guards per file. The verifier maps files read-only; it does not execute or inject them. The full ProLink build was not run (`-SkipProLink`).
+- No Rekordbox process was started or injected, and no live BPM, timeline or Master sampling was performed on 7.2.19.0. This establishes static profile agreement, not live compatibility certification.
 
 ## DeckStatus 2.3.3 release validation — 2026-09-26
 
