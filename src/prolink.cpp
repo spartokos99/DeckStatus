@@ -15,7 +15,7 @@ using Json = nlohmann::json;
 Json prolink_empty_state(const std::string& message) {
     Json decks = Json::array();
     for (int id = 1; id <= 4; ++id) {
-        Json deck = {{"id", id}, {"loaded", false}, {"metadataAvailable", false}};
+        Json deck = {{"id", id}, {"loaded", false}, {"metadataAvailable", false}, {"statusAvailable", false}};
         for (const auto* key : {"trackId", "title", "artist", "album", "key", "genre", "label", "bpm", "originalBpm",
              "coverUrl", "positionMs", "durationMs", "isMaster", "playing", "onAir", "synced", "pitch", "playerNumber"}) deck[key] = nullptr;
         decks.push_back(std::move(deck));

@@ -16,6 +16,7 @@ namespace deckstatus {
 
 // One server session, independent of browser clients. Repeated tracks have distinct
 // entry IDs; switching decks with the same track does not count as a track change.
+// Only confirmed transitions enter history, never an overlay's display cache.
 class MasterHistory {
 public:
     using Json = nlohmann::json;
@@ -29,6 +30,7 @@ public:
         sampled_ = std::chrono::steady_clock::now();
         status_ = state.value("status", std::string("disconnected"));
         demo_ = state.value("demo", false);
+        available_ = state.value("masterAvailable", status_ == "connected" || status_ == "demo");
         active_ = false;
         if (status_ != "connected" && status_ != "demo") return;
         const auto master = state.value("masterDeckId", Json(nullptr));
@@ -63,6 +65,7 @@ public:
         std::lock_guard lock(mutex_);
         const bool fresh = std::chrono::steady_clock::now() - sampled_ <= std::chrono::seconds(3);
         return {{"schemaVersion", 1}, {"status", fresh ? status_ : "stale"}, {"demo", demo_},
+                {"masterAvailable", available_ && fresh},
                 {"current", active_ && fresh ? current_ : Json(nullptr)},
                 {"history", history_}, {"historyLimit", limit}};
     }
@@ -143,7 +146,7 @@ private:
     std::vector<Json> archive_;
     std::set<std::uint32_t> full_track_ids_;
     std::uint64_t sequence_{};
-    bool active_{}, demo_{};
+    bool active_{}, demo_{}, available_{};
     std::string status_{"starting"};
     std::chrono::steady_clock::time_point sampled_ = std::chrono::steady_clock::now();
 };

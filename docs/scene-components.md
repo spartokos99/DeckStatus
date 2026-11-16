@@ -13,11 +13,11 @@ The editor can also add blank components. **Save as new** in the selected layer'
 
 ## Deck and master overlays
 
-Both settings pages offer title, artist, album, label, key, **BPM** (original analysed tempo), **BPM (Current)** (live tempo) and cover as separate fields. Round BPM to whole numbers if preferred. **Hide missing information** removes absent metadata, covers and unavailable timelines; a missing title retains an informative fallback. With this option off, a simple disc is shown for absent/failed covers. Legacy URLs with one BPM switch still display both values.
+Both settings pages offer title, artist, album, label, key, **BPM** (original analysed tempo), **BPM (Current)** (live tempo) and cover as separate fields. **BPM display** selects whole numbers, one decimal place or two decimal places (default) for both tempo values, including master history. Values are rounded and decimal modes retain trailing zeros; English uses a decimal point and German a comma. The selection is saved in OBS URLs, presets and scene layers. Older whole-number settings remain whole numbers; older decimal settings use two decimal places. **Hide missing information** removes absent metadata, covers and unavailable timelines; a missing title retains an informative fallback. With this option off, a simple disc is shown for absent/failed covers. Legacy URLs with one BPM switch still display both values.
 
 Use the compact expandable sections for the additional controls:
 
-- **Track information:** integer BPM, missing-data behaviour and an independent field set for previous master tracks. Timeline remains current-track-only.
+- **Track information:** BPM decimal places, missing-data behaviour and an independent field set for previous master tracks. Timeline remains current-track-only.
 - **Cover:** left, above or right of the text; square or round; optional turntable rotation for round covers. Fit cover to content height applies to left/right covers.
 - **Layout & long text:** left/centre/right content alignment, spacing between metadata rows and ellipsis, Sliding text or Expand container. Track spacing and history size/alignment stay separate.
 - **Individual text styles:** choose a field, then override foreground/background, font and top/bottom margins; reset it to the shared design when needed. Ten local system-font choices need no CDN. Version 2.3.2 additionally supports font size (8–200 px), normal/italic/oblique style and weight (100–900) per field. Empty overrides inherit the shared design; installed fonts determine which weights/styles have native faces.

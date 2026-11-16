@@ -65,7 +65,7 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    await click('[data-tab=users]');await fill('user-name','helper');await fill('user-password','Temporary helper passphrase');await evaluate('document.getElementById("user-form").requestSubmit()');await until(()=>evaluate('document.getElementById("users-list").children.length===2'),'User creation failed');
    await presetPage('/master-overlay/settings?history=2&historyScale=0.55&align=right&timeline=1&width=640&lang=en');
    const trackOption=async(name,value)=>evaluate(`{const input=document.querySelector('[data-track-option="${name}"]');if(input.type==='checkbox')input.checked=${JSON.stringify(value)};else input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('change'));}`);
-   await trackOption('bpmInteger',true);await trackOption('hideMissing',true);await trackOption('historySameFields',false);
+   await trackOption('bpmDecimals',1);await trackOption('hideMissing',true);await trackOption('historySameFields',false);
    await evaluate(`for(const input of document.querySelectorAll('[data-history-field]')){input.checked=['title','label'].includes(input.value);input.dispatchEvent(new Event('change'));}`);
    await trackOption('coverPosition','right');await trackOption('coverShape','round');await trackOption('coverSpin',true);
    await evaluate(`{const input=document.querySelector('[data-track-option="font"]');input.value='impact';input.dispatchEvent(new Event('input'));}`);
@@ -80,6 +80,7 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    assert.equal(await evaluate('document.getElementById("saved-preset").selectedOptions[0].textContent'),'Studio <Master>','Preset name became markup');
    assert.equal(await evaluate('document.getElementById("app-mode").hidden'),false,'Overlay settings hid the current mode');
    await change('history',0);await click('#preset-load');assert.equal(await evaluate('document.getElementById("history").value'),'2','Master preset did not restore history');
+   assert.equal(await evaluate(`document.querySelector('[data-track-option=bpmDecimals]').value`),'1','Master preset did not restore BPM precision');
    assert.equal(await evaluate(`document.querySelector('[data-track-option="font"]').value`),'impact','Individual font was lost on preset load');
    for(const [name,value] of [['fontSize','46'],['fontStyle','italic'],['fontWeight','800']])assert.equal(await evaluate(`document.querySelector('[data-track-option="${name}"]').value`),value,'Individual typography was lost on preset load');
    assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-history-field]:checked')].map(i=>i.value)`),['title','label'],'History fields were lost on preset load');
@@ -109,6 +110,7 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    assert.equal(await evaluate('document.getElementById("option-deck").matches(":disabled")'),false,'Linked deck selection is disabled');
    await change('option-deck',1);
    await change('item-source-preset','');
+   await trackOption('bpmDecimals',0);
    await fill('option-fontSize',31);await evaluate('document.getElementById("option-fontSize").dispatchEvent(new Event("input"))');
    await fill('scene-name','Studio scene');await evaluate('document.getElementById("scene-name").dispatchEvent(new Event("input"))');
    await fill('item-x','420');await evaluate('document.getElementById("item-x").dispatchEvent(new Event("input"))');await fill('item-y','560');await evaluate('document.getElementById("item-y").dispatchEvent(new Event("input"))');
@@ -124,11 +126,13 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    assert.equal(saved.items[0].name,'Studio master');assert.equal(saved.items[0].options.history,3);assert.equal(saved.items[0].options.historyScale,.55);assert.equal(saved.items[0].options.align,'right');
    assert.equal(saved.items[2].options.deck,1,'Deck override was not saved');
    assert.equal(saved.items[0].options.fieldStyles.title.fontSize,46);assert.equal(saved.items[0].options.fieldStyles.title.fontStyle,'italic');assert.equal(saved.items[0].options.fieldStyles.title.fontWeight,800);
-   assert.equal(saved.items[0].options.fieldStyles.title.font,'impact');assert.equal(saved.items[0].options.coverPosition,'right');assert.equal(saved.items[0].options.bpmInteger,true);assert.deepEqual(saved.items[0].options.historyFields,['title','label']);
+   assert.equal(saved.items[0].options.fieldStyles.title.font,'impact');assert.equal(saved.items[0].options.coverPosition,'right');assert.equal(saved.items[0].options.bpmDecimals,1);assert.deepEqual(saved.items[0].options.historyFields,['title','label']);
+   assert.equal(saved.items[2].options.bpmDecimals,0,'Independent scene BPM precision was not saved');
    assert.equal(saved.items[1].options.gain,2.3);assert.equal(saved.items[1].options.mode,'bars');assert.equal(saved.items[2].options.fontSize,31);assert.deepEqual(saved.items[2].options.fields,['title','artist','bpm','currentBpm']);
    assert.equal(saved.items[0].presetId,masterPreset);assert.equal(saved.items[1].presetId,wavePreset);assert.equal(saved.items[2].presetId,'');
    const savedPresets=await evaluate('(async()=> (await (await fetch("/api/presets")).json()).presets)()');
    assert.equal(savedPresets.find(p=>p.id===deckPreset).options.fontSize,30,'Editing a scene modified the preset');
+   assert.equal(savedPresets.find(p=>p.id===deckPreset).options.bpmDecimals,2,'Editing scene precision changed the deck preset');
    assert.equal(savedPresets.find(p=>p.id===masterPreset).revision,2,'Preset update did not keep its identity');
    await evaluate(`(async()=>{const p=(await (await fetch('/api/presets')).json()).presets.find(p=>p.id===${JSON.stringify(masterPreset)});p.options.history=7;await fetch('/api/presets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',id:p.id,revision:p.revision,preset:p})});})()`);
    assert.equal(await evaluate('(async()=> (await (await fetch("/api/scenes")).json()).scenes[0].items[0].options.history)()'),7,'Updating a preset did not update the linked scene');
@@ -162,6 +166,7 @@ async function stop(){if(!child||child.exitCode!==null)return;const closed=new P
    const restoredAudio=await evaluate('(async()=> (await fetch("/api/admin/audio")).json())()');assert.equal(restoredAudio.settings.deviceId,savedAudioId);assert.equal(restoredAudio.settings.autoStart,false);assert.equal(restoredAudio.state.status,'stopped');
    const persisted=await evaluate('(async()=> ({ratings:(await (await fetch("/api/admin/ratings")).json()).tracks,scenes:(await (await fetch("/api/scenes")).json()).scenes}))()');assert.equal(persisted.scenes[0].name,'Updated scene');assert.equal(persisted.ratings.length,0);
    const persistedPresets=await evaluate('(async()=> (await (await fetch("/api/presets")).json()).presets)()');assert.equal(persistedPresets.length,3);assert.equal(persistedPresets.find(p=>p.id===masterPreset).options.history,7);assert.equal(persisted.scenes[0].items[0].options.history,7);
+   assert.equal(persistedPresets.find(p=>p.id===masterPreset).options.bpmDecimals,1);assert.equal(persisted.scenes[0].items[0].options.bpmDecimals,1);assert.equal(persisted.scenes[0].items[2].options.bpmDecimals,0);
    // A different browser preference state still has the same server presets.
    await evaluate('localStorage.clear()');await presetPage('/overlay/settings?lang=de');await change('saved-preset',deckPreset);await click('#preset-load');
    assert.equal(await evaluate('document.getElementById("deck").value'),'2');assert.equal(await evaluate('document.getElementById("preset-create").textContent'),'Als neu speichern');

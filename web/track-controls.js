@@ -20,7 +20,10 @@ export function trackExtras(root, {read, write, master}) {
     input.dataset.trackOption=key;label.append(span,input);parent.append(label);return input;
   };
   const info=section('trackInfoOptions');
-  for(const name of ['bpmInteger','hideMissing'])inputs.set(name,row(info,name,'checkbox'));
+  const bpmDecimals=row(info,'bpmDecimals','select',[]);
+  for(const value of [0,1,2]){const key='bpmDecimals'+value,option=new Option(t(key),value);option.dataset.i18n=key;bpmDecimals.add(option);}
+  inputs.set('bpmDecimals',bpmDecimals);
+  inputs.set('hideMissing',row(info,'hideMissing','checkbox'));
   if(master){
     const same=row(info,'historySameFields','checkbox');inputs.set('historySameFields',same);
     const group=document.createElement('div');group.className='fields';info.append(group);
@@ -71,7 +74,7 @@ export function trackExtras(root, {read, write, master}) {
   }
   for(const [name,input] of inputs)input.addEventListener('change',()=>{
     if(!input.checkValidity())return;
-    write({...read(),...(name==='historySameFields'?{historyFields:input.checked?null:[...read().fields]}:{[name]:input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value})});refresh();
+    write({...read(),...(name==='historySameFields'?{historyFields:input.checked?null:[...read().fields]}:{[name]:input.type==='checkbox'?input.checked:input.type==='number'||name==='bpmDecimals'?Number(input.value):input.value})});refresh();
   });
   function refresh(){const options=read();for(const [name,input] of inputs){if(input.type==='checkbox')input.checked=name==='historySameFields'?options.historyFields===null:options[name];else input.value=options[name];}
     for(const [name,disabled] of [['timelineWindow',options.timelineStyle!=='waveform'],['timelineHeight',['bar','segments'].includes(options.timelineStyle)],['timelineColor',!['waveform','overview'].includes(options.timelineStyle)]]){inputs.get(name).disabled=disabled;inputs.get(name).dataset.optionDisabled=String(disabled);}

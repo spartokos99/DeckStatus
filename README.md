@@ -28,7 +28,7 @@
 
 - 🎛️ **Four-deck dashboard:** title, artist, album, label, key, cover, current/original BPM and timelines.
 - 🎨 **OBS overlays:** individual decks, current master with adjustable history, and six audio waveform styles - fully customizable.
-- ⏱️ **Stable master detection:** filter brief tempo-master handovers with a shared hold time for overlays, the dashboard and Full History.
+- ⏱️ **Shared now-playing detection:** ProlinkTools-style beat timing, interruption tolerance and optional end-only handovers for overlays, the dashboard and Full History.
 - 🧩 **Scene editor:** insert saved presets on a monitor-sized canvas.
 - 🔄 **Updater:** release indicators, ZIP upload or verified GitHub download, backups and restart under **Admin → Updater**. See the [update guide](docs/updater.md).
 - 🎶 **Public Full History:** viewers can browse played tracks at `/history`. Rating tracks requires a separate Twitch sign-in.
@@ -76,15 +76,15 @@ Stop with **Ctrl+C**. Use `DeckStatus.exe --demo` to explore synthetic tracks wi
 
 For upgrades, stop DeckStatus and back up **DeckStatus.data** and **DeckStatus.network.json** before replacing application files. Existing users, presets, scenes, ratings and OBS links remain valid. Versions 2.2.0 and later automatically move uploaded images/GIFs into **DeckStatus.data/media**; keep the entire data directory together. Restore the pre-upgrade backup if you need to downgrade.
 
-Master handovers wait **4 seconds** by default; the first master after startup or reconnect appears immediately. Set the hold time in **Admin → Master detection** to **0** for immediate handovers.
+Version **2.4.0** replaces both previous master-detection methods with one engine: **128 beats**, **16 interruption beats**, optional end-only reporting and ProLink On-Air gating. Configure it in **Admin → Master detection**. Rekordbox uses timeline-based playback inference, not a mixer signal. Overlay cards survive brief interruptions for up to **10 seconds**, visibly marked as cached. See [master detection](docs/master-detection.md) for timing, migration and limitations.
 
-Version 2.3.4 adds exact Rekordbox 7.2.19.0 support alongside the unchanged 7.2.18.0 profiles, and lets you align a resized master-overlay timeline left, center or right. Version 2.3.3 introduced optional ProLink beat/On-Air detection and five track timeline designs, including scrolling analyzed waveforms. See the [7.2.19.0 profile](docs/rekordbox-7.2.19.md) and [timeline guide](docs/track-timelines.md). Existing detection and timeline defaults are preserved.
+Deck/master designs now select **whole numbers, one or two decimal places** for BPM. Existing presets and OBS links remain valid. Detection settings migrate automatically, but the former tempo-master hold no longer applies. Install the complete package, including its matching EXE and bridge DLL. Exact [Rekordbox profiles](docs/rekordbox-7.2.19.md) and existing [timeline designs](docs/track-timelines.md) remain unchanged; the rewritten detection still needs live hardware/OBS validation.
 
 Configure Twitch under **Admin → Twitch** and edit rules under **Stream → Automations**. Viewer sign-in uses the same Public Twitch Client ID. Live Twitch account/OBS validation is still pending; see the [Twitch setup guide](docs/twitch.md).
 
-This package is **DeckStatus v2.3.4** (`DeckStatus-2.3.4-win-x64.zip`). Published versions are available from [GitHub Releases](https://github.com/spartokos99/DeckStatus/releases).
+This package is **DeckStatus v2.4.0** (`DeckStatus-2.4.0-win-x64.zip`). Published versions are available from [GitHub Releases](https://github.com/spartokos99/DeckStatus/releases).
 
-The administrator updater can download v2.3.4 or accept its complete ZIP. Installation preserves private data and settings and requires confirmation. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+The administrator updater can download v2.4.0 or accept its complete ZIP. Installation preserves private data and settings and requires confirmation. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## 🛠️ Build and test
 
@@ -103,6 +103,7 @@ node tests/browser_portal_test.cjs
 node tests/browser_creative_test.cjs
 node tests/browser_admin_audio_test.cjs
 node tests/browser_admin_master_test.cjs
+node tests/browser_track_cache_test.cjs
 node tests/browser_updater_test.cjs
 node tests/updater_test.cjs
 node tests/browser_twitch_layers_test.cjs

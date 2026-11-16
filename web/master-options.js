@@ -9,7 +9,7 @@ export const presets = {
   minimal: { background: '#101820', textColor: '#ffffff', mutedColor: '#d3e2ea', accent: '#80c9ff', opacity: 0, radius: 0, border: 0, shadow: false }
 };
 export const defaults = { infoVersion: 2, history: 5, fields: fieldNames.filter(name => name !== 'label'), historyFields: null,
-  bpmInteger: false, hideMissing: false, contentAlign: 'left', overflow: 'ellipsis', elementGap: 0, fieldStyles: {},
+  bpmDecimals: 2, hideMissing: false, contentAlign: 'left', overflow: 'ellipsis', elementGap: 0, fieldStyles: {},
   coverPosition: 'left', coverShape: 'square', coverSpin: false, coverFit: false,
   timelineStyle: 'bar', timelineHeight: 64, timelineWindow: 12, timelineColor: true,
   duration: 650, width: 720, timelineWidth: 100, timelineAlign: 'right', historyScale: 1, align: 'left',
@@ -46,7 +46,8 @@ export function normalize(input = {}) {
   }
   return {
     infoVersion: 2, historyFields: Array.isArray(input.historyFields) ? selectedFields(input.historyFields) : null,
-    bpmInteger: flag('bpmInteger'), hideMissing: flag('hideMissing'), fieldStyles,
+    bpmDecimals: integer(input.bpmDecimals, [true, 'true', '1', 1].includes(input.bpmInteger) ? 0 : defaults.bpmDecimals, 0, 2),
+    hideMissing: flag('hideMissing'), fieldStyles,
     timelineStyle: ['bar','segments','ring','waveform','overview'].includes(input.timelineStyle) ? input.timelineStyle : 'bar',
     timelineHeight: integer(input.timelineHeight, 64, 32, 200), timelineWindow: integer(input.timelineWindow, 12, 4, 60), timelineColor: flag('timelineColor'),
     timelineAlign: ['left', 'center', 'right'].includes(input.timelineAlign) ? input.timelineAlign : defaults.timelineAlign,

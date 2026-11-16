@@ -214,6 +214,7 @@ namespace
                     member(manager, slot, verified_player) && verified_player == player)
                 {
                     ++valid_players;
+                    current.sample_available = 1;
                     current.track_id = track_id;
                     current.bpm_x100 = track_id ? bpm : 0;
                     timeline_of_player(layout, base, player, current);

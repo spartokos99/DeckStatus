@@ -91,7 +91,7 @@ function Latest {`));
  assert.equal((await command('check')).status,403,'Operator allowed update');cookie=adminCookie;
  const preset=await request('/api/presets',{action:'save',preset:{name:'Preserved master',type:'master',options:{history:3}}});assert.equal(preset.status,200);
  const scene=await request('/api/scenes',{action:'save',scene:{name:'Preserved scene',width:1920,height:1080,background:'transparent',items:[{id:'master',type:'master',presetId:preset.data.id,x:20,y:30,width:640,height:500,opacity:1,visible:true,options:{history:3}}]}});assert.equal(scene.status,200);
- assert.equal((await request('/api/admin/master',{holdMs:7000})).status,200);
+ assert.equal((await request('/api/admin/master',{detectionBeats:64,onlyAfterEnd:true})).status,200);
  fs.mkdirSync(path.join(data,'media'),{recursive:true});fs.writeFileSync(path.join(data,'media','private-fixture.bin'),'private media');
  const originalStore=fs.readFileSync(path.join(data,'portal.json')),originalNetwork=fs.readFileSync(network);
  const packageInfo=await upload(zip);assert.equal(packageInfo.package.version,version);assert.equal(packageInfo.package.sha256,crypto.createHash('sha256').update(fs.readFileSync(zip)).digest('hex'));
@@ -111,7 +111,7 @@ function Latest {`));
  assert.equal(fs.readFileSync(path.join(data,'media','private-fixture.bin'),'utf8'),'private media');assert.equal(fs.existsSync(path.join(root,'web','obsolete.txt')),false);assert.equal(fs.readFileSync(path.join(root,'keep.txt'),'utf8'),'unmanaged');
  assert.deepEqual(fs.readFileSync(path.join(root,'DeckStatus.exe')),before);
  assert.equal((await request('/api/audio/state')).data.status,'stopped');assert.equal((await request('/api/presets')).data.presets[0].id,preset.data.id);
- assert.equal((await request('/api/scenes')).data.scenes[0].key,scene.data.key);assert.equal((await request('/api/admin/master')).data.holdMs,7000);
+ assert.equal((await request('/api/scenes')).data.scenes[0].key,scene.data.key);assert.equal((await request('/api/admin/master')).data.detectionBeats,64);assert.equal((await request('/api/admin/master')).data.onlyAfterEnd,true);
  const installed=(await state()).lastResult;assert.equal(installed.status,'updateInstalled');assert.ok(fs.existsSync(path.join(installed.backup,'data-backup','portal.json')));
  await until(()=>fs.existsSync(path.join(installed.backup,'result.json')),'Apply helper did not complete');
  // Lock the DLL so replacement fails after the EXE was swapped. The old installation must return.

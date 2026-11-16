@@ -7,7 +7,7 @@
 #include "language.h"
 #include "updater.h"
 #include <map>
-#include "master_gate.h"
+#include "master_detector.h"
 #include "master_history.h"
 #include "deckstatus_version.h"
 
@@ -392,22 +392,22 @@ int run_server(const std::string& host, int port,
             audio_control.select(body["deviceId"].template get<std::string>());
             json_response(response, audio.state());
         });
-        // The hold filter is server-wide: every overlay, the dashboard and Full History
-        // observe the same confirmed master, so it is configured once in Admin.
-        auto* master_gate = features ? features->master_gate : nullptr;
-        const auto master_description=[master_gate,can_control](const httplib::Request& request){
-            Json result=master_gate?master_gate->describe():Json{{"holdMs",MasterGate::default_hold_ms},{"defaultHoldMs",MasterGate::default_hold_ms},{"maxHoldMs",MasterGate::max_hold_ms}};
-            result["available"]=master_gate!=nullptr;result["canControl"]=can_control(request);return result;
+        auto* master_detector = features ? features->master_detector : nullptr;
+        const auto master_description=[master_detector,features,can_control](const httplib::Request& request){
+            Json result=master_detector?master_detector->describe():MasterDetector::defaults();
+            result["available"]=master_detector!=nullptr;result["canControl"]=can_control(request);
+            result["onAirAvailable"]=features&&features->mode=="prolink";
+            result["playbackSource"]=features&&features->mode=="prolink"?"device":"position";return result;
         };
         server.Get("/api/admin/master", Access::Admin, [master_description](const auto& request,auto& response){json_response(response,master_description(request));});
-        server.Post("/api/admin/master", Access::Admin, [master_gate,portal,can_control,master_description](const auto& request,auto& response){
+        server.Post("/api/admin/master", Access::Admin, [master_detector,portal,can_control,master_description](const auto& request,auto& response){
             if(!can_control(request))throw PortalError(403,"networkReadOnly");
-            if(!master_gate)throw PortalError(503,"masterSettingsUnavailable");
+            if(!master_detector)throw PortalError(503,"masterSettingsUnavailable");
             const auto body=portal_body(request);
-            if(!MasterGate::valid_settings(body))throw PortalError(400,"masterSettingsInvalid");
-            // Persist first: a rejected write must not leave the running gate ahead of the store.
+            if(!MasterDetector::valid_settings(body))throw PortalError(400,"masterSettingsInvalid");
+            // Persist first: a rejected write must not leave the running detector ahead of the store.
             const auto saved=portal?portal->save_master_settings(body):body;
-            master_gate->configure(saved);
+            master_detector->configure(saved);
             json_response(response,master_description(request));
         });
         auto* updater=features?features->updater:nullptr;

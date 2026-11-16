@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.4.0 · 2026-11-16
+
+- Replace both previous master-detection methods with one shared ProlinkTools-style now-playing engine in Rekordbox and ProLink. Admin → Master detection offers smart timing (128 beats), interruption allowance (16 beats), end-only reporting (off) and ProLink On-Air gating (on).
+- Prevent already reported outgoing tracks from becoming fallback masters during the same playback episode, removing the previous A → B → A history bounce. Only the sampler advances detection; HTTP polling cannot create extra transitions.
+- Preserve deck/master overlay cards and artwork for up to ten seconds during source interruptions, with a visible cached-data label and hidden timeline. Keep known static metadata on the same track, clear on confirmed stop/unload or access rejection, and separate cache identities across server restarts.
+- Add whole-number, one-decimal and two-decimal BPM choices to deck/master overlays and scene designs. Preserve legacy `bpmInteger` settings, locale-specific separators, trailing zeros and the distinction between current and original BPM.
+- Fix deck-transition cleanup to remove only outgoing track cards, not decorative hidden elements.
+
+### Upgrade and compatibility
+
+- Install the **complete ZIP**, including the matching protocol-4 **DeckStatus.exe** and **DeckStatusBridge.dll**, updater helper and bundled ProLink runtime. Do not mix host/DLL versions. Use **Admin → Updater** and confirm installation, or stop DeckStatus before replacing application files manually.
+- Back up and preserve the complete **DeckStatus.data** directory and **DeckStatus.network.json**. Users, ratings, presets, scenes, media and OBS keys remain valid. Login sessions and played-track history reset at restart; restore the pre-upgrade backup when downgrading.
+- **Detection behavior changes for existing installations.** The tempo-master/hold method is removed. Old `holdMs` / `prolinkMethod` settings are discarded; valid beat/interruption/On-Air choices are retained automatically. End-only reporting defaults to off. At 128 BPM, the default 128-beat overlap threshold takes 60 seconds.
+- Rekordbox playback is inferred from verified timeline movement because the audited profiles do not expose transport or mixer On-Air signals. ProLink uses direct device states; disable On Air when no reliable supported mixer signal is available. Neither mode proves audible playback.
+- Exact Rekordbox 7.2.18.0 and 7.2.19.0 executable/profile checks remain unchanged. ProLink remains experimental; XDJ-AZ standalone four-deck mode is unsupported. Automated checks do not certify this rewritten detector on live Rekordbox/CDJ/mixer hardware or in OBS. See [master detection](docs/master-detection.md) and [validation](docs/validation.md).
+
 ## 2.3.4 · 2026-10-13
 
 - Add a separate exact memory profile for the original Rekordbox 7.2.19.0 Windows x64 executable. The 7.2.18.0 profiles and addresses remain unchanged; unknown builds still fail closed. The owner reports a successful live test of 7.2.19.0. See [7.2.19.0 profile](docs/rekordbox-7.2.19.md).

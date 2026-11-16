@@ -18,6 +18,11 @@ inline void linked_presets_checks(const std::filesystem::path& root) {
         Json layer={{"id","master"},{"type","master"},{"presetId",preset_id},{"x",23},{"y",40},{"width",750},{"height",800},{"rotation",17},{"opacity",.7},{"visible",true},{"options",design["options"]}};
         Json scene={{"name","Linked scene"},{"width",1920},{"height",1080},{"background","transparent"},{"items",Json::array({layer})}};
         auto saved=p.edit_scene({{"action","save"},{"scene",scene}});scene_id=saved["id"];key=saved["key"];
+        for(const auto& value:Json::array({-1,3,1.5,"1",true,nullptr})) {
+            auto rejected=design;rejected["options"]["bpmDecimals"]=value;fails(400,[&]{p.edit_preset({{"action","save"},{"preset",rejected}});});
+            auto rejected_scene=scene;rejected_scene["items"][0]["options"]["bpmDecimals"]=value;fails(400,[&]{p.edit_scene({{"action","save"},{"scene",rejected_scene}});});
+        }
+        design["options"].erase("bpmInteger");design["options"]["bpmDecimals"]=1;
         design["options"]["historyFields"]=Json::array({"artist","label"});
         design["options"]["timelineStyle"]="overview";
         const auto held=CreateFileW((root/"portal.json").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,nullptr);check(held!=INVALID_HANDLE_VALUE,"Could not lock linked store");
@@ -29,20 +34,22 @@ inline void linked_presets_checks(const std::filesystem::path& root) {
         check(updated["key"]==key,"Preset update changed OBS key");
         fails(409,[&]{p.edit_scene({{"action","save"},{"id",scene_id},{"revision",1},{"scene",saved}});});
         auto mismatch=scene;mismatch["items"][0]["type"]="deck";fails(400,[&]{p.edit_scene({{"action","save"},{"scene",mismatch}});});
-        auto deck_design=design;deck_design["type"]="deck";deck_design["name"]="Linked deck";deck_design["options"]["deck"]=1;
+        auto deck_design=design;deck_design["type"]="deck";deck_design["name"]="Linked deck";deck_design["options"]["deck"]=1;deck_design["options"]["bpmDecimals"]=0;
         auto deck_preset=p.edit_preset({{"action","save"},{"preset",deck_design}});
         auto deck_scene=scene;auto& deck_layer=deck_scene["items"][0];deck_layer["type"]="deck";deck_layer["presetId"]=deck_preset["id"];deck_layer["options"]=deck_design["options"];deck_layer["options"]["deck"]=4;
         auto deck_saved=p.edit_scene({{"action","save"},{"scene",deck_scene}});
         check(deck_saved["items"][0]["options"]["deck"]==4,"Linked scene save overwrote the selected deck");
-        deck_design["options"]["deck"]=2;deck_design["options"]["fieldStyles"]["title"]["fontSize"]=60;
+        deck_design["options"]["deck"]=2;deck_design["options"]["fieldStyles"]["title"]["fontSize"]=60;deck_design["options"]["bpmDecimals"]=2;
         p.edit_preset({{"action","save"},{"id",deck_preset["id"]},{"revision",1},{"preset",deck_design}});
         const auto deck_updated=p.scene(deck_saved["id"],true);
         check(deck_updated["items"][0]["options"]["deck"]==4&&deck_updated["items"][0]["options"]["fieldStyles"]["title"]["fontSize"]==60,"Preset update lost deck override or typography");
+        check(deck_saved["items"][0]["options"]["bpmDecimals"]==0&&deck_updated["items"][0]["options"]["bpmDecimals"]==2,"Linked deck lost BPM precision");
         deck_scene["items"][0]["options"]["deck"]=5;fails(400,[&]{p.edit_scene({{"action","save"},{"scene",deck_scene}});});
     }
     {
         Portal p(root);check(p.prolink_settings()==preferences,"ProLink preferences lost on restart");
         auto before=p.scene(scene_id,true);check(before["items"][0]["presetId"]==preset_id,"Preset link lost on restart");
+        check(before["items"][0]["options"]["bpmDecimals"]==1,"BPM precision lost on restart");
         p.edit_preset({{"action","delete"},{"id",preset_id},{"revision",2}});
         auto after=p.scene(scene_id,true);check(after["items"][0]["presetId"]==""&&after["items"][0]["options"]==before["items"][0]["options"]&&after["key"]==key,"Deleting preset lost layer or key");
     }

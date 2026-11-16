@@ -1,4 +1,3 @@
-#include "master_gate.h"
 #include "master_history.h"
 #include <iostream>
 #include <stdexcept>
@@ -12,111 +11,6 @@ Json sample(unsigned track, unsigned deck = 1, bool metadata = true) {
         {"decks", Json::array({{{"id", deck}, {"trackId", track}, {"loaded", track != 0},
             {"metadataAvailable", metadata}, {"title", metadata ? Json("Track " + std::to_string(track)) : Json(nullptr)},
             {"artist", "Artist"}, {"album", "Album"}, {"key", "8A"}, {"bpm", 128.5}, {"originalBpm", 126}}})}};
-}
-
-// Two decks in one state, so a withheld master still finds its deck in the array.
-Json pair_sample(unsigned deck_one, unsigned deck_two, unsigned master) {
-    Json decks = Json::array();
-    for (unsigned id = 1; id <= 2; ++id) {
-        const auto track = id == 1 ? deck_one : deck_two;
-        decks.push_back({{"id", id}, {"trackId", track}, {"loaded", track != 0}, {"metadataAvailable", true},
-            {"title", "Track " + std::to_string(track)}, {"artist", "Artist"}, {"album", "Album"},
-            {"key", "8A"}, {"bpm", 128.0}, {"originalBpm", 126}, {"isMaster", nullptr}});
-    }
-    return {{"status", "connected"}, {"demo", false}, {"updatedAt", 1234},
-        {"masterDeckId", master ? Json(master) : Json(nullptr)}, {"decks", std::move(decks)}};
-}
-
-void gate_checks() {
-    using Gate = deckstatus::MasterGate;
-    const auto start = Gate::Clock::now();
-    Gate gate(4000);
-    deckstatus::MasterHistory gated;
-    // Simulated time keeps the hold deterministic; the history itself stays live.
-    const auto at = [&](int ms, unsigned deck_one, unsigned deck_two, unsigned master) {
-        auto state = pair_sample(deck_one, deck_two, master);
-        gate.apply(state, start + std::chrono::milliseconds(ms));
-        gated.update(state);
-        return state;
-    };
-    require(gate.hold_ms() == 4000 && Gate::default_hold_ms == 4000, "Unexpected hold configuration");
-    // Starting mid-set must not blank the overlay: the first master has nothing to displace.
-    auto state = at(0, 11, 12, 1);
-    require(state["masterDeckId"] == 1 && state["decks"][0]["isMaster"] == true && state["decks"][1]["isMaster"] == false,
-            "First master of a session was withheld");
-    require(gated.snapshot()["current"]["trackId"] == 11, "First master missing from the history");
-    // A short handover while cueing the other deck must change nothing at all.
-    require(at(1000, 11, 12, 2)["masterDeckId"] == 1 && at(2900, 11, 12, 2)["masterDeckId"] == 1,
-            "Short handover switched the master");
-    require(at(3000, 11, 12, 1)["masterDeckId"] == 1, "Returning to the confirmed master changed it");
-    require(gated.snapshot()["history"].empty() && gated.snapshot()["current"]["trackId"] == 11,
-            "Short handover reached the session history");
-    // A handover that outlasts the hold is a real master change.
-    require(at(4000, 11, 12, 2)["masterDeckId"] == 1, "Sustained handover switched immediately");
-    require(at(7999, 11, 12, 2)["masterDeckId"] == 1, "Sustained handover was confirmed early");
-    require(at(8000, 11, 12, 2)["masterDeckId"] == 2, "Sustained handover was not confirmed");
-    require(gated.snapshot()["current"]["trackId"] == 12 && gated.snapshot()["history"].size() == 1,
-            "Confirmed handover did not archive the previous master");
-    // A different track on the confirmed deck is an explicit action, not a flicker.
-    require(at(8100, 11, 13, 2)["masterDeckId"] == 2, "Track change on the master deck was delayed");
-    require(gated.snapshot()["current"]["trackId"] == 13, "Track change on the master deck was withheld");
-    // An ejected master cannot be held; the reported deck takes over at once.
-    require(at(8200, 11, 0, 1)["masterDeckId"] == 1, "Ejected master kept the overlay waiting");
-    // A disconnect clears the filter, and reconnecting shows the master again immediately.
-    auto disconnected = pair_sample(11, 13, 2);
-    disconnected["status"] = "disconnected";
-    gate.apply(disconnected, start + std::chrono::milliseconds(8300));
-    require(disconnected["masterDeckId"].is_null() && disconnected["decks"][1]["isMaster"].is_null(),
-            "Disconnect published a master");
-    require(at(8400, 11, 13, 2)["masterDeckId"] == 2, "Reconnect left the overlay without a master");
-    // With a master on air the hold applies again, and zero disables it.
-    require(at(8500, 11, 13, 1)["masterDeckId"] == 2, "Hold stopped applying after a reconnect");
-    gate.set_hold_ms(0);
-    require(gate.hold_ms() == 0 && at(8600, 11, 13, 1)["masterDeckId"] == 1, "Zero hold still delayed the master");
-    gate.set_hold_ms(30001);
-    require(gate.hold_ms() == Gate::default_hold_ms, "Out-of-range hold was accepted");
-    require(!Gate::valid_hold(-1) && !Gate::valid_hold(30001) && Gate::valid_hold(0) && Gate::valid_hold(30000),
-            "Hold validation bounds changed");
-    // A state without decks is left untouched instead of being rewritten.
-    Json foreign = {{"status", "connected"}, {"masterDeckId", 3}};
-    gate.apply(foreign, start + std::chrono::milliseconds(8700));
-    require(foreign["masterDeckId"] == 3, "Unknown state shape was rewritten");
-}
-
-void mix_checks() {
-    using Gate=deckstatus::MasterGate;
-    auto settings=Gate::defaults();settings["prolinkMethod"]="smart";settings["detectionBeats"]=8;settings["interruptBeats"]=4;
-    Gate gate(settings);auto state=pair_sample(11,12,2);state["mode"]="prolink";
-    for(auto& deck:state["decks"]){deck["bpm"]=120;deck["playing"]=true;deck["onAir"]=true;}
-    state["decks"][1]["playing"]=false;
-    const auto start=Gate::Clock::now();int milliseconds=0;
-    const auto tick=[&](int ms=500){milliseconds+=ms;auto result=state;gate.apply(result,start+std::chrono::milliseconds(milliseconds));return result["masterDeckId"];};
-    require(tick(0)==1,"First playing deck was withheld for detection beats");
-    state["decks"][1]["playing"]=true;
-    require(tick()==1,"New deck replaced master immediately");
-    for(int i=0;i<7;++i){state["decks"][1]["beatNumber"]=10000+i;state["decks"][1]["positionMs"]=999999;require(tick()==1,"Beat/position jump or early count promoted candidate");}
-    for(int i=0;i<20;++i)require(tick(0)==1,"Extra HTTP polls earned beats");
-    require(tick()==2,"Playing-beat threshold did not promote new track");
-    for(int i=0;i<12;++i)require(tick()==2,"Previously reported track stole master repeatedly");
-    state["decks"][1]["playing"]=false;
-    require(tick()==2&&tick()==2,"Brief pause removed confirmed master");
-    state["decks"][1]["playing"]=true;require(tick()==2,"Resume within grace lost master");
-    state["decks"][1]["onAir"]=false;
-    for(int i=0;i<3;++i)require(tick()==2,"Off-air grace expired early");
-    require(tick()==1,"Long interruption did not promote the remaining deck");
-    state["decks"][1]["onAir"]=true;state["decks"][1]["trackId"]=13;
-    require(tick()==1,"New track inherited old playback count");
-    state["decks"][0]["playing"]=false;state["decks"][0]["stopped"]=true;
-    require(tick()==2,"Hard stop waited for detection or interrupt beats");
-    state["status"]="disconnected";require(tick().is_null(),"Disconnected mixer retained master");
-    state["status"]="connected";state["decks"][1]["onAir"]=nullptr;
-    require(tick().is_null(),"Unknown On Air was treated as audible");
-    gate.configure({{"useOnAir",false}});require(tick()==2,"Playback-only method required mixer");
-    state["decks"][1]["loaded"]=false;require(tick().is_null(),"Unloaded deck remained master");
-    // Smart settings never affect Rekordbox's existing tempo-master behavior.
-    Gate rekordbox(settings);auto native=pair_sample(11,12,2);rekordbox.apply(native,start);
-    require(native["masterDeckId"]==2,"ProLink detection changed Rekordbox mode");
-    require(!Gate::valid_settings({{"detectionBeats",0}})&&!Gate::valid_settings({{"interruptBeats",1025}})&&!Gate::valid_settings({{"useOnAir",1}})&&!Gate::valid_settings({{"prolinkMethod","guess"}}),"Invalid detection settings accepted");
 }
 
 int main() {
@@ -202,14 +96,12 @@ int main() {
         racing_feed = &racing;
         racing.update(sample(1));
         require(racing.cover(1).second.empty(), "Eviction during cover lookup leaked removed artwork");
-        gate_checks();
-        mix_checks();
         std::this_thread::sleep_for(std::chrono::milliseconds(3050));
         require(feed.snapshot()["current"].is_null() && feed.snapshot()["status"] == "stale", "Stopped sampler kept a stale current track");
         require(feed.snapshot()["history"].size() == 50, "Staleness erased session history");
         require(feed.full_snapshot()["total"] == 75 && feed.full_snapshot()["currentEntryId"].is_null(), "Staleness erased full history or retained a live badge");
         require(feed.full_snapshot()["entries"][0]["isMaster"] == false, "Stale history marked its last track live");
-        std::cout << "Master transitions, gaps, replay, late metadata, frozen history, covers, eviction, hold filter and staleness passed.\n";
+        std::cout << "Master transitions, gaps, replay, late metadata, frozen history, covers, eviction and staleness passed.\n";
         return 0;
     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
 }

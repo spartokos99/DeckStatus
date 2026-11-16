@@ -3,6 +3,28 @@ import {broadcastUrl} from './broadcast.js';
 import {fonts, fieldNames, styledFields} from './master-options.js';
 import {updateTimelineDesign, disposeTimeline} from './track-timeline.js';
 
+// Display-only cache: never feeds detection/history and never advances a timeline.
+export class TrackCache {
+  current = null;
+  updated = 0;
+  read(item, unavailable, now = performance.now()) {
+    if (now - this.updated > 10000) this.clear();
+    if (!unavailable) {
+      if (item && this.current?.trackId === item.trackId && this.current.sourceSession === item.sourceSession) {
+        item = {...item};
+        for (const field of ['title','artist','album','key','genre','label','originalBpm','durationMs','coverUrl'])
+          if (item[field] == null || item[field] === '') item[field] = this.current[field];
+      }
+      this.current = item;
+      this.updated = now;
+      return item;
+    }
+    if (!this.current) return null;
+    return {...this.current, dataCached:true, playing:null, isMaster:null};
+  }
+  clear() { this.current = null; }
+}
+
 export function applyAppearance(options) {
   const rgb = options.background.slice(1).match(/../g).map(part => parseInt(part, 16));
   const variables = { width: options.width + 'px', font: fonts[options.font], 'font-size': options.fontSize + 'px',
@@ -88,11 +110,12 @@ export function formatTime(milliseconds) {
   return (milliseconds < 0 ? '−' : '') + (hours ? hours + ':' + String(Math.floor(seconds / 60) % 60).padStart(2, '0') : Math.floor(seconds / 60)) + ':' + String(seconds % 60).padStart(2, '0');
 }
 export function updateCardContent(card, item, options, display) {
-  setText(card.querySelector('[data-role="label"]'),display.label);
+  card.dataset.cached = String(display.cached === true);
+  setText(card.querySelector('[data-role="label"]'),display.cached ? t('overlayCached') : display.label);
   card.querySelector('.demo').hidden = !display.demo;
   // Demo identification remains visible even when ordinary badges are disabled.
-  card.querySelector('.tag').hidden = !options.badges && !display.demo;
-  card.querySelector('[data-role="label"]').hidden = !options.badges;
+  card.querySelector('.tag').hidden = !options.badges && !display.demo && !display.cached;
+  card.querySelector('[data-role="label"]').hidden = !options.badges && !display.cached;
   const fields = !display.timeline && options.historyFields !== null ? options.historyFields : options.fields;
   const known = name => ['bpm', 'currentBpm'].includes(name) ? typeof item[name === 'bpm' ? 'originalBpm' : 'bpm'] === 'number' && Number.isFinite(item[name === 'bpm' ? 'originalBpm' : 'bpm']) && item[name === 'bpm' ? 'originalBpm' : 'bpm'] > 0 : text(item[name === 'cover' ? 'coverUrl' : name]) !== '—';
   for (const name of fieldNames) card.querySelector('[data-field="' + name + '"]').hidden = !fields.includes(name) || (name !== 'title' && options.hideMissing && !known(name));
@@ -103,12 +126,12 @@ export function updateCardContent(card, item, options, display) {
   card.querySelector('.metrics').hidden = ['key', 'bpm', 'currentBpm'].every(name => card.querySelector('[data-field="' + name + '"]').hidden);
   card.querySelector('.tempos').hidden = ['bpm', 'currentBpm'].every(name => card.querySelector('[data-field="' + name + '"]').hidden);
   setText(card.querySelector('[data-field="key"] strong'),text(item.key));
-  const formatKey=locale()+':'+options.bpmInteger;
-  if(!numberFormats.has(formatKey))numberFormats.set(formatKey,new Intl.NumberFormat(locale(), { maximumFractionDigits: options.bpmInteger ? 0 : 2 }));
+  const formatKey=locale()+':'+options.bpmDecimals;
+  if(!numberFormats.has(formatKey))numberFormats.set(formatKey,new Intl.NumberFormat(locale(), { minimumFractionDigits: options.bpmDecimals, maximumFractionDigits: options.bpmDecimals }));
   const formatter=numberFormats.get(formatKey);
   for (const name of ['bpm', 'originalBpm']) setText(card.querySelector('[data-value="' + name + '"]'),typeof item[name] === 'number' && Number.isFinite(item[name]) && item[name] > 0 ? formatter.format(item[name]) : '—');
   const timeline = card.querySelector('.timeline');
-  timeline.hidden = !options.timeline || !display.timeline;
+  timeline.hidden = !options.timeline || !display.timeline || display.cached === true;
   timeline.dataset.align = options.timelineAlign;
   if (!timeline.hidden) {
     const valid = typeof item.positionMs === 'number' && Number.isFinite(item.positionMs) && Math.abs(item.positionMs) <= 86400000 &&

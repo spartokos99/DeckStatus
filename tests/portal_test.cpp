@@ -1,7 +1,7 @@
 #include "portal.h"
 #include "twitch.h"
 #include "server.h"
-#include "master_gate.h"
+#include "master_detector.h"
 #include "master_history.h"
 #include <Windows.h>
 #include <httplib/httplib.h>
@@ -83,7 +83,7 @@ int main(int argc,char** argv){
             // Real HTTP boundary: anonymous, forced-password, operator and admin.
             deckstatus::MasterHistory master;Json state={{"status","demo"},{"demo",true},{"masterDeckId",1},{"decks",Json::array({entry})}};master.update(state);
             httplib::Server reserve;const auto port=reserve.bind_to_any_port("127.0.0.1");std::jthread reserve_thread([&]{reserve.listen_after_bind();});reserve.wait_until_ready();reserve.stop();reserve_thread.join();
-            deckstatus::ServerFeatures features;features.portal=&portal;deckstatus::MasterGate master_gate;features.master_gate=&master_gate;std::atomic_bool stop=false;
+            deckstatus::ServerFeatures features;features.portal=&portal;deckstatus::MasterDetector detector;features.master_detector=&detector;std::atomic_bool stop=false;
             features.track_waveform=[](std::uint32_t){return Json{{"format","rgb5"},{"durationMs",2000},{"samples",Json::array({58364,1024})}};};
             auto twitchSettings=portal.twitch_settings();twitchSettings["clientId"]="viewerclient123";portal.save_twitch_settings(twitchSettings);
             features.twitch_transport=std::make_shared<TwitchTransport>();
@@ -101,7 +101,7 @@ int main(int argc,char** argv){
             status(client.Get("/"),303);status(client.Get("/api/state"),401);status(client.Get("/history"),200);status(client.Get("/api/history"),200);
             status(client.Get("/api/presets"),401);status(client.Post("/api/presets","{}","application/json"),401);
             status(client.Get("/api/admin/audio"),401);status(client.Post("/api/admin/audio",R"({"action":"stop"})","application/json"),401);
-            status(client.Get("/api/admin/master"),401);status(client.Post("/api/admin/master",R"({"holdMs":1000})","application/json"),401);
+            status(client.Get("/api/admin/master"),401);status(client.Post("/api/admin/master",R"({"detectionBeats":64})","application/json"),401);
             status(client.Get("/api/admin/twitch"),401);status(client.Post("/api/admin/twitch",R"({"action":"reset"})","application/json"),401);
             status(client.Get("/api/public/twitch"),200);status(client.Post("/api/public/rating",R"({"track":"fake","stars":5,"login":"spoof"})","application/json"),401);
             status(client.Get("/api/admin/ratings/"+track+"/viewers"),401);
@@ -145,18 +145,16 @@ int main(int argc,char** argv){
             status(client.Get("/api/state"),200);status(client.Get("/api/admin/users"),200);status(client.Post("/api/auth/logout","{}","text/plain"),415);
             status(client.Get("/api/admin/users",{{"Origin","http://evil.example"}}),403);
             status(client.Get("/api/admin/twitch"),200);
-            // The master hold time is server-wide, so only an administrator may change it.
-            check(Json::parse(client.Get("/api/admin/master")->body)["holdMs"]==deckstatus::MasterGate::default_hold_ms,"Master hold default changed");
-            status(client.Post("/api/admin/master",R"({"holdMs":-1})","application/json"),400);
-            status(client.Post("/api/admin/master",R"({"holdMs":30001})","application/json"),400);
-            status(client.Post("/api/admin/master",R"({"holdMs":"4000"})","application/json"),400);
-            status(client.Post("/api/admin/master",R"({"holdMs":1000,"other":1})","application/json"),400);
-            check(portal.master_settings()["holdMs"]==deckstatus::MasterGate::default_hold_ms&&master_gate.hold_ms()==deckstatus::MasterGate::default_hold_ms,"Rejected hold time was applied");
-            status(client.Post("/api/admin/master",R"({"prolinkMethod":"smart","detectionBeats":32,"interruptBeats":8,"useOnAir":false})","application/json"),200);
+            // Shared detection settings may only be changed by an administrator.
+            const auto detection=Json::parse(client.Get("/api/admin/master")->body);
+            check(detection["detectionBeats"]==128&&detection["interruptBeats"]==16&&detection["onlyAfterEnd"]==false&&detection["onAirAvailable"]==false&&!detection.contains("holdMs")&&!detection.contains("prolinkMethod"),"Single detector defaults/capabilities changed");
+            for(const auto* body:{R"({"holdMs":4000})",R"({"prolinkMethod":"smart"})",R"({"detectionBeats":"128"})",R"({"interruptBeats":1025})",R"({"onlyAfterEnd":1})",R"({"detectionBeats":64,"other":1})"})
+                status(client.Post("/api/admin/master",body,"application/json"),400);
+            check(portal.master_settings()==deckstatus::MasterDetector::defaults()&&detector.describe()==deckstatus::MasterDetector::defaults(),"Rejected detection options were applied");
+            status(client.Post("/api/admin/master",R"({"detectionBeats":32,"interruptBeats":8,"useOnAir":false})","application/json"),200);
             status(client.Post("/api/admin/master",R"({"detectionBeats":0})","application/json"),400);
-            check(master_gate.describe()["prolinkMethod"]=="smart","Smart method not applied");
-            status(client.Post("/api/admin/master",R"({"holdMs":9500})","application/json"),200);
-            check(master_gate.hold_ms()==9500&&portal.master_settings()["holdMs"]==9500,"Accepted hold time was not applied or persisted");
+            status(client.Post("/api/admin/master",R"({"onlyAfterEnd":true})","application/json"),200);
+            check(detector.describe()["onlyAfterEnd"]==true&&portal.master_settings()["onlyAfterEnd"]==true&&detector.describe()["detectionBeats"]==32,"Accepted options were not applied or partial save lost timing");
             status(client.Get("/api/admin/ratings/"+track+"/viewers"),200);
             check(Json::parse(client.Get("/api/history")->body)["canViewRatings"].get<bool>(),"Admin history lacks ratings link");
             status(client.Post("/api/public/rating",R"({"track":"fake","stars":5})","application/json"),401);
@@ -173,7 +171,7 @@ int main(int argc,char** argv){
             auto op_login2=client.Post("/api/auth/login",Json{{"username","renamed"},{"password",operator_password+"!!"}}.dump(),"application/json");status(op_login2,200);cookie=op_login2->get_header_value("Set-Cookie");client.set_default_headers({{"Cookie",cookie.substr(0,cookie.find(';'))}});
             status(client.Get("/api/scenes"),200);status(client.Get("/api/admin/ratings"),403);status(client.Get("/api/admin/users"),403);status(client.Get("/api/network"),403);
             status(client.Get("/api/admin/audio"),403);status(client.Post("/api/admin/audio",R"({"action":"stop"})","application/json"),403);
-            status(client.Get("/api/admin/master"),403);status(client.Post("/api/admin/master",R"({"holdMs":0})","application/json"),403);
+            status(client.Get("/api/admin/master"),403);status(client.Post("/api/admin/master",R"({"detectionBeats":64})","application/json"),403);
             status(client.Get("/api/admin/twitch"),403);status(client.Post("/api/admin/twitch",R"({"action":"reset"})","application/json"),403);
             status(client.Get("/api/admin/ratings/"+track+"/viewers"),403);
             check(!Json::parse(client.Get("/api/history")->body)["canViewRatings"].get<bool>(),"Operator history exposed admin link");
@@ -198,15 +196,23 @@ int main(int argc,char** argv){
             check(restored.presets().size()==1&&restored.presets()[0]["id"]==preset_id&&restored.presets()[0]["revision"]==2,"Presets lost on restart");
             std::ifstream input(root/"portal.json",std::ios::binary);const std::string file((std::istreambuf_iterator<char>(input)),{});check(file.find(password)==std::string::npos&&file.find(operator_password)==std::string::npos,"Plaintext password persisted");
         }
-        // A stored hold time survives a restart; an impossible one is rejected, not repaired.
-        {Portal restarted(root);check(restarted.master_settings()["holdMs"]==9500,"Master hold time lost on restart");check(restarted.master_settings()["detectionBeats"]==32&&restarted.master_settings()["useOnAir"]==false,"Smart settings lost after partial save/restart");
-         fails(400,[&]{restarted.save_master_settings({{"holdMs",30001}});});
-         fails(400,[&]{restarted.save_master_settings({{"holdMs",1000},{"extra",true}});});
-         check(restarted.master_settings()["holdMs"]==9500,"Rejected hold time replaced the stored value");}
+        {Portal restarted(root);check(restarted.master_settings()["onlyAfterEnd"]==true,"End-only setting lost on restart");check(restarted.master_settings()["detectionBeats"]==32&&restarted.master_settings()["useOnAir"]==false,"Detection settings lost after partial save/restart");
+         fails(400,[&]{restarted.save_master_settings({{"detectionBeats",1025}});});
+         fails(400,[&]{restarted.save_master_settings({{"holdMs",1000}});});
+         check(restarted.master_settings()["detectionBeats"]==32,"Rejected options replaced the stored value");}
         Json stored_hold;{std::ifstream input(root/"portal.json");input>>stored_hold;}
         auto broken_hold=stored_hold;broken_hold["masterSettings"]={{"holdMs",-5}};
         {std::ofstream output(root/"portal.json",std::ios::binary);output<<broken_hold.dump();}
         fails(400,[&]{Portal invalid_hold(root);});
+        {std::ofstream output(root/"portal.json",std::ios::binary);output<<stored_hold.dump();}
+        for(const auto& old:Json::array({Json{{"holdMs",9500}},Json{{"holdMs",1000},{"prolinkMethod","smart"},{"detectionBeats",48},{"interruptBeats",12},{"useOnAir",false}}})) {
+            auto legacy_settings=stored_hold;legacy_settings["masterSettings"]=old;
+            {std::ofstream output(root/"portal.json");output<<legacy_settings.dump();}
+            {Portal migrated(root);check(migrated.master_settings()==deckstatus::MasterDetector::migrate(old),"Legacy detection settings were not migrated");}
+            Json migrated;{std::ifstream input(root/"portal.json");input>>migrated;}
+            legacy_settings["masterSettings"]=deckstatus::MasterDetector::migrate(old);
+            check(migrated==legacy_settings,"Detection migration changed unrelated private data");
+        }
         {std::ofstream output(root/"portal.json",std::ios::binary);output<<stored_hold.dump();}
         // Existing version-1 stores have no presets property. Migration must preserve every other byte of data semantically.
         Json legacy;{std::ifstream input(root/"portal.json");input>>legacy;}legacy.erase("presets");

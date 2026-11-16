@@ -1,6 +1,6 @@
 import { parseOptions } from './master-options.js';
 import { t, getLanguage } from './i18n.js';
-import { applyAppearance, makeCard, updateCardContent, disposeCard } from './overlay-shared.js';
+import { applyAppearance, makeCard, updateCardContent, disposeCard, TrackCache } from './overlay-shared.js';
 
 import {broadcastUrl} from './broadcast.js';
 const query = new URLSearchParams(location.search);
@@ -11,15 +11,18 @@ const list = document.getElementById('tracks');
 list.dataset.align = options.align;
 const validDeck = query.getAll('deck').length <= 1 && (!query.has('deck') || /^[1-4]$/.test(query.get('deck')));
 document.getElementById('error').hidden = validDeck;
-let card = null, trackId = null;
+let card = null, trackId = null, sourceSession = null;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const cache = new TrackCache();
 function render(state) {
-  const item = ['connected', 'demo'].includes(state.status) && Array.isArray(state.decks)
-    ? state.decks.find(deck => deck && deck.id === options.deck && deck.loaded === true && Number.isSafeInteger(deck.trackId) && deck.trackId > 0 && deck.trackId <= 4294967295) : null;
+  const deck = Array.isArray(state.decks) ? state.decks.find(deck => deck?.id === options.deck) : null;
+  const unavailable = !['connected', 'demo'].includes(state.status) || !deck || deck.statusAvailable === false;
+  const valid = deck?.loaded === true && Number.isSafeInteger(deck.trackId) && deck.trackId > 0 && deck.trackId <= 4294967295;
+  const item = cache.read(valid ? deck : null, unavailable);
   if (!item) { if(card){disposeCard(card);card.remove();} card = null; trackId = null; return; }
-  if (trackId !== item.trackId) {
+  if (trackId !== item.trackId || sourceSession !== item.sourceSession) {
     // One current and at most one leaving card, even during rapid load changes.
-    list.querySelectorAll('[aria-hidden]').forEach(node => {disposeCard(node);node.remove();});
+    list.querySelectorAll('.track[aria-hidden]').forEach(node => {disposeCard(node);node.remove();});
     if (card) {
       const leaving = card;
       disposeCard(leaving);
@@ -28,7 +31,7 @@ function render(state) {
       if (options.duration && !reducedMotion.matches) leaving.animate([{ opacity: 1 }, { opacity: 0 }], { duration: options.duration }).finished.then(() => leaving.remove(), () => leaving.remove());
       else leaving.remove();
     }
-    card = makeCard(options); list.append(card); trackId = item.trackId;
+    card = makeCard(options); list.append(card); trackId = item.trackId; sourceSession = item.sourceSession;
     // IDs retained for integrations that inspect the standalone deck overlay.
     card.querySelector('[data-field="title"]').id = 'title';
     card.querySelector('[data-value="bpm"]').id = 'bpm';
@@ -37,13 +40,14 @@ function render(state) {
   }
   card.dataset.trackId = item.trackId;
   card.dataset.current = 'true';
-  updateCardContent(card, item, options, { label: t('deck', { id: options.deck }), demo: state.demo === true,
+  updateCardContent(card, item, options, { label: t('deck', { id: options.deck }), demo: state.demo === true, cached:item.dataCached === true,
       timeline: true, coverUrl: '/api/decks/' + options.deck + '/cover?trackId=' + item.trackId,
       waveformUrl: '/api/decks/' + options.deck + '/waveform?trackId=' + item.trackId });
 }
 async function poll() {
   try {
     const response = await fetch(broadcastUrl('/api/state'), { cache: 'no-store', signal: AbortSignal.timeout(1800) });
+    if ([401,403].includes(response.status)) cache.clear();
     if (!response.ok) throw new Error('HTTP ' + response.status);
     render(await response.json());
   } catch (_) { render({ status: 'disconnected' }); }

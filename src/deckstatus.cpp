@@ -2,7 +2,7 @@
 #include "language.h"
 #include "artwork.h"
 #include "server.h"
-#include "master_gate.h"
+#include "master_detector.h"
 #include "master_history.h"
 #include "prolink.h"
 #include "network.h"
@@ -74,7 +74,7 @@ nlohmann::json serialize(const deckstatus::SharedState& state, bool alive, bool 
     nlohmann::json result = {
         {"schemaVersion", 1}, {"mode", "rekordbox"}, {"status", status}, {"message", deckstatus::tr(message)},
         {"version", deckstatus::tr(safe_string(state.rekordbox_version))}, {"demo", demo},
-        {"updatedAt", nullptr}, {"sampleAgeMs", nullptr}, {"artworkStatus", deckstatus::tr(artwork_status)},
+        {"updatedAt", nullptr}, {"sampleTick", state.sample_tick}, {"sampleAgeMs", nullptr}, {"artworkStatus", deckstatus::tr(artwork_status)},
         {"decks", nlohmann::json::array()}
     };
     if (state.sample_tick) {
@@ -95,6 +95,9 @@ nlohmann::json serialize(const deckstatus::SharedState& state, bool alive, bool 
         nlohmann::json deck = {
             {"id", i + 1}, {"trackId", loaded ? nlohmann::json(d.track_id) : nlohmann::json(nullptr)},
             {"loaded", loaded}, {"metadataAvailable", metadata},
+            {"statusAvailable", valid && d.sample_available != 0},
+            {"playing", demo ? nlohmann::json(loaded && state.master_deck == i + 1) : nlohmann::json(nullptr)},
+            {"stopped", demo ? nlohmann::json(!loaded || state.master_deck != i + 1) : nlohmann::json(nullptr)},
             {"isMaster", master ? nlohmann::json(master == i + 1) : nlohmann::json(nullptr)},
             {"positionMs", loaded && d.timeline_available ? nlohmann::json(d.position_ms) : nlohmann::json(nullptr)},
             {"durationMs", loaded && d.timeline_available ? nlohmann::json(d.duration_ms) : nlohmann::json(nullptr)},
@@ -122,7 +125,7 @@ deckstatus::SharedState demo_state() {
     state.master_deck = 1 + static_cast<std::uint32_t>((state.sample_tick - started) / 8000 % 2);
     strcpy_s(state.rekordbox_version, "Demo (synthetische Daten)");
     strcpy_s(state.message, "Demo-Modus: keine Verbindung zu Rekordbox.");
-    for (unsigned i = 0; i < 4; ++i) state.decks[i].id = i + 1;
+    for (unsigned i = 0; i < 4; ++i) { state.decks[i].id = i + 1; state.decks[i].sample_available = 1; }
     auto& one = state.decks[0];
     one.track_id = 1001;
     one.metadata_available = 1;
@@ -250,10 +253,8 @@ int wmain(int argc, wchar_t** argv) {
         deckstatus::Updater updater(directory,data_directory,network_file,launch_arguments,stopping,
             !demo && GetEnvironmentVariableW(L"DECKSTATUS_NO_UPDATE_CHECK",nullptr,0)==0);
         features.updater = &updater;
-        // One hold filter for both sources: overlays, dashboard and history observe
-        // the same confirmed master, and Admin changes it for the whole server.
-        deckstatus::MasterGate master_gate(portal.master_settings());
-        features.master_gate = &master_gate;
+        deckstatus::MasterDetector master_detector(portal.master_settings());
+        features.master_detector = &master_detector;
         const auto initial_password = portal.initial_password();
         if (!initial_password.empty()) std::cout << deckstatus::tr("authInitialConsole") << '\n' << deckstatus::tr("authTemporaryConsole") << initial_password << '\n' << deckstatus::tr("authChangeConsole") << '\n' << std::flush;
         if (prolink_mode) {
@@ -270,7 +271,7 @@ int wmain(int argc, wchar_t** argv) {
                 while (!token.stop_requested() && !stopping) {
                     link.maintain();
                     auto state = link.snapshot();
-                    master_gate.apply(state);
+                    master_detector.apply(state);
                     history.update(state);
                     for (const auto& deck : state["decks"]) history.enrich(deck);
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -278,7 +279,7 @@ int wmain(int argc, wchar_t** argv) {
             });
             std::cout << deckstatus::tr("prolinkStartup") << '\n';
             return deckstatus::run_server(host, port, directory / "web",
-                [&] { auto state = link.snapshot(); master_gate.apply(state); return state; },
+                [&] { return master_detector.snapshot(); },
                 [&](int id) -> std::pair<std::string, std::string> {
                     const auto state = link.snapshot();
                     for (const auto& deck : state["decks"]) if (deck["id"] == id && deck.value("loaded", false))
@@ -321,17 +322,19 @@ int wmain(int argc, wchar_t** argv) {
                             const auto position = deck.position_ms;
                             const auto duration = deck.duration_ms;
                             const auto timeline = deck.timeline_available;
+                            const auto available = deck.sample_available;
                             deck = metadata_cache[i];
                             deck.bpm_x100 = live_bpm;
                             deck.position_ms = position;
                             deck.duration_ms = duration;
                             deck.timeline_available = timeline;
+                            deck.sample_available = available;
                         }
                     }
                 }
                 // Capture even with no browser connected. No SQL or disk I/O on this thread.
                 auto sampled = serialize(next, next_alive, demo, "");
-                master_gate.apply(sampled);
+                master_detector.apply(sampled);
                 master_history.update(sampled);
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
@@ -352,7 +355,11 @@ int wmain(int argc, wchar_t** argv) {
                         { std::lock_guard lock(mutex); cached_id = metadata_cache[i].track_id; }
                         if (cached_id != deck.track_id || GetTickCount64() - refreshed[i] >= 2000) {
                             if (deck.track_id) artwork->enrich(deck);
-                            { std::lock_guard lock(mutex); metadata_cache[i] = deck; }
+                            {
+                                std::lock_guard lock(mutex);
+                                if (metadata_cache[i].track_id != deck.track_id || deck.metadata_available)
+                                    metadata_cache[i] = deck;
+                            }
                             refreshed[i] = GetTickCount64();
                         }
                     }
@@ -376,29 +383,8 @@ int wmain(int argc, wchar_t** argv) {
             }
         });
         auto snapshot = [&]() {
-            deckstatus::SharedState copy;
-            bool connected;
-            {
-                std::lock_guard lock(mutex);
-                copy = current;
-                connected = alive;
-                if (!demo) for (unsigned i = 0; i < 4; ++i) {
-                    auto& deck = copy.decks[i];
-                    if (deck.track_id && metadata_cache[i].track_id == deck.track_id) {
-                        const auto live_bpm = deck.bpm_x100;
-                        const auto position = deck.position_ms;
-                        const auto duration = deck.duration_ms;
-                        const auto timeline = deck.timeline_available;
-                        deck = metadata_cache[i];
-                        deck.bpm_x100 = live_bpm;
-                        deck.position_ms = position;
-                        deck.duration_ms = duration;
-                        deck.timeline_available = timeline;
-                    }
-                }
-            }
-            auto state = serialize(copy, connected, demo, artwork ? artwork->diagnostic() : "Demo-Cover");
-            master_gate.apply(state);
+            auto state = master_detector.snapshot();
+            state["artworkStatus"] = artwork ? artwork->diagnostic() : "Demo-Cover";
             return state;
         };
         auto cover = [&](int deck) -> std::pair<std::string, std::string> {

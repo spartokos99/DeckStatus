@@ -1,5 +1,9 @@
 # Quellen und Abhängigkeiten
 
+## Master-detection behavior reference
+
+The shared now-playing detector independently implements timing/end/interruption behavior documented by [ProlinkTools 0.1.0-beta.5](https://github.com/evanpurkhiser/prolink-tools/tree/v0.1.0-beta.5), which depends on [prolink-connect 0.5.x](https://github.com/evanpurkhiser/prolink-connect/tree/v0.5.0). Both projects are by Evan Purkhiser and are MIT-licensed. Neither executable nor JavaScript package is bundled or required. DeckStatus adds source-freshness protections and Rekordbox timeline inference; see [the detection guide](docs/master-detection.md). This reference is not an endorsement or hardware certification.
+
 ## ProLink runtime (1.4.0)
 
 The optional ProLink process uses the following **unmodified** runtime libraries, pinned in `prolink/dependencies.lock.json`. Their binary JARs retain upstream notices; matching source JARs and POMs are distributed under `prolink/licenses` in the portable ZIP. This directory provides the exact sources for the distributed library versions.

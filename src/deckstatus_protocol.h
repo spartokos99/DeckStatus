@@ -7,7 +7,7 @@
 
 namespace deckstatus {
 inline constexpr std::uint32_t protocol_magic = 0x44535453;
-inline constexpr std::uint32_t protocol_version = 3;
+inline constexpr std::uint32_t protocol_version = 4;
 enum class BridgeStatus : std::uint32_t { starting, connected, unsupported, error, stopped };
 
 // Fixed-size UTF-8 strings. A named mutex protects the entire shared mapping.
@@ -17,7 +17,7 @@ struct DeckData {
     std::uint32_t bpm_x100{};
     std::uint32_t original_bpm_x100{};
     std::uint32_t metadata_available{};
-    std::uint32_t reserved{};
+    std::uint32_t sample_available{};
     char title[1024]{};
     char artist[1024]{};
     char album[1024]{};

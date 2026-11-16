@@ -2,13 +2,13 @@
 
 **GitHub Wiki import:** create a page named **Home** in your repository's Wiki, select Markdown and paste this entire file. The wiki Git repository was unavailable when this guide was prepared.
 
-This guide describes **DeckStatus v2.3.4**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
+This guide describes **DeckStatus v2.4.0**, including the creative components documented in [Creative scene components](scene-components.md). Version 1.4.0 predates authentication, ratings, saved component presets, scenes and configurable HTTP access. After upgrading from v1.4.0, sign in and generate new keyed OBS URLs. If you used a preview build, preserve its data directory and network settings; existing accounts, presets, scenes and keys remain valid.
 
 ## Running DeckStatus
 
-Version 2.3.4 adds exact Rekordbox 7.2.19.0 support alongside the unchanged 7.2.18.0 profiles, and left/center/right alignment for resized master-overlay timelines. Version 2.3.3 added optional ProLink [playing-track detection](master-detection.md) and [analyzed waveform timelines](track-timelines.md). Per-element typography, per-scene deck selection for linked presets, and the administrator updater remain available. See the [7.2.19 profile](rekordbox-7.2.19.md), [scene component controls](scene-components.md#deck-and-master-overlays) and [updates, backups and recovery](updater.md).
+Version 2.4.0 replaces both former detectors with shared [now-playing detection](master-detection.md), retains overlay cards through brief interruptions, and adds 0/1/2-decimal BPM display. Detection settings migrate automatically; the former tempo-master hold is removed. Install the complete package with matching protocol-4 host/bridge. Exact Rekordbox profiles, [analyzed waveform timelines](track-timelines.md), per-element typography, linked presets and the updater remain available. See the [7.2.19 profile](rekordbox-7.2.19.md), [scene component controls](scene-components.md#deck-and-master-overlays) and [updates, backups and recovery](updater.md).
 
-[Twitch automation and improved scene layers](twitch.md) are included. Link accounts under **Admin → Twitch** and create rules with multiple actions under **Stream → Automations**. It works with both DJ source modes and does not require a public inbound connection. Version 2.2.0 adds a refreshed application interface and a shared master hold time under **Admin → Master detection** (4 seconds by default).
+[Twitch automation and improved scene layers](twitch.md) are included. Link accounts under **Admin → Twitch** and create rules with multiple actions under **Stream → Automations**. It works with both DJ source modes and does not require a public inbound connection.
 
 Extract the full Windows x64 package into a writable directory. Keep the EXE, bridge DLL, `web` and `prolink` folders together.
 
@@ -101,13 +101,13 @@ The device ID/name and **Start audio capture automatically when DeckStatus start
 
 ## Master detection
 
-Brief tempo-master changes reported by Rekordbox or PRO DJ LINK can flip an overlay during track preparation. **Admin → Master detection** sets how long a new deck must hold the role before DeckStatus publishes the handover. The default is 4 seconds; the range is 0 to 30 seconds and 0 restores the immediate switch.
+Version 2.4.0 replaces the tempo-master hold and the previous optional detector with one ProlinkTools-style now-playing engine in both source modes. **Admin → Master detection** exposes four settings: smart timing (default 128 beats), interruption allowance (16 beats), end-only reporting (off), and mixer On Air (on in ProLink).
 
-The filter sits between the source and every consumer, so the state API, deck and master overlays, the dashboard badge and Full History use the same confirmed master. While a new candidate is pending, the previously confirmed deck stays master and a handover shorter than the hold does not reach session history. The wait only applies when there is already a confirmed master with a loaded track. The first master after startup or reconnect, a different track on the confirmed deck, and a replacement for a deck that lost its track are published immediately. Disconnected, stale or unsupported states publish no master at all.
+Only the sampler advances the detector; HTTP readers, overlays, dashboard and session history share its published result. The first eligible track is immediate. Incoming tracks qualify after elapsed playback time at current BPM, or when the previous track ends. Already reported outgoing tracks do not become a fallback and cannot repeatedly steal MASTER back during the same episode.
 
-The value lives in `portal.json` as `masterSettings.holdMs`, is read at startup and applies to the running server as soon as it is saved. Changing it requires an administrator plus the usual remote-control policy; it is a single server-wide value, so it is not part of an overlay's OBS URL or of a saved preset. It filters observations of tempo-master state and remains no proof of audible playback.
+Settings persist in `portal.json.masterSettings`; saving requires an administrator and the normal remote-control policy. Old hold/method settings migrate automatically; existing beat/interruption/On-Air values survive. No detection setting belongs to an OBS URL or preset.
 
-ProLink also offers an optional playing-track method with 128 detection beats, 16 interruption beats and mixer On-Air gating. See [master detection](master-detection.md) for timing, fallbacks and persistent settings. The tempo-master method remains the default.
+Rekordbox infers playback from verified timeline movement and cannot supply mixer On Air. ProLink uses direct device states. Missing observations freeze timers; overlays retain the last card for up to ten seconds with an explicit cached label and hidden timeline. A confirmed stop/unload or access rejection clears the display. Neither source proves audible playback. See [master detection](master-detection.md) for exact timing, source limitations, migration and cache behavior.
 
 Deck/master timelines offer classic, segmented, ring, scrolling analyzed waveform and full-track waveform designs. See [track timelines](track-timelines.md) for setup, source availability and bounded read APIs.
 
@@ -211,7 +211,7 @@ Mutations need `Content-Type: application/json`. Retain cookies and use same-ori
 | `POST /api/public/rating` | `{track:ratingId,stars:1..5}` with validated Twitch viewer session |
 | `GET /api/admin/ratings` | Admin persistent aggregates |
 | `GET /api/admin/ratings/:trackId/viewers` | Admin-only usernames, individual stars and legacy anonymous count |
-| `GET/POST /api/admin/master` | Admin server-wide master hold time; `{holdMs:0..30000}` |
+| `GET/POST /api/admin/master` | Admin shared detection: `detectionBeats`, `interruptBeats`, `onlyAfterEnd`, `useOnAir`; validated partial updates |
 | `GET/POST /api/admin/users` | Admin user list/save/delete |
 | `GET/POST /api/scenes` | Signed-in list/save/delete/rotate |
 | `GET/POST /api/prolink/settings` | Signed-in saved player/deck mappings and launch connection; writes require remote-control permission |
@@ -251,6 +251,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1
 node tests/browser_master_test.cjs
 node tests/browser_track_design_test.cjs
 node tests/browser_admin_master_test.cjs
+node tests/browser_track_cache_test.cjs
 node tests/browser_waveform_test.cjs
 node tests/browser_dashboard_history_test.cjs
 node tests/browser_prolink_test.cjs

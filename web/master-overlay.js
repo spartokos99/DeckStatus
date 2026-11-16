@@ -1,7 +1,7 @@
 import { parseOptions } from './master-options.js';
 import {broadcastUrl} from './broadcast.js';
 import { getLanguage, t } from './i18n.js';
-import { applyAppearance, makeCard, updateCardContent, disposeCard } from './overlay-shared.js';
+import { applyAppearance, makeCard, updateCardContent, disposeCard, TrackCache } from './overlay-shared.js';
 
 const options = parseOptions(location.search);
 options.lang = getLanguage();
@@ -15,6 +15,7 @@ const valid = item => item && Number.isSafeInteger(item.entryId) && item.entryId
 let structure = '';
 let lastHistory = [];
 let lastDemo = false;
+const cache = new TrackCache();
 
 function createCard() { return makeCard(options); }
 
@@ -24,7 +25,7 @@ function updateCard(card, item, index, isCurrent, demo) {
   card.dataset.entryId = String(item.entryId);
   updateCardContent(card, item, options, {
     label: t(isCurrent ? 'masterLabel' : 'previousLabel', { id: item.id, index }),
-    demo, timeline: isCurrent, coverUrl: '/api/master/covers/' + item.trackId, waveformUrl: '/api/master/waveform?trackId=' + item.trackId
+    demo, timeline: isCurrent, cached:item.dataCached === true, coverUrl: '/api/master/covers/' + item.trackId, waveformUrl: '/api/master/waveform?trackId=' + item.trackId
   });
 }
 
@@ -62,13 +63,14 @@ function animate(card, keyframes, duration, finished) {
 }
 
 function render(data) {
-  const current = ['connected', 'demo'].includes(data.status) && valid(data.current) ? data.current : null;
+  const unavailable = !['connected', 'demo'].includes(data.status) || data.masterAvailable === false;
+  const current = cache.read(valid(data.current) ? data.current : null, unavailable);
   const history = Array.isArray(data.history) ? data.history.filter(valid).slice(0, options.history) : [];
   lastHistory = history;
   lastDemo = data.demo === true;
   const rows = [...(current ? [{ item: current, current: true, rank: 0 }] : []),
     ...history.map((item, index) => ({ item, current: false, rank: index + 1 }))];
-  const key = row => row.item.entryId + ':' + row.item.trackId;
+  const key = row => (row.item.sourceSession || '') + ':' + row.item.entryId + ':' + row.item.trackId;
   const signature = rows.map(row => key(row) + ':' + row.current).join('|');
   // Live BPM and late metadata update in-place; they never restart an animation.
   if (signature === structure) {
@@ -123,6 +125,7 @@ async function poll() {
   const timeout = setTimeout(() => controller.abort(), 1800);
   try {
     const response = await fetch(broadcastUrl('/api/master'), { cache: 'no-store', signal: controller.signal });
+    if ([401,403].includes(response.status)) { cache.clear(); lastHistory = []; }
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
     if (!data || !Array.isArray(data.history)) throw new Error('Invalid master feed');

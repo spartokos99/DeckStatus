@@ -17,9 +17,47 @@ withBrowser((req,res,url)=>{
  assert.equal(await evaluate(`document.querySelector('[data-current="true"] [data-value=bpm]').textContent`),'130');
  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.info')).textAlign`),'center');
  assert.equal(await evaluate(`document.querySelector('.timeline').hidden`),true);
- current={...current,title:null};await until(()=>evaluate(`document.querySelector('[data-current="true"] h1').textContent!=='Night Drive'`),'Missing title placeholder removed');
+ current={...current,title:null,trackId:43};await until(()=>evaluate(`document.querySelector('[data-current="true"] h1').textContent!=='Night Drive'`),'New unknown track inherited old title');
  assert.equal(await evaluate(`document.querySelector('[data-current="true"] h1').hidden`),false);
  current={...current,title:'Night Drive'};
+ const tempos=selector=>evaluate(`[...document.querySelectorAll(${JSON.stringify(selector)})].map(card=>[card.querySelector('[data-value=bpm]').textContent,card.querySelector('[data-value=originalBpm]').textContent])`);
+ for(const lang of ['en','de'])for(const bpmDecimals of [0,1,2]){
+  const separator=lang==='de'?',':'.',expected=[['130','127'],['129'+separator+'7','126'+separator+'6'],['129'+separator+'70','126'+separator+'60']][bpmDecimals];
+  for(const route of ['/overlay','/master-overlay']){
+   await navigate(route+'?'+query({lang,bpmDecimals,fields:'title,bpm,currentBpm',history:1}));
+   await until(()=>evaluate(`document.querySelectorAll('.track').length===${route==='/overlay'?1:2}`),'Precision overlay missing');
+   assert.deepEqual(await tempos('.track'),route==='/overlay'?[expected]:[expected,expected],`${route} ${lang}: wrong BPM precision ${bpmDecimals}`);
+  }
+ }
+ current={...current,bpm:129.76,originalBpm:126};
+ await navigate('/overlay?'+query({bpmDecimals:1,fields:'title,bpm,currentBpm'}));
+ await until(()=>evaluate('document.querySelector(".track")'),'Rounding overlay missing');
+ assert.deepEqual(await tempos('.track'),[['129.8','126.0']],'One-decimal rounding or trailing zero missing');
+ current={...current,bpm:129.995,originalBpm:126.244};
+ await navigate('/overlay?'+query({bpmDecimals:2,fields:'title,bpm,currentBpm'}));
+ await until(()=>evaluate('document.querySelector(".track")'),'Two-decimal overlay missing');
+ assert.deepEqual(await tempos('.track'),[['130.00','126.24']],'Two-decimal rounding failed');
+ for(const value of [null,0,-1,'128']){
+  current={...current,bpm:value,originalBpm:value};
+  await navigate('/overlay?'+query({bpmDecimals:2,fields:'title,bpm,currentBpm'}));
+  await until(()=>evaluate('document.querySelector(".track")'),'Unknown BPM overlay missing');
+  assert.deepEqual(await tempos('.track'),[['—','—']],'Unknown BPM became a number');
+ }
+ current={...current,bpm:129.7,originalBpm:126.6};
+ for(const route of ['/overlay/settings','/master-overlay/settings']){
+  await navigate(route+'?lang=en&bpmInteger=1');
+  await until(()=>evaluate(`document.querySelector('select[data-track-option=bpmDecimals]')?.value==='0'`),'Legacy whole-number setting was not restored');
+  assert.deepEqual(await evaluate(`[...document.querySelector('[data-track-option=bpmDecimals]').options].map(o=>[o.value,o.textContent])`),[['0','Whole number'],['1','1 decimal place'],['2','2 decimal places']]);
+  for(const bpmDecimals of [0,1,2]){
+   await evaluate(`{const input=document.querySelector('[data-track-option=bpmDecimals]');input.value='${bpmDecimals}';input.dispatchEvent(new Event('change'));}`);
+   await until(()=>evaluate(`new URL(document.querySelector('#url').value).searchParams.get('bpmDecimals')==='${bpmDecimals}'`),'OBS link lost BPM precision');
+   const expected=[['130','127'],['129.7','126.6'],['129.70','126.60']][bpmDecimals];
+   await until(()=>evaluate(`{const card=document.querySelector('#preview').contentDocument?.querySelector('.track');JSON.stringify(card?[card.querySelector('[data-value=bpm]').textContent,card.querySelector('[data-value=originalBpm]').textContent]:[])===${JSON.stringify(JSON.stringify(expected))}}`),'Preview did not apply BPM precision');
+  }
+  await navigate(route+'?lang=de');
+  await until(()=>evaluate(`document.querySelector('select[data-track-option=bpmDecimals]')?.value==='2'`),'Saved BPM precision was lost on reload');
+  assert.deepEqual(await evaluate(`[...document.querySelector('[data-track-option=bpmDecimals]').options].map(o=>o.textContent)`),['Ganzzahl','1 Kommastelle','2 Kommastellen']);
+ }
  await navigate('/overlay?'+query({deck:1,fields:'title,label,bpm',coverPosition:'right'}));
  await until(()=>evaluate('document.querySelector(".track")'),'Deck missing');
  assert.equal(await evaluate(`document.querySelector('[data-field=currentBpm]').hidden`),true);
@@ -56,5 +94,13 @@ withBrowser((req,res,url)=>{
  assert.equal(await evaluate(`getComputedStyle(document.querySelector('.disc')).animationName`),'none');
  const normalized=await evaluate(`(async()=>{const m=await import('/master-options.js');const n=m.normalize({infoVersion:2,historyFields:[],fieldStyles:${JSON.stringify(styles)},coverPosition:'right',coverSpin:true});return [n,m.parseOptions('?'+m.optionQuery(n))];})()`);
  assert.deepEqual(normalized[0],normalized[1],'Option URL roundtrip changed the design');
- console.log('Track design passed: separate BPM/rounding, label, missing values, independent history fields, cover fallback/fit/right/round/rotation, field styles, scrolling continuity, expansion, reduced motion and legacy URL compatibility.');
+ const precision=await evaluate(`(async()=>{const m=await import('/master-options.js');return {
+  legacy:[{},...['1',1,true,'true'].map(bpmInteger=>({bpmInteger})),{bpmInteger:false},{bpmInteger:'0'}].map(o=>m.normalize(o).bpmDecimals),
+  explicit:[0,1,2].map(bpmDecimals=>{const o=m.normalize({bpmDecimals,bpmInteger:true});return [o.bpmDecimals,m.parseOptions('?'+m.optionQuery(o)).bpmDecimals,'bpmInteger' in o];}),
+  invalid:[null,-1,3,1.5,'invalid'].map(bpmDecimals=>m.normalize({bpmDecimals}).bpmDecimals)
+ };})()`);
+ assert.deepEqual(precision.legacy,[2,0,0,0,0,2,2],'Legacy BPM options changed precision');
+ assert.deepEqual(precision.explicit,[[0,0,false],[1,1,false],[2,2,false]],'Explicit precision must override legacy flags and round-trip without them');
+ assert.deepEqual(precision.invalid,[2,2,2,2,2],'Invalid precision did not normalize safely');
+ console.log('Track design passed: 0/1/2 BPM decimal places, rounding/trailing zeros, EN/DE selects/previews/persistence, legacy BPM options, label, missing values, independent history fields, cover fallback/fit/right/round/rotation, field styles, scrolling continuity, expansion and reduced motion.');
 }).catch(error=>{console.error(error);process.exitCode=1;});

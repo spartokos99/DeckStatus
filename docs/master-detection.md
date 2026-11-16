@@ -1,30 +1,57 @@
 # Master detection
 
-Open **Admin → Master detection**. Changes require an administrator and, for remote browsers, enabled remote control. Save applies the settings to the running server and persists them across restarts. All overlays, the dashboard, JSON state and session history share the same result.
+Open **Admin → Master detection**. Rekordbox and ProLink use one shared now-playing detector. The former tempo-master hold and optional ProLink detector have been removed. Device/software tempo-master flags no longer select the displayed MASTER.
 
-## Tempo master (default)
-
-This remains the default in both source modes. The device/software-reported tempo master must hold that role for the configured time before replacing a confirmed, loaded master. The default is 4 seconds, adjustable from 0 to 30. Startup, reconnection and replacement of an unloaded master are immediate. Rekordbox behavior is unchanged.
-
-## Playing track (ProLink only)
-
-This alternative is inspired by [prolink-connect's SmartTiming processor](https://github.com/evanpurkhiser/prolink-connect/blob/main/src/mixstatus/index.ts), used by [prolink-tools](https://github.com/evanpurkhiser/prolink-tools). It observes playback time and optional mixer On-Air status instead of following the tempo-master flag.
+The four controls follow **ProlinkTools 0.1.0-beta.5**, whose `prolink-connect ^0.5.0` dependency implements the [SmartTiming/end/interruption rules](https://github.com/evanpurkhiser/prolink-connect/blob/v0.5.0/src/mixstatus/index.ts). DeckStatus implements these rules independently, with the source-availability protections below. It does not run or bundle ProlinkTools.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| Beats before detecting a new track | 128 | Eligible playing beats before a new track replaces the current one during a mix; range 1–1024 |
-| Allowed interruption | 16 | Grace period for pauses or leaving On Air; range 0–1024 beats |
-| Require On Air from the mixer | On | Only playing decks with a fresh, true On-Air status qualify |
+| Smart timing beat count | 128 | Playback time required before an incoming track can take over during overlap; 1–1024 beats |
+| Allowed beats during interruptions | 16 | Grace period for pausing or an already reported track leaving On Air; 0–1024 beats |
+| Only report after the last track ends | Off | Disable overlap smart timing; wait for the current track to end, unload, return to cue or exceed the interruption allowance |
+| Use On-Air status | On | Require a known, true mixer On-Air signal in ProLink; unavailable in Rekordbox |
 
-- The first eligible track is shown immediately. When the current track unloads, reaches its end or returns to cue, the longest-playing eligible deck takes over without waiting for the detection threshold.
-- During overlap, a new track takes over after its detection count. A track already reported will not repeatedly steal the master back. It can become the fallback when the newer track stops.
-- Short interruptions pause the count and preserve the current master. Longer interruptions reset that track's count and permit a fallback. Loading another track always resets its count, even on the same deck.
-- Beats are integrated from elapsed playing time and effective BPM. Seeking, beat-number jumps and repeated HTTP polls do not add beats. A loop continues to accumulate playing time.
-- Unknown On Air does not qualify. Disable the checkbox when operating without a supported mixer or when On Air is not provided reliably. Playback-only detection cannot distinguish headphone cueing from audience playback.
-- **128 beats are 60 seconds at 128 BPM.** Lower the threshold for earlier overlap detection. This method is not universally faster; the tempo-master hold setting does not apply to it.
+Save applies the settings server-wide and persists them across restarts. Administrator access and the usual remote-control permission are required. Presets and OBS URLs do not contain detection settings.
 
-Missing current BPM prevents detection-beat accumulation. Interruption timing uses the last known valid tempo, or 120 BPM solely as a timeout reference when none exists; this never becomes track metadata. Long scheduling gaps earn at most one second per observation. Disconnection/stale source data clears detection state. The method does not measure actual audio or guarantee which track the audience hears.
+## Timing and history
 
-Settings live in `portal.json` under `masterSettings`: `holdMs`, `prolinkMethod` (`tempo`/`smart`), `detectionBeats`, `interruptBeats`, `useOnAir`. Older hold-only stores remain valid. `GET/POST /api/admin/master` expose/update this object; partial updates preserve other settings. Method-specific controls appear only in ProLink mode.
+- The first eligible playing track is reported immediately. When the current track ends, the longest-playing eligible **unreported** deck takes over without waiting for the smart threshold.
+- During overlap, playback elapsed time is converted to beats using the current effective BPM, not the track's original BPM or beat/position counters. **128 beats at 128 BPM take 60 seconds.** Changing tempo changes the required elapsed time.
+- Playback starts the timer even before a track comes On Air. On-Air status gates reporting, not pre-listening time. Without a supported mixer, disable On Air explicitly; otherwise an unknown signal cannot qualify.
+- Short pauses/cuts preserve the playback start, including the elapsed short interruption, as in ProlinkTools. Reaching the interruption allowance resets that deck's episode. Zero allowance ends it immediately. A different loaded track also starts a new episode.
+- Already reported outgoing tracks **never become a fallback** merely because a newer track stops. They can qualify again after an actual stop, sufficiently long interruption, or new load. This removes the old A → B → A fallback that produced duplicate history during an overlap.
+- Unknown current BPM freezes timing; no guessed tempo is substituted. Missing playback/required On-Air observations freeze both timers. Scheduling gaps longer than one second earn no time. Seeks and loops do not add their position delta to the timer.
 
-Validation uses synthetic playback transitions, pauses, off-air periods, unknown statuses, seeks and source changes. Live CDJ/mixer validation of this new method is still pending.
+Only the source sampler advances detection. HTTP reads use a published snapshot; opening more browsers cannot change detection or add history entries. All state/overlay/dashboard/history consumers share this result. History remains session-local, and legitimate later replays are not globally deduplicated by title.
+
+## Source differences
+
+**ProLink** supplies playing/looping, cue/end and mixer On-Air states directly. Existing exact device profiles, three-second packet freshness checks and source/player/media track identities remain in force. This does not add support for other players or XDJ-AZ standalone four-deck operation.
+
+**Rekordbox** exposes verified timeline positions, but the currently audited bridge profiles do not expose transport or mixer On-Air signals. Playback is therefore inferred from two consecutive plausible forward position samples. A stationary position for 500 ms indicates pause; a stationary cue/start or end position indicates stop. Repeated bridge timestamps are unavailable observations, not evidence of a pause. Loop/seek jumps do not themselves trigger a handover.
+
+The same timing engine operates on those inferred states. The UI explicitly identifies this limitation and disables On Air in Rekordbox while preserving its saved ProLink preference. Missing timelines prevent detection; unusual scratching, seeks or very short loops can be ambiguous. There is no fallback to tempo master and no new unchecked memory offset. Exact Rekordbox executable/profile checks remain unchanged; bridge IPC is now version 4, so keep host and DLL together.
+
+Neither mode proves audible playback. Live validation of this rewritten detector on Rekordbox, CDJs/mixer and OBS remains pending.
+
+## Interruptions and metadata cache
+
+An unavailable player is not an unloaded or stopped player. The detector preserves episode identity and freezes timers across unavailable observations. It protects a missing current deck for **10 seconds**, after which an eligible unreported deck may take over. A returning already reported deck cannot steal the master back merely by reconnecting.
+
+Deck/master overlays retain their last card for up to **10 seconds after the last available response**. This is display-only: a visible **cached / connection interrupted** label replaces the live label, timelines stop/hide, and the same card/artwork stays in place. The cache also works in embedded previews and scene layers. It clears on expiry, confirmed unload/end or access rejection (401/403); it never feeds history or detector timing.
+
+Missing static metadata on the same track retains previously known title, artist, album, key, label, genre, original BPM and duration. The server retains that metadata for the loaded track episode; the browser additionally preserves its approved cover URL. A different track identity cannot inherit it. A `sourceSession` marker also prevents reusing metadata/cards/artwork after a server restart that reuses numeric track IDs. Current BPM is not replaced with original BPM or cached as live during a metadata miss. Unknown values remain unknown until genuinely supplied.
+
+## Stored settings and API
+
+`portal.json.masterSettings` contains only:
+
+```json
+{"detectionBeats":128,"interruptBeats":16,"onlyAfterEnd":false,"useOnAir":true}
+```
+
+Old stores migrate atomically: valid beat/interruption/On-Air choices survive, `onlyAfterEnd` defaults to false, and `holdMs` / `prolinkMethod` are discarded. Other users, keys, votes, scenes and presets are preserved. This intentionally changes detection for installations previously using tempo master; old hold time no longer has any effect.
+
+`GET/POST /api/admin/master` supports validated partial updates. GET also reports `available`, `canControl`, `onAirAvailable` and `playbackSource` (`position` or `device`). POST rejects old method/hold keys. State and master feeds expose `masterAvailable`; deck feeds expose `statusAvailable` to distinguish missing observations from explicit empty decks. Rekordbox state includes monotonic `sampleTick` for detecting repeated bridge samples.
+
+See [validation](validation.md) for synthetic timing, migration, IPC and browser-cache coverage and its hardware limits.

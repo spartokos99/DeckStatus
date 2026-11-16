@@ -19,7 +19,7 @@ let deck = normalize({ deck: query.get('deck') || read('deckstatus.deck.selected
 const key = (id = deck) => mode === 'master' ? 'deckstatus.master.options' : 'deckstatus.deck.options.' + id;
 const stored = id => normalize({ ...(read(key(id)) || defaults), deck: id, lang: getLanguage() });
 let options = stored(deck);
-if ([...query.keys()].some(name => name in defaults && !['lang', 'deck'].includes(name))) options = normalize({ ...parseOptions(location.search), deck, lang: getLanguage() });
+if ([...query.keys()].some(name => name === 'bpmInteger' || name in defaults && !['lang', 'deck'].includes(name))) options = normalize({ ...parseOptions(location.search), deck, lang: getLanguage() });
 let pending, state = null;
 let previewObserver;
 byId('preview').addEventListener('load',()=>{

@@ -59,7 +59,7 @@ public final class Main {
             track.trackReference.slot == status.getTrackSourceSlot() && track.trackReference.rekordboxId == status.getRekordboxId() && track.trackType == status.getTrackType();
     }
     static JSONObject emptyDeck(int id) {
-        JSONObject deck = new JSONObject().put("id", id).put("loaded", false).put("metadataAvailable", false);
+        JSONObject deck = new JSONObject().put("id", id).put("loaded", false).put("metadataAvailable", false).put("statusAvailable", false);
         for (String field : List.of("trackId","title","artist","album","key","genre","label","bpm","originalBpm","coverUrl","positionMs","durationMs","isMaster","playing","stopped","onAir","synced","pitch","playerNumber","beatNumber")) deck.put(field, JSONObject.NULL);
         return deck;
     }
@@ -129,7 +129,7 @@ public final class Main {
         if (!connected || !cdj.isRunning() || announcement == null || !announcement.getAddress().getHostAddress().equals(selectedAddresses.get(player))) return deck;
         DeviceUpdate update = cdj.getLatestStatusFor(announcement);
         if (!(update instanceof CdjStatus status) || !fresh(status, now)) return deck;
-        deck.put("stopped", status.isCued() || status.isAtEnd()).put("playing", status.isPlaying() || status.isLooping()).put("synced", status.isSynced()).put("onAir", mixerOnline ? status.isOnAir() : JSONObject.NULL)
+        deck.put("statusAvailable", true).put("stopped", status.isCued() || status.isAtEnd()).put("playing", status.isPlaying() || status.isLooping()).put("synced", status.isSynced()).put("onAir", mixerOnline ? status.isOnAir() : JSONObject.NULL)
             .put("pitch", (status.getPitch() / 1048576.0 - 1) * 100).put("firmware", text(status.getFirmwareVersion()));
         if (!status.isTrackLoaded() || status.getRekordboxId() <= 0) { lastTracks.remove(player); loadedAt.remove(player); sentWaves.remove(player); return deck; }
         String identity = identity(status);

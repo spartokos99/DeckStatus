@@ -64,6 +64,7 @@ public final class ModelTest {
             JSONObject state = new JSONObject(line);
             check(state.getString("version").equals("PRO DJ LINK · Beat Link 8.0.0"), "Windows pipe output is not UTF-8");
             check(state.getJSONObject("setup").getString("status").equals("stopped"), "Helper started networking without a command");
+            for(Object item:state.getJSONArray("decks"))check(!((JSONObject)item).getBoolean("statusAvailable"),"Idle helper reported fresh deck status");
             process.getOutputStream().close();
             check(process.waitFor(5, TimeUnit.SECONDS) && process.exitValue() == 0, "Helper did not exit after stdin closed");
         } finally {
@@ -116,7 +117,7 @@ public final class ModelTest {
         check(!identity.equals(Main.identityKey(otherSlot,"192.0.2.1",0)),"Different media slots collided");
         check(!identity.equals(Main.identityKey(a,"192.0.2.1",1)),"Remounted media reused identity");
         check(!identity.equals(Main.identityKey(a,"192.0.2.11",0)),"Replacement source address reused identity");
-        JSONObject blank=Main.emptyDeck(4);check(!blank.getBoolean("loaded") && blank.isNull("bpm") && blank.isNull("playing"),"Unknown data fabricated");
+        JSONObject blank=Main.emptyDeck(4);check(!blank.getBoolean("statusAvailable") && !blank.getBoolean("loaded") && blank.isNull("bpm") && blank.isNull("playing"),"Unknown data fabricated");
         String title="Quote \" / Möbius / <script> / \n";
         check(new JSONObject(new JSONObject().put("title",Main.text(title)).toString()).getString("title").equals(title),"Metadata JSON damaged");
         check(Main.text(" ")==JSONObject.NULL,"Blank metadata fabricated");

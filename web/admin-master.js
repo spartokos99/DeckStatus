@@ -1,43 +1,43 @@
 import {api} from './auth.js';
 import {appReady} from './navigation.js';
-import {t,translate,locale} from './i18n.js';
+import {t,translate} from './i18n.js';
 const app=await appReady,$=id=>document.getElementById('admin-master-'+id);
-const defaults={holdMs:4000,prolinkMethod:'tempo',detectionBeats:128,interruptBeats:16,useOnAir:true};
-let settings={...defaults,defaultHoldMs:4000,maxHoldMs:30000},ready=false,busy=false,canControl=false,message='';
-const prolink=app?.mode==='prolink';
-const draft=()=>Math.round(Number($('hold').value)*1000);
-const values=()=>({holdMs:draft(),prolinkMethod:$('method').value,detectionBeats:Number($('beats').value),interruptBeats:Number($('interrupt').value),useOnAir:$('onair').checked});
-const dirty=()=>ready&&Object.entries(values()).some(([k,v])=>v!==settings[k]);
-function fill(value){$('hold').value=String(value.holdMs/1000);$('method').value=value.prolinkMethod;$('beats').value=value.detectionBeats;$('interrupt').value=value.interruptBeats;$('onair').checked=value.useOnAir;}
-const label=ms=>ms?new Intl.NumberFormat(locale(),{maximumFractionDigits:1}).format(ms/1000)+' s':t('masterHoldInstant');
+const defaults={detectionBeats:128,interruptBeats:16,onlyAfterEnd:false,useOnAir:true};
+let settings={...defaults},ready=false,busy=false,canControl=false,onAirAvailable=false,message='';
+const values=()=>({detectionBeats:Number($('beats').value),interruptBeats:Number($('interrupt').value),
+  onlyAfterEnd:$('end').checked,useOnAir:onAirAvailable?$('onair').checked:settings.useOnAir});
+const dirty=()=>ready&&Object.entries(values()).some(([key,value])=>value!==settings[key]);
+function fill(value){$('beats').value=value.detectionBeats;$('interrupt').value=value.interruptBeats;$('end').checked=value.onlyAfterEnd;$('onair').checked=onAirAvailable&&value.useOnAir;}
+function valid(){const v=values();return $('beats').value!==''&&$('interrupt').value!==''&&Number.isInteger(v.detectionBeats)&&v.detectionBeats>=1&&v.detectionBeats<=1024&&
+  Number.isInteger(v.interruptBeats)&&v.interruptBeats>=0&&v.interruptBeats<=1024;}
 function render(){
- $('hold').disabled=!ready||!canControl||busy;
- for(const id of ['method','beats','interrupt','onair'])$(id).disabled=!ready||!canControl||busy||!prolink;
- $('prolink').hidden=!prolink;$('smart').hidden=$('method').value!=='smart';$('tempo').hidden=prolink&&$('method').value==='smart';
- $('save').disabled=!ready||!canControl||busy||!dirty()||!$('beats').checkValidity()||!$('interrupt').checkValidity();
- $('reset').disabled=!ready||!canControl||busy||(prolink?Object.entries(values()).every(([k,v])=>v===defaults[k]):draft()===settings.defaultHoldMs);
+ const disabled=!ready||!canControl||busy;
+ $('beats').disabled=disabled||$('end').checked;
+ $('interrupt').disabled=$('end').disabled=disabled;
+ $('onair').disabled=disabled||!onAirAvailable;
+ $('rekordbox').hidden=onAirAvailable;
+ $('save').disabled=disabled||!dirty()||!valid();
+ $('reset').disabled=disabled||Object.entries(values()).every(([key,value])=>key==='useOnAir'&&!onAirAvailable||value===defaults[key]);
  $('readonly').hidden=!ready||canControl;$('pending').hidden=!dirty();
- $('value').textContent=ready?label(draft()):'—';
  $('message').textContent=message?t(message):'';
 }
-// The saved value is the server's; a poll must not overwrite an unsaved draft.
-function apply(value,replace=false){
- const changed=dirty();
- settings={...defaults,...value,defaultHoldMs:value.defaultHoldMs??4000,maxHoldMs:value.maxHoldMs??30000};
+function apply(value){
+ settings={...defaults,...value};onAirAvailable=value.onAirAvailable===true;
  canControl=value.canControl===true&&value.available!==false;
- $('hold').max=String(settings.maxHoldMs/1000);
- if(replace||!changed)fill(settings);
- ready=true;render();
+ fill(settings);ready=true;render();
 }
-async function load(){try{apply(await api('/api/admin/master'));if(message==='masterHoldUnavailable')message='';}catch(error){canControl=false;message=error.message;render();}}
-$('hold').addEventListener('input',()=>{message='';render();});
-for(const id of ['method','beats','interrupt','onair'])$(id).addEventListener('input',()=>{message='';render();});
+for(const id of ['beats','interrupt','end','onair'])$(id).addEventListener('input',()=>{message='';render();});
 $('save').addEventListener('click',async()=>{
- if(busy||!canControl)return;busy=true;message='';render();
- try{apply(await api('/api/admin/master',prolink?values():{holdMs:draft()}),true);message='masterHoldSaved';}
+ if(busy||!canControl||!valid())return;
+ const draft=values();busy=true;message='';render();
+ try{apply(await api('/api/admin/master',draft));message='masterDetectionSaved';}
  catch(error){message=error.message;}
  finally{busy=false;render();}
 });
-$('reset').addEventListener('click',()=>{fill(prolink?defaults:{...settings,holdMs:settings.defaultHoldMs});message='';render();});
+$('reset').addEventListener('click',()=>{fill(defaults);message='';render();});
 window.addEventListener('languagechange',()=>{translate();render();});
-render();if(app?.capabilities?.admin)await load();
+render();
+if(app?.capabilities?.admin){
+ try{apply(await api('/api/admin/master'));}
+ catch(error){message=error.message;render();}
+}

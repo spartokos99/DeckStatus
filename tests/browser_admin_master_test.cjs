@@ -1,8 +1,8 @@
-// Synthetic administration fixture for the server-wide master hold time.
-// Run: node tests/browser_admin_master_test.cjs [PATH_TO_CHROME_OR_EDGE]
+// Synthetic administration fixture; no hardware or network discovery.
 const assert=require('node:assert/strict'),{withBrowser}=require('./browser_fixture.cjs');
-let holdMs=4000,canControl=true,failure=false,posts=[],mode="rekordbox",smart={prolinkMethod:"tempo",detectionBeats:128,interruptBeats:16,useOnAir:true};
-const describe=()=>({...smart,holdMs,defaultHoldMs:4000,maxHoldMs:30000,available:true,canControl});
+const defaults={detectionBeats:128,interruptBeats:16,onlyAfterEnd:false,useOnAir:true};
+let settings={...defaults},canControl=true,failure=false,posts=[],mode='rekordbox';
+const describe=()=>({...settings,available:true,canControl,onAirAvailable:mode==='prolink',playbackSource:mode==='prolink'?'device':'position'});
 withBrowser((req,res,url)=>{
  if(!url.pathname.startsWith('/api/'))return false;res.setHeader('Content-Type','application/json');
  if(url.pathname==='/api/app')res.end(JSON.stringify({mode,canControl,capabilities:{admin:true,scenes:true,audioWaveform:true},user:{username:'admin'}}));
@@ -15,66 +15,53 @@ withBrowser((req,res,url)=>{
   if(req.method==='GET')res.end(JSON.stringify(describe()));
   else{let body='';req.on('data',chunk=>body+=chunk);req.on('end',()=>{
    const command=JSON.parse(body);posts.push(command);
-   if(!Number.isInteger(command.holdMs)||command.holdMs<0||command.holdMs>30000){res.statusCode=400;return res.end('{"error":"masterSettingsInvalid"}');}
-   holdMs=command.holdMs;for(const k of Object.keys(smart))if(command[k]!==undefined)smart[k]=command[k];res.end(JSON.stringify(describe()));});}
+   assert.deepEqual(Object.keys(command).sort(),Object.keys(defaults).sort(),'Old method or hold settings still sent');
+   settings={...settings,...command};res.end(JSON.stringify(describe()));});}
  }else{res.statusCode=404;res.end('{}');}return true;
 },async({navigate,evaluate,until,delay,call,screenshot})=>{
  const $=id=>'document.getElementById('+JSON.stringify('admin-master-'+id)+')';
- const drag=async value=>evaluate(`(()=>{const input=${$('hold')};input.value=${JSON.stringify(String(value))};input.dispatchEvent(new Event('input'));})()`);
- const ready=()=>until(()=>evaluate($('hold')+'?.disabled===false'),'Master hold control stayed disabled');
- // Each visit needs its own URL: navigating to an identical address only moves the fragment.
+ const set=async(id,value)=>evaluate(`{const input=${$(id)};if(input.type==='checkbox')input.checked=${JSON.stringify(value)};else input.value=${JSON.stringify(String(value))};input.dispatchEvent(new Event('input'));}`);
+ const ready=()=>until(()=>evaluate($('interrupt')+'?.disabled===false'),'Detection controls stayed disabled');
  let visit=0;const open=lang=>navigate('/admin?lang='+lang+'&visit='+(++visit)+'#master');
  await open('en');await ready();
- await until(()=>evaluate('!document.querySelector("[data-pane=master]").hidden'),'Master deep link did not select the tab');
- assert.equal(await evaluate($('hold')+'.value'),'4','Server hold time was not loaded');
- assert.equal(await evaluate($('value')+'.textContent'),'4 s');
- assert.equal(await evaluate($('save')+'.disabled'),true,'Unchanged hold time was savable');
- assert.deepEqual(posts,[],'Opening the tab wrote to the server');
-
- // A draft stays local until it is confirmed with Save.
- await drag(8);await delay(650);
- assert.equal(await evaluate($('hold')+'.value'),'8','Draft was not retained');
- assert.equal(await evaluate($('pending')+'.hidden'),false,'Unsaved change was not announced');
- assert.equal(holdMs,4000,'Dragging saved without confirmation');
- await evaluate($('save')+'.click()');await until(()=>holdMs===8000,'Hold time was not saved');
- assert.deepEqual(posts,[{holdMs:8000}],'Unexpected save payload');
- await until(()=>evaluate($('message')+'.textContent.length>0'),'Save gave no feedback');
- assert.equal(await evaluate($('pending')+'.hidden'),true,'Saved change still marked unsaved');
- await open('en');await ready();
- assert.equal(await evaluate($('hold')+'.value'),'8','Saved hold time was lost on reload');
+ await until(()=>evaluate('!document.querySelector("[data-pane=master]").hidden'),'Master tab missing');
+ assert.equal(await evaluate('document.querySelector("#admin-master-hold, #admin-master-method")'),null);
+ assert.equal(await evaluate($('beats')+'.value'),'128');assert.equal(await evaluate($('interrupt')+'.value'),'16');
+ assert.equal(await evaluate($('onair')+'.disabled && !'+$('onair')+'.checked && !'+$('rekordbox')+'.hidden'),true);
+ assert.equal(await evaluate($('save')+'.disabled'),true);assert.deepEqual(posts,[]);
+ await set('beats',64);await delay(650);
+ assert.equal(settings.detectionBeats,128,'Draft saved without confirmation');
+ assert.equal(await evaluate($('pending')+'.hidden'),false);
+ await evaluate($('save')+'.click()');await until(()=>settings.detectionBeats===64,'Save failed');await ready();
+ assert.deepEqual(posts,[{...defaults,detectionBeats:64}]);
+ await open('en');await ready();assert.equal(await evaluate($('beats')+'.value'),'64');
+ await set('end',true);assert.equal(await evaluate($('beats')+'.disabled'),true,'End-only did not disable smart timing');
+ assert.equal(await evaluate($('interrupt')+'.disabled'),false);
+ await evaluate($('save')+'.click()');await until(()=>settings.onlyAfterEnd,'End-only not persisted');await ready();
+ await set('end',false);
+ for(const [id,value] of [['beats',''],['beats',0],['beats',1025],['beats',1.5],['interrupt',-1],['interrupt',1025],['interrupt','']]){
+  await set(id,value);assert.equal(await evaluate($('save')+'.disabled'),true,'Invalid input was savable');
+  await set('beats',64);await set('interrupt',16);
+ }
  await screenshot('admin-master-en');
-
- // Zero is the documented opt-out and must read as such, not as "0 s".
- await drag(0);assert.equal(await evaluate($('value')+'.textContent'),'Off (immediate)');
- await evaluate($('save')+'.click()');await until(()=>holdMs===0,'Opt-out was not saved');
- await ready(); // Wait for the response to re-enable controls before clicking Reset.
- await evaluate($('reset')+'.click()');
- assert.equal(await evaluate($('hold')+'.value'),'4','Default button did not restore 4 seconds');
- assert.equal(await evaluate($('reset')+'.disabled'),true,'Default button stayed active at the default');
- await evaluate($('save')+'.click()');await until(()=>holdMs===4000,'Default was not saved');
-
  await evaluate('document.querySelector("[data-language]").value="de";document.querySelector("[data-language]").dispatchEvent(new Event("change"))');
  assert.equal(await evaluate('document.querySelector("[data-tab=master]").textContent'),'Master-Erkennung');
- assert.equal(await evaluate($('value')+'.textContent'),'4 s');
+ assert.equal(await evaluate('document.querySelector("[data-i18n=masterOnlyAfterEnd]").textContent'),'Erst nach Ende des letzten Tracks melden');
  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});
- assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Admin master overflows mobile');
-
- // Remote policy and outages disable the control instead of failing silently.
+ assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Detection settings overflow mobile');
  canControl=false;await open('de');
- await until(()=>evaluate($('hold')+'.disabled&&'+$('readonly')+'.hidden===false'),'Remote policy ignored');
+ await until(()=>evaluate($('beats')+'.disabled&&'+$('readonly')+'.hidden===false'),'Remote policy ignored');
  canControl=true;failure=true;await open('de');
- await until(()=>evaluate($('message')+'.textContent.length>0&&'+$('hold')+'.disabled'),'Outage not shown');
- failure=false;await open('de');await ready();
- assert.equal(holdMs,4000,'Recovery changed the stored hold time');
- mode='prolink';await open('en');await ready();
- assert.equal(await evaluate($('prolink')+'.hidden'),false);
- await evaluate(`${$('method')}.value='smart';${$('method')}.dispatchEvent(new Event('input'));`);
- assert.equal(await evaluate($('smart')+'.hidden'),false);assert.equal(await evaluate($('tempo')+'.hidden'),true);
- assert.equal(await evaluate($('beats')+'.value'),'128');assert.equal(await evaluate($('interrupt')+'.value'),'16');
- await evaluate(`${$('beats')}.value='32';${$('onair')}.checked=false;${$('beats')}.dispatchEvent(new Event('input'));${$('save')}.click();`);
- await until(()=>smart.detectionBeats===32,'Smart settings did not save');await ready();
- await open('de');await ready();assert.equal(await evaluate($('beats')+'.value'),'32');assert.equal(await evaluate($('onair')+'.checked'),false);
+ await until(()=>evaluate($('message')+'.textContent.length>0&&'+$('interrupt')+'.disabled'),'Outage not shown');
+ failure=false;mode='prolink';await open('en');await ready();
+ assert.equal(await evaluate($('onair')+'.disabled || !'+$('rekordbox')+'.hidden'),false);
+ await set('onair',false);await set('interrupt',0);
+ await evaluate($('save')+'.click()');await until(()=>settings.useOnAir===false&&settings.interruptBeats===0,'On-Air/interrupt settings not saved');await ready();
+ await open('de');await ready();assert.equal(await evaluate($('onair')+'.checked'),false);
+ await evaluate($('reset')+'.click()');
+ assert.equal(await evaluate($('reset')+'.disabled'),true,'Reset failed');
+ await evaluate($('save')+'.click()');await until(()=>JSON.stringify(settings)===JSON.stringify(defaults),'Defaults not saved');await ready();
+ await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1120,deviceScaleFactor:1,mobile:false});
  await screenshot('admin-master-prolink');
- await evaluate($('reset')+'.click()');await evaluate($('save')+'.click()');await until(()=>smart.prolinkMethod==='tempo'&&smart.detectionBeats===128,'Smart defaults not restored');
- console.log('Admin master detection UI passed: server value, draft preservation, explicit save, opt-out label, default restore, EN/DE, mobile, remote policy and outage recovery.');
+ console.log('Single detection UI passed: four settings in both modes, end-only, capability warning, draft/save/reset, EN/DE, bounds, mobile and remote policy.');
 }).catch(error=>{console.error(error);process.exitCode=1;});

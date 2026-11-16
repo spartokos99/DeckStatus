@@ -1,7 +1,7 @@
 #include "portal.h"
 #include "track_options.h"
 #include "prolink_selection.h"
-#include "master_gate.h"
+#include "master_detector.h"
 #include "scene_components.h"
 #include <Windows.h>
 #include <bcrypt.h>
@@ -33,7 +33,7 @@ Json valid_audio_settings(const Json& value) {
     return value;
 }
 Json valid_master_settings(const Json& value) {
-    if(!MasterGate::valid_settings(value))throw PortalError(400,"masterSettingsInvalid");
+    if(!MasterDetector::valid_settings(value))throw PortalError(400,"masterSettingsInvalid");
     return value;
 }
 std::string sha(const std::string& input) {
@@ -175,9 +175,13 @@ Portal::Portal(const std::filesystem::path& directory) : file_(directory/"portal
             commit({{"version",1},{"users",{{id,user}}},{"scenes",Json::object()},{"presets",Json::object()},{"ratings",Json::object()},{"overlayKeys",{{"deck",random_token()},{"master",random_token()},{"waveform",random_token()}}},{"visitorSecret",random_token()},{"bootstrap",protect(password,true)}});
         }
         if(data_.contains("audioSettings"))valid_audio_settings(data_["audioSettings"]);
-        if(data_.contains("masterSettings"))valid_master_settings(data_["masterSettings"]);
+        if(data_.contains("masterSettings")&&!MasterDetector::valid_settings(data_["masterSettings"],true))throw PortalError(400,"masterSettingsInvalid");
         if(data_.contains("prolinkSettings")&&!valid_prolink_settings(data_["prolinkSettings"]))throw PortalError(500,"portalDataInvalid");
         auto next=data_;bool migrated=false;
+        if(next.contains("masterSettings")) {
+            const auto settings=MasterDetector::migrate(next["masterSettings"]);
+            if(settings!=next["masterSettings"]){next["masterSettings"]=settings;migrated=true;}
+        }
         // Older scene layers did not record their source preset. Link only an
         // unambiguous unchanged named copy; custom/ambiguous layers stay independent.
         // These are the historical defaults added to inserted layers by the old editor.
@@ -332,8 +336,8 @@ Json Portal::twitch_credentials() const {std::shared_lock lock(mutex_);const aut
 void Portal::save_twitch_credentials(const Json& credentials) {std::unique_lock lock(mutex_);auto next=data_;next["twitchCredentials"]=credentials.empty()?"":protect(credentials.dump(),true);commit(std::move(next));}
 Json Portal::audio_settings() const {std::shared_lock lock(mutex_);return data_.value("audioSettings",Json{{"deviceId",""},{"deviceName",""},{"autoStart",false}});}
 Json Portal::save_audio_settings(const Json& settings) {const auto value=valid_audio_settings(settings);std::unique_lock lock(mutex_);auto next=data_;next["audioSettings"]=value;commit(std::move(next));return value;}
-Json Portal::master_settings() const {std::shared_lock lock(mutex_);auto value=MasterGate::defaults();value.update(data_.value("masterSettings",Json::object()));return value;}
-Json Portal::save_master_settings(const Json& settings) {const auto patch=valid_master_settings(settings);std::unique_lock lock(mutex_);auto value=MasterGate::defaults();value.update(data_.value("masterSettings",Json::object()));value.update(patch);auto next=data_;next["masterSettings"]=value;commit(std::move(next));return value;}
+Json Portal::master_settings() const {std::shared_lock lock(mutex_);auto value=MasterDetector::defaults();value.update(data_.value("masterSettings",Json::object()));return value;}
+Json Portal::save_master_settings(const Json& settings) {const auto patch=valid_master_settings(settings);std::unique_lock lock(mutex_);auto value=MasterDetector::defaults();value.update(data_.value("masterSettings",Json::object()));value.update(patch);auto next=data_;next["masterSettings"]=value;commit(std::move(next));return value;}
 Json Portal::prolink_settings() const {std::shared_lock lock(mutex_);return data_.value("prolinkSettings",Json{{"autoConnect",true},{"devices",Json::array()}});}
 Json Portal::save_prolink_settings(const Json& settings) {if(!valid_prolink_settings(settings))throw PortalError(400,"prolinkInvalidSelection");std::unique_lock lock(mutex_);auto next=data_;next["prolinkSettings"]=settings;commit(std::move(next));return settings;}
 Json Portal::media() const {std::shared_lock lock(mutex_);Json out=Json::array();for(const auto& m:data_["media"])out.push_back(m);return out;}

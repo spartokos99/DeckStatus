@@ -139,7 +139,7 @@ async function until(fn, message, timeout = 6000) {
       assert.ok(Math.abs(anchor(master.card) - anchor(previous.card)) < 1, 'History alignment does not match master');
       const viewport = await evaluate('innerWidth');
       assert.ok(Math.abs(anchor(master.card) - (align === 'left' ? 8 : align === 'right' ? viewport - 8 : viewport / 2)) < 1, 'Whole overlay alignment ignored');
-      assert.equal(await evaluate('document.querySelector("[data-current=true] [data-value=bpm]").textContent'), '128,5');
+      assert.equal(await evaluate('document.querySelector("[data-current=true] [data-value=bpm]").textContent'), '128,50');
       assert.equal(await evaluate('document.querySelector("[data-current=true] [data-value=originalBpm]").textContent'), '126,25');
       if (align === 'right') await screenshot('master-overlay-scaled-right');
     }
@@ -165,9 +165,10 @@ async function until(fn, message, timeout = 6000) {
     current.bpm = 133.75;
     await until(() => evaluate('document.querySelector("[data-current=true] [data-value=bpm]").textContent === "133,75"'), 'Current tempo did not update independently');
     assert.equal(await evaluate('document.querySelector("[data-current=true] [data-value=originalBpm]").textContent'), '126,25', 'Original tempo changed with current tempo');
-    assert.equal(await evaluate('document.querySelector("[data-current=false] [data-value=bpm]").textContent'), '128,5', 'History tempo no longer shows captured value');
+    assert.equal(await evaluate('document.querySelector("[data-current=false] [data-value=bpm]").textContent'), '128,50', 'History tempo no longer shows captured value');
     current.originalBpm = null;
-    await until(() => evaluate('document.querySelector("[data-current=true] [data-value=originalBpm]").textContent === "—"'), 'Missing original tempo must show a dash');
+    await delay(650);
+    assert.equal(await evaluate('document.querySelector("[data-current=true] [data-value=originalBpm]").textContent'), '126,25', 'Temporary metadata miss lost known original tempo');
 
     // Restore the original sequence for the existing transition/regression checks.
     current = track(4, 104, 'Night Drive “Live”');
@@ -221,16 +222,17 @@ async function until(fn, message, timeout = 6000) {
     await until(() => evaluate('document.querySelector("h1").textContent === "Weniger Bewegung"'), 'Reduced-motion transition failed');
     assert.equal(await evaluate('document.getAnimations().length'), 0, 'Reduced motion ignored');
     status = 'disconnected';
-    await until(() => evaluate('!document.querySelector(".track[data-current=true]:not([aria-hidden])")'), 'Disconnect kept current master');
-    assert.deepEqual((await rows()).map(row => row.entry), [10, 9]);
+    await until(() => evaluate('document.querySelector(".track[data-current=true]")?.dataset.cached === "true"'), 'Disconnect did not mark cached master');
+    assert.deepEqual((await rows()).map(row => row.entry), [11, 10, 9]);
     await navigate('/overlay?deck=1');
-    await until(() => evaluate('document.getElementById("bpm")?.textContent === "128,5"'), 'Deck overlay current BPM missing');
+    await until(() => evaluate('document.getElementById("bpm")?.textContent === "128,50"'), 'Deck overlay current BPM missing');
     assert.equal(await evaluate('document.getElementById("original-bpm").textContent'), '126,25', 'Deck overlay original BPM missing');
     deckData.bpm = 135;
-    await until(() => evaluate('document.getElementById("bpm").textContent === "135"'), 'Deck overlay current BPM did not update');
+    await until(() => evaluate('document.getElementById("bpm").textContent === "135,00"'), 'Deck overlay current BPM did not update');
     assert.equal(await evaluate('document.getElementById("original-bpm").textContent'), '126,25', 'Deck overlay original BPM changed with current tempo');
     deckData.originalBpm = null;
-    await until(() => evaluate('document.getElementById("original-bpm").textContent === "—"'), 'Deck overlay missing original BPM fallback broken');
+    await delay(650);
+    assert.equal(await evaluate('document.getElementById("original-bpm").textContent'), '126,25', 'Deck lost known original tempo during metadata miss');
     await call('Emulation.setDeviceMetricsOverride', { width: 360, height: 700, deviceScaleFactor: 1, mobile: false });
     await screenshot('deck-overlay-bpm-mobile');
 

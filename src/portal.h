@@ -35,7 +35,7 @@ public:
     Json media() const;
     Json audio_settings() const;
     Json save_audio_settings(const Json& settings);
-    // Server-wide master hold time in milliseconds; see src/master_gate.h.
+    // Shared now-playing detection settings; see src/master_detector.h.
     Json master_settings() const;
     Json save_master_settings(const Json& settings);
     Json prolink_settings() const;
